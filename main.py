@@ -45,7 +45,54 @@ async def lifespan(app: FastAPI):
     with SessionLocal() as session:
         n = seed_tariffs(session)
     print(f"[startup] DB pronto — {n} tariffe caricate")
+
+    # Scheduler integrato nel processo FastAPI (necessario per Render free)
+    import asyncio as _asyncio
+    import json as _json
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    from apscheduler.triggers.cron import CronTrigger
+
+    _scheduler = AsyncIOScheduler(timezone="UTC")
+
+    async def _job_ckw():
+        from scheduler import fetch_with_retry
+        from schemas import tomorrow_ch
+        target = tomorrow_ch()
+        with SessionLocal() as _s:
+            _ckw = [_json.loads(t.full_config_json) for t in get_active_tariffs(_s) if t.adapter_class == "CkwAdapter"]
+        for _cfg in _ckw:
+            await fetch_with_retry(_cfg, target, None)
+
+    async def _job_others():
+        from scheduler import fetch_with_retry
+        from schemas import tomorrow_ch
+        target = tomorrow_ch()
+        with SessionLocal() as _s:
+            _others = [_json.loads(t.full_config_json) for t in get_active_tariffs(_s) if t.adapter_class != "CkwAdapter"]
+        _sem = _asyncio.Semaphore(3)
+        async def _b(c):
+            async with _sem: await fetch_with_retry(c, target, None)
+        await _asyncio.gather(*[_b(c) for c in _others])
+
+    async def _job_health():
+        from scheduler import run_health_check
+        await run_health_check()
+
+    async def _job_monthly():
+        from backfill import monthly_maintenance
+        await monthly_maintenance()
+
+    _scheduler.add_job(_job_ckw,     CronTrigger(hour=11, minute=5),      id="ckw")
+    _scheduler.add_job(_job_others,  CronTrigger(hour=17, minute=30),     id="others")
+    _scheduler.add_job(_job_health,  CronTrigger(hour=9,  minute=0),      id="health")
+    _scheduler.add_job(_job_monthly, CronTrigger(day=1, hour=3, minute=0),id="monthly")
+    _scheduler.start()
+    print("[startup] Scheduler avviato — 11:05 / 17:30 / 09:00 UTC")
+
     yield
+
+    _scheduler.shutdown()
+    print("[shutdown] Scheduler fermato")
 
 
 # ── App ───────────────────────────────────────────────────────────────────────
@@ -159,6 +206,7 @@ def get_prices_endpoint(
 
 
 
+
 # ── API 2b: tutti i prezzi in un colpo ───────────────────────────────────────
 
 @app.get("/api/v1/prices/all")
@@ -167,15 +215,8 @@ def get_all_prices_endpoint(
     end_time:   Optional[str] = Query(None, description="Data/ora fine UTC (opzionale, default: +1 giorno)"),
 ):
     """
-    Restituisce i prezzi di TUTTE le tariffe attive per il range richiesto,
-    in un unico oggetto JSON con tariff_id come chiave.
-
-    Esempio risposta:
-    {
-      "ckw_home_dynamic":     {"energy_price_utc": [...], "grid_price_utc": [...], ...},
-      "ckw_business_dynamic": {"energy_price_utc": [...], "grid_price_utc": [...], ...},
-      ...
-    }
+    Restituisce i prezzi di TUTTE le tariffe attive in un unico JSON.
+    {tariff_id: {energy_price_utc: [...], grid_price_utc: [...], residual_price_utc: [...]}}
     """
     try:
         import zoneinfo; tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
@@ -186,7 +227,6 @@ def get_all_prices_endpoint(
         start_utc = datetime.fromisoformat(start_time.replace("Z", "+00:00")).astimezone(timezone.utc)
     except ValueError:
         raise HTTPException(400, f"start_time non valido: {start_time!r}")
-
     if end_time:
         try:
             end_utc = datetime.fromisoformat(end_time.replace("Z", "+00:00")).astimezone(timezone.utc)
@@ -195,52 +235,38 @@ def get_all_prices_endpoint(
     else:
         end_utc = start_utc + timedelta(days=1)
 
-    # Allinea alla mezzanotte locale svizzera
     start_ld = start_utc.astimezone(tz_ch).date()
     end_ld   = end_utc.astimezone(tz_ch).date()
     start_db = datetime(start_ld.year, start_ld.month, start_ld.day, tzinfo=tz_ch).astimezone(timezone.utc)
     end_db   = datetime(end_ld.year,   end_ld.month,   end_ld.day,   tzinfo=tz_ch).astimezone(timezone.utc)
     if end_db <= start_db:
-        end_db = (datetime(end_ld.year, end_ld.month, end_ld.day, tzinfo=tz_ch)
-                  + timedelta(days=1)).astimezone(timezone.utc)
+        end_db = (datetime(end_ld.year, end_ld.month, end_ld.day, tzinfo=tz_ch) + timedelta(days=1)).astimezone(timezone.utc)
     end_ld_filter = start_ld + timedelta(days=1) if end_ld <= start_ld else end_ld
 
     result = {}
-
     with SessionLocal() as session:
-        tariffs = get_active_tariffs(session)
-        for tariff in tariffs:
+        for tariff in get_active_tariffs(session):
             slots = get_prices(session, tariff.tariff_id, start_db, end_db)
-            slots = [s for s in slots
-                     if start_ld <= s.slot_start_utc.astimezone(tz_ch).date() < end_ld_filter]
+            slots = [s for s in slots if start_ld <= s.slot_start_utc.astimezone(tz_ch).date() < end_ld_filter]
             if not slots:
                 continue
-
-            energy_series, grid_series, residual_series = [], [], []
+            energy_s, grid_s, residual_s = [], [], []
             for s in slots:
                 dt = s.slot_start_utc
-                if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
+                if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
                 ts = dt.isoformat()
-                if s.energy_price   is not None: energy_series.append({ts: s.energy_price})
-                if s.grid_price     is not None: grid_series.append({ts: s.grid_price})
-                if s.residual_price is not None: residual_series.append({ts: s.residual_price})
-
-            tariff_data: dict = {"slot_count": len(slots)}
-            if energy_series:   tariff_data["energy_price_utc"]   = energy_series
-            if grid_series:     tariff_data["grid_price_utc"]     = grid_series
-            if residual_series: tariff_data["residual_price_utc"] = residual_series
-
-            result[tariff.tariff_id] = tariff_data
+                if s.energy_price   is not None: energy_s.append({ts: s.energy_price})
+                if s.grid_price     is not None: grid_s.append({ts: s.grid_price})
+                if s.residual_price is not None: residual_s.append({ts: s.residual_price})
+            td: dict = {"slot_count": len(slots)}
+            if energy_s:   td["energy_price_utc"]   = energy_s
+            if grid_s:     td["grid_price_utc"]     = grid_s
+            if residual_s: td["residual_price_utc"] = residual_s
+            result[tariff.tariff_id] = td
 
     if not result:
         raise HTTPException(404, "Nessun dato disponibile per il range richiesto")
-
-    return {
-        "start_time": start_utc.isoformat(),
-        "end_time":   end_utc.isoformat(),
-        "tariffs":    result,
-    }
+    return {"start_time": start_utc.isoformat(), "end_time": end_utc.isoformat(), "tariffs": result}
 
 # ── Summary / health endpoints ────────────────────────────────────────────────
 
@@ -832,9 +858,9 @@ def dashboard():
             <div><span class="api-method">GET</span><span class="api-path">/api/v1/prices/all</span></div>
             <button class="copy-btn" onclick="copyEndpoint(this,'/api/v1/prices/all?start_time={today}T00:00:00Z')">Copy</button>
           </div>
-          <div style="font-size:10px;color:#666">All tariffs at once — returns a single JSON with tariff_id as key, containing energy/grid/residual series for all active tariffs</div>
-          <div style="margin-top:6px;background:#f0f4fa;border-radius:5px;padding:7px 10px;font-family:monospace;font-size:10px;color:#185fa5;line-height:1.7">
-            /api/v1/prices/all?start_time={today}T00:00:00Z
+          <div style="font-size:10px;color:#666">All tariffs at once — single JSON with tariff_id as key</div>
+          <div style="margin-top:6px;background:#f0f4fa;border-radius:5px;padding:7px 10px;font-family:monospace;font-size:10px;color:#185fa5">
+            /api/v1/prices/all?start_time={{today}}T00:00:00Z
           </div>
         </div>
         <div class="api-row">
