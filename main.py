@@ -185,8 +185,8 @@ def get_prices_endpoint(
 
     response: dict = {
         "tariff_id":  tariff_id,
-        "start_time": start_utc.isoformat(),
-        "end_time":   end_utc.isoformat(),
+        "start_time": start_db.isoformat(),   # UTC start of the actual Swiss day returned
+        "end_time":   end_db.isoformat(),     # UTC end of the actual Swiss day returned
         "slot_count": len(slots),
     }
     energy_series, grid_series, residual_series = [], [], []
@@ -266,7 +266,7 @@ def get_all_prices_endpoint(
 
     if not result:
         raise HTTPException(404, "Nessun dato disponibile per il range richiesto")
-    return {"start_time": start_utc.isoformat(), "end_time": end_utc.isoformat(), "tariffs": result}
+    return {"start_time": start_db.isoformat(), "end_time": end_db.isoformat(), "tariffs": result}
 
 # ── Summary / health endpoints ────────────────────────────────────────────────
 
@@ -847,10 +847,8 @@ def dashboard():
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-header"><span class="card-title" data-i18n="fetch_status"></span></div>
-    <div class="status-list" id="status-list">loading...</div>
-  </div>
+  <!-- Fetch status moved to API tab only — keep hidden element so JS doesn't throw -->
+  <div style="display:none" id="status-list"></div>
 
   <!-- REMOVED API card – moved to dedicated API tab -->
   <div style="display:none" id="api-endpoint-list-legacy">
@@ -898,7 +896,18 @@ def dashboard():
 
     <div class="api-view-header">
       <div class="api-view-title">API Reference</div>
-      <div class="api-view-sub">REST · UTC timestamps · 15-min intervals · CHF/kWh · as per T-Swiss spec</div>
+      <div class="api-view-sub" data-i18n="api_view_subtitle"></div>
+    </div>
+
+    <!-- ── Availability status ────────────────────────────────────────────── -->
+    <div class="api-section" style="padding:1rem 1.25rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:12px;font-weight:600;color:#333" data-i18n="api_avail_title"></span>
+        <span style="font-size:10px;color:#aaa" data-i18n="api_avail_sub"></span>
+      </div>
+      <div id="api-status-list" style="display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto">
+        <div style="font-size:12px;color:#bbb">loading...</div>
+      </div>
     </div>
 
     <!-- ── API 1: /tariffs ─────────────────────────────────────────────────── -->
@@ -913,9 +922,9 @@ def dashboard():
           <a href="/api/v1/tariffs" target="_blank" class="api-open-link">Open ↗</a>
         </div>
       </div>
-      <div class="api-desc">List all available tariffs with metadata. No parameters required — returns the full catalogue.</div>
+      <div class="api-desc" data-i18n="api_tariffs_section_desc"></div>
       <div class="api-params-wrap">
-        <div class="api-params-head">Returns</div>
+        <div class="api-params-head" data-i18n="api_returns"></div>
         <table class="api-params-table">
           <tr><td>tariff_id</td><td>Unique identifier, e.g. <code>ckw_home_dynamic</code></td></tr>
           <tr><td>tariff_name</td><td>Human-readable tariff name</td></tr>
@@ -942,9 +951,9 @@ def dashboard():
           <a id="api-prices-open" href="/api/v1/prices" target="_blank" class="api-open-link">Open ↗</a>
         </div>
       </div>
-      <div class="api-desc">Timeseries of net prices per kWh — energy, grid and residual components — in 15-min UTC slots.</div>
+      <div class="api-desc" data-i18n="api_prices_section_desc"></div>
       <div class="api-params-wrap">
-        <div class="api-params-head">Parameters</div>
+        <div class="api-params-head" data-i18n="api_parameters"></div>
         <table class="api-params-table">
           <tr>
             <td>tariff_id <span class="api-badge-req">required</span></td>
@@ -959,7 +968,7 @@ def dashboard():
             <td>UTC datetime — defaults to <code>start_time + 24h</code></td>
           </tr>
         </table>
-        <div class="api-params-head" style="margin-top:8px">Returns</div>
+        <div class="api-params-head" style="margin-top:8px" data-i18n="api_returns"></div>
         <table class="api-params-table">
           <tr><td>energy_price_utc</td><td>list of <code>&#123;start_timestamp: price_chf&#125;</code></td></tr>
           <tr><td>grid_price_utc</td><td>list of <code>&#123;start_timestamp: price_chf&#125;</code></td></tr>
@@ -968,9 +977,9 @@ def dashboard():
         </table>
       </div>
       <div style="margin:12px 0 4px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="font-size:11px;color:#555;font-weight:500">Live tariff:</span>
+        <span id="api-live-tariff-label" style="font-size:11px;color:#555;font-weight:500" data-i18n="api_live_tariff"></span>
         <select id="api-tariff-select" class="api-tariff-select" onchange="updateApiPricesUrl()">
-          <option value="">— no live data yet —</option>
+          <option value="" data-i18n-opt="api_no_live_data">— no live data yet —</option>
         </select>
       </div>
       <div class="api-url-box">
@@ -991,7 +1000,7 @@ def dashboard():
           <a href="/api/v1/prices/all?start_time={today}T00:00:00Z" target="_blank" class="api-open-link">Open ↗</a>
         </div>
       </div>
-      <div class="api-desc">All currently live tariffs in a single response — JSON keyed by <code>tariff_id</code>. Fixed endpoint, no tariff selection needed. Always reflects real-time available data.</div>
+      <div class="api-desc" data-i18n="api_all_section_desc"></div>
       <div class="api-url-box">
         <span>/api/v1/prices/all?start_time={today}T00:00:00Z</span>
       </div>
@@ -1001,7 +1010,7 @@ def dashboard():
     <div class="api-links-row">
       <a href="/docs"  target="_blank" class="api-open-link" style="border-color:#185fa5;color:#185fa5">Swagger UI ↗</a>
       <a href="/redoc" target="_blank" class="api-open-link" style="border-color:#185fa5;color:#185fa5">ReDoc ↗</a>
-      <a href="/api/v1/health" target="_blank" class="api-open-link">Health status ↗</a>
+      <a href="/api/v1/health" target="_blank" class="api-open-link">Health ↗</a>
     </div>
 
   </div><!-- end api-view -->
@@ -1032,12 +1041,23 @@ const T = {{
     api_health_desc: 'System status and last fetch time per tariff',
     today: 'Today', completed: 'completed', live: '\u25cf live',
     days: 'days', slots: 'slots', avg: 'Avg', min: 'Min', max: 'Max',
-    adapter_pending: 'Adapter not yet implemented',
+    adapter_pending: 'Integration in progress — data coming soon',
     never_updated: 'Never updated', updated_at: 'Updated at',
     above_avg: 'above average', below_avg: 'below average', daily_avg: 'Daily avg',
     grid_tip: 'Network usage fee (dynamic, set by grid operator)',
     energy_tip: 'Electricity commodity price (spot market based)',
     residual_tip: 'Residual costs: SDL, Stromreserve, Netzzuschlag, levies',
+    api_view_subtitle: 'REST \u00b7 UTC timestamps \u00b7 15-min intervals \u00b7 CHF/kWh \u00b7 as per T-Swiss spec',
+    api_tariffs_section_desc: 'Lists all available tariffs with metadata. No parameters required — returns the full catalogue.',
+    api_prices_section_desc: 'Returns timeseries of net prices per kWh — energy, grid and residual components — in 15-min UTC slots.',
+    api_all_section_desc: 'All live tariffs in a single response, keyed by tariff_id. Fixed endpoint — always reflects current available data.',
+    api_live_tariff: 'Live tariff:',
+    api_no_live_data: '\u2014 no live data yet \u2014',
+    api_returns: 'Returns',
+    api_parameters: 'Parameters',
+    api_avail_title: 'Data availability',
+    api_avail_sub: 'Only live tariffs appear in the dropdown above',
+    chart_total: 'Total', chart_vs_avg: 'vs avg',
     smart_best_times: 'Best times to use energy today',
     smart_avoid: 'Avoid \u2014 peak prices',
     smart_today_profile: 'Price profile today',
@@ -1071,7 +1091,7 @@ const T = {{
     api_health_desc: 'Systemstatus und letzter Abrufzeitpunkt pro Tarif',
     today: 'Heute', completed: 'abgeschlossen', live: '\u25cf live',
     days: 'Tage', slots: 'Slots', avg: '\u00d8', min: 'Min', max: 'Max',
-    adapter_pending: 'Adapter noch nicht implementiert',
+    adapter_pending: 'Integration in Arbeit \u2014 Daten folgen',
     never_updated: 'Nie aktualisiert', updated_at: 'Aktualisiert um',
     above_avg: '\u00fcber Durchschnitt', below_avg: 'unter Durchschnitt', daily_avg: 'Tagesdurchschnitt',
     grid_tip: 'Netznutzungsentgelt (dynamisch, vom Netzbetreiber festgelegt)',
@@ -1087,6 +1107,17 @@ const T = {{
     signal_red: 'Teuer \u2014 wenn m\u00f6glich vermeiden',
     signal_gray: 'Keine Daten f\u00fcr aktuellen Slot',
     vs_month_avg: 'vs. Monatsdurchschnitt',
+    api_view_subtitle: 'REST \u00b7 UTC-Zeitstempel \u00b7 15-Min-Intervalle \u00b7 CHF/kWh \u00b7 gem\u00e4\u00df T-Swiss-Spezifikation',
+    api_tariffs_section_desc: 'Listet alle verf\u00fcgbaren Tarife mit Metadaten auf. Keine Parameter erforderlich.',
+    api_prices_section_desc: 'Gibt Zeitreihen der Nettopreise pro kWh zur\u00fcck \u2014 Energie, Netz und Rest \u2014 in 15-Min-UTC-Slots.',
+    api_all_section_desc: 'Alle aktiven Tarife in einer einzigen Antwort, sortiert nach tariff_id. Gibt immer aktuelle Daten zur\u00fcck.',
+    api_live_tariff: 'Aktiver Tarif:',
+    api_no_live_data: '\u2014 noch keine Live-Daten \u2014',
+    api_returns: 'R\u00fcckgabe',
+    api_parameters: 'Parameter',
+    api_avail_title: 'Datenverfügbarkeit',
+    api_avail_sub: 'Im Dropdown oben erscheinen nur aktive Tarife',
+    chart_total: 'Total', chart_vs_avg: 'vs. Avg',
   }},
   fr: {{
     unit_explanation: 'Prix en Rp/kWh (Rappen par kilowattheure). 100 Rp = 1 CHF.',
@@ -1110,7 +1141,7 @@ const T = {{
     api_health_desc: '\u00c9tat du syst\u00e8me et derni\u00e8re collecte par tarif',
     today: "Aujourd\u2019hui", completed: 'compl\u00e9t\u00e9', live: '\u25cf en cours',
     days: 'jours', slots: 'cr\u00e9neaux', avg: 'Moy', min: 'Min', max: 'Max',
-    adapter_pending: 'Adaptateur pas encore impl\u00e9ment\u00e9',
+    adapter_pending: 'Int\u00e9gration en cours \u2014 donn\u00e9es bient\u00f4t disponibles',
     never_updated: 'Jamais mis \u00e0 jour', updated_at: 'Mis \u00e0 jour \u00e0',
     above_avg: 'au-dessus de la moyenne', below_avg: 'en dessous de la moyenne',
     daily_avg: 'Moyenne journ\u00e9ali\u00e8re',
@@ -1127,6 +1158,17 @@ const T = {{
     signal_red: 'Cher \u2014 \u00e9viter si possible',
     signal_gray: 'Aucune donn\u00e9e pour le cr\u00e9neau actuel',
     vs_month_avg: 'vs. moyenne mensuelle',
+    api_view_subtitle: 'REST \u00b7 horodatages UTC \u00b7 intervalles 15 min \u00b7 CHF/kWh \u00b7 conform\u00e9ment \u00e0 la sp\u00e9c T-Swiss',
+    api_tariffs_section_desc: 'Liste tous les tarifs disponibles avec m\u00e9tadonn\u00e9es. Aucun param\u00e8tre requis.',
+    api_prices_section_desc: 'Retourne les s\u00e9ries temporelles de prix nets par kWh \u2014 \u00e9nergie, r\u00e9seau et r\u00e9sidu \u2014 en cr\u00e9neaux UTC de 15 min.',
+    api_all_section_desc: 'Tous les tarifs actifs en une seule r\u00e9ponse, index\u00e9s par tariff_id. Refl\u00e8te toujours les donn\u00e9es disponibles.',
+    api_live_tariff: 'Tarif en direct\u00a0:',
+    api_no_live_data: '\u2014 pas encore de donn\u00e9es \u2014',
+    api_returns: 'R\u00e9ponse',
+    api_parameters: 'Param\u00e8tres',
+    api_avail_title: 'Disponibilit\u00e9 des donn\u00e9es',
+    api_avail_sub: 'Seuls les tarifs actifs apparaissent dans la liste d\u00e9roulante',
+    chart_total: 'Total', chart_vs_avg: 'vs moy',
   }},
   it: {{
     unit_explanation: 'Prezzi in Rp/kWh (Rappen per kilowattora). 100 Rp = 1 CHF.',
@@ -1150,7 +1192,7 @@ const T = {{
     api_health_desc: 'Stato del sistema e ultimo aggiornamento per tariffa',
     today: 'Oggi', completed: 'completato', live: '\u25cf in corso',
     days: 'giorni', slots: 'slot', avg: 'Media', min: 'Min', max: 'Max',
-    adapter_pending: 'Adattatore non ancora implementato',
+    adapter_pending: 'Integrazione in corso \u2014 dati disponibili a breve',
     never_updated: 'Mai aggiornato', updated_at: 'Aggiornato alle',
     above_avg: 'sopra la media', below_avg: 'sotto la media', daily_avg: 'Media giornaliera',
     grid_tip: 'Tariffa di utilizzo della rete (dinamica, fissata dal gestore di rete)',
@@ -1166,6 +1208,17 @@ const T = {{
     signal_red: 'Caro \u2014 evita se possibile',
     signal_gray: 'Nessun dato per lo slot corrente',
     vs_month_avg: 'vs. media mensile',
+    api_view_subtitle: 'REST \u00b7 timestamp UTC \u00b7 intervalli 15 min \u00b7 CHF/kWh \u00b7 conforme alla spec T-Swiss',
+    api_tariffs_section_desc: 'Elenca tutte le tariffe disponibili con metadati. Nessun parametro richiesto.',
+    api_prices_section_desc: 'Restituisce le serie temporali dei prezzi netti per kWh \u2014 energia, rete e residuo \u2014 in slot UTC da 15 min.',
+    api_all_section_desc: 'Tutte le tariffe attive in un\u2019unica risposta, indicizzate per tariff_id. Riflette sempre i dati disponibili.',
+    api_live_tariff: 'Tariffa live:',
+    api_no_live_data: '\u2014 nessun dato live ancora \u2014',
+    api_returns: 'Risposta',
+    api_parameters: 'Parametri',
+    api_avail_title: 'Disponibilit\u00e0 dati',
+    api_avail_sub: 'Solo le tariffe attive appaiono nel men\u00f9 a tendina',
+    chart_total: 'Totale', chart_vs_avg: 'vs media',
   }}
 }};
 
@@ -1183,6 +1236,13 @@ function setLang(l) {{
   }});
   if (activeTariff) {{ renderMonthGrid(lastMonthData); renderStatusList(lastHealthData); }}
   updateSlotPanel(lastSlotIdx);
+  updateChartLocale();
+  renderApiStatusList(lastHealthData);
+  // update "no live data" placeholder if select is empty
+  const sel = document.getElementById('api-tariff-select');
+  if (sel && sel.options.length === 1 && !sel.options[0].value) {{
+    sel.options[0].textContent = t('api_no_live_data');
+  }}
   const badge = document.getElementById('header-badge');
   if (badge) badge.title = t('unit_explanation');
 }}
@@ -1465,7 +1525,7 @@ async function loadDayChart(tariffId, dateStr) {{
             afterBody: items => {{
               if (!items.length) return [];
               const tot = chartData.totals[items[0].dataIndex]; const diff = tot-avg;
-              return ['',` Total: ${{tot.toFixed(2)}} Rp/kWh`,` vs avg: ${{diff>=0?'+':''}}${{diff.toFixed(2)}} Rp`];
+              return ['',` ${{t('chart_total')}}: ${{tot.toFixed(2)}} Rp/kWh`,` ${{t('chart_vs_avg')}}: ${{diff>=0?'+':''}}${{diff.toFixed(2)}} Rp`];
             }}
           }}
         }}
@@ -1629,19 +1689,85 @@ function updatePricesExample(tariffId) {{
   el.textContent = `/api/v1/prices?tariff_id=${{tariffId||'ckw_home_dynamic'}}&start_time={today}T00:00:00Z`;
 }}
 
+// ── Chart locale update (in-place, no re-fetch) ───────────────────────────────
+function updateChartLocale() {{
+  if (!activeTariff || !activeDate) return;
+  // Chart title
+  const titleEl = document.getElementById('chart-title');
+  if (titleEl) {{
+    titleEl.textContent = t('daily_profile') + ' \u2014 ' +
+      new Date(activeDate + 'T12:00:00Z').toLocaleDateString(locale(), {{weekday:'long', day:'numeric', month:'long'}});
+  }}
+  // Day buttons
+  if (dailySummary.length) {{
+    document.getElementById('day-btns').innerHTML = dailySummary.map(d => {{
+      const isToday = d.date === '{today}';
+      const label = isToday
+        ? t('today')
+        : new Date(d.date + 'T12:00:00Z').toLocaleDateString(locale(), {{weekday:'short', day:'numeric', month:'short'}});
+      const isActive = d.date === activeDate;
+      return `<button class="day-btn${{isActive ? ' active' : ''}}" onclick="selectDay('${{d.date}}', this)">${{label}}</button>`;
+    }}).join('');
+  }}
+  // Metric labels
+  const isToday = activeDate === '{today}';
+  const todaySuffix = ' \u00b7 ' + t('today').toLowerCase();
+  const minLbl = document.getElementById('m-min-label');
+  const maxLbl = document.getElementById('m-max-label');
+  if (minLbl) minLbl.textContent = isToday ? t('cheapest_hour') + todaySuffix : t('cheapest_hour');
+  if (maxLbl) maxLbl.textContent = isToday ? t('most_expensive_hour') + todaySuffix : t('most_expensive_hour');
+  // m-date
+  const dateEl = document.getElementById('m-date');
+  if (dateEl && activeDate) {{
+    dateEl.textContent = new Date(activeDate + 'T12:00:00Z').toLocaleDateString(locale(), {{day:'numeric', month:'long', year:'numeric'}});
+  }}
+  // m-slots
+  const slotsEl = document.getElementById('m-slots');
+  if (slotsEl && chartData.labels.length) {{
+    slotsEl.textContent = chartData.labels.length + ' \u00d7 15 min ' + t('slots');
+  }}
+}}
+
+// ── API status list (rendered in the API tab) ─────────────────────────────────
+function renderApiStatusList(tariffs) {{
+  const el = document.getElementById('api-status-list');
+  if (!el) return;
+  if (!tariffs || !tariffs.length) {{
+    el.innerHTML = '<div style="font-size:12px;color:#bbb">loading...</div>';
+    return;
+  }}
+  el.innerHTML = tariffs.map(t => {{
+    const isOk = t.has_today_data || t.status === 'ok';
+    const meta = isOk && t.last_fetch_utc
+      ? 'Updated ' + new Date(t.last_fetch_utc).toLocaleTimeString('en-GB') + ' UTC'
+      : !isOk && !t.last_fetch_utc ? '' : '';
+    const badge = isOk
+      ? `<span class="s-ok">live</span>`
+      : `<span class="s-warn">pending</span>`;
+    return `<div class="status-row">
+      <div>
+        <div class="status-name">${{t.provider_name}} \u2014 ${{t.tariff_name || ''}}</div>
+        ${{meta ? `<div class="status-meta">${{meta}}</div>` : ''}}
+      </div>
+      ${{badge}}
+    </div>`;
+  }}).join('');
+}}
+
 // ── API tab helpers ───────────────────────────────────────────────────────────
 function populateApiTariffSelect() {{
   const okTariffs = (lastHealthData || []).filter(t => t.has_today_data || t.status === 'ok');
   const sel = document.getElementById('api-tariff-select');
   if (!sel) return;
   if (!okTariffs.length) {{
-    sel.innerHTML = '<option value="">— no live data yet —</option>';
+    sel.innerHTML = `<option value="">${{t('api_no_live_data')}}</option>`;
   }} else {{
     sel.innerHTML = okTariffs.map(t =>
       `<option value="${{t.tariff_id}}">${{t.provider_name}} \u2014 ${{t.tariff_name}}</option>`
     ).join('');
   }}
   updateApiPricesUrl();
+  renderApiStatusList(lastHealthData);
 }}
 
 function updateApiPricesUrl() {{
