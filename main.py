@@ -647,6 +647,29 @@ def dashboard():
     .api-open-link{{font-size:10px;padding:3px 8px;border-radius:5px;border:0.5px solid #ddd;
       color:#555;text-decoration:none;transition:all .15s}}
     .api-open-link:hover{{background:#f0f4fa;border-color:#aaa}}
+    #api-view{{display:none}}
+    .api-section{{background:white;border:0.5px solid #e5e5e5;border-radius:12px;padding:1.25rem;margin-bottom:1.25rem}}
+    .api-section-header{{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}}
+    .api-section-title{{display:flex;align-items:center;gap:8px;flex-wrap:wrap}}
+    .api-desc{{font-size:12px;color:#666;margin:4px 0 12px 0;line-height:1.6}}
+    .api-params-table{{width:100%;border-collapse:collapse;font-size:11px}}
+    .api-params-table td{{padding:4px 8px;vertical-align:top;border-bottom:0.5px solid #f0f0f0}}
+    .api-params-table tr:last-child td{{border-bottom:none}}
+    .api-params-table td:first-child{{font-family:monospace;color:#185fa5;font-weight:600;white-space:nowrap;width:200px}}
+    .api-params-wrap{{background:#f8f9fa;border-radius:8px;padding:8px 4px;margin:10px 0}}
+    .api-params-head{{font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.06em;padding:0 8px 6px}}
+    .api-url-box{{background:#f0f4fa;border-radius:8px;padding:10px 14px;font-family:monospace;
+      font-size:11px;color:#185fa5;margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}}
+    .api-tariff-select{{font-size:11px;padding:5px 9px;border:0.5px solid #c5d8f0;border-radius:6px;
+      background:#e8f1fa;color:#185fa5;font-weight:500;cursor:pointer;max-width:100%}}
+    .api-badge-req{{font-size:9px;padding:1px 5px;border-radius:3px;background:#dbeafe;color:#1e40af;font-weight:600;vertical-align:middle;margin-left:4px}}
+    .api-badge-opt{{font-size:9px;padding:1px 5px;border-radius:3px;background:#f3f4f6;color:#6b7280;font-weight:500;vertical-align:middle;margin-left:4px}}
+    .api-links-row{{display:flex;gap:8px;flex-wrap:wrap;margin-top:1.5rem;padding-top:1rem;border-top:0.5px solid #e5e5e5}}
+    .api-links-row a{{font-size:11px;padding:5px 14px;border-radius:6px}}
+    .api-view-header{{margin-bottom:1.5rem}}
+    .api-view-title{{font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:3px}}
+    .api-view-sub{{font-size:12px;color:#888}}
+    code{{font-family:monospace;font-size:10.5px;background:#f0f4fa;color:#185fa5;padding:1px 5px;border-radius:3px}}
   </style>
 </head>
 <body>
@@ -656,6 +679,7 @@ def dashboard():
   <div class="view-tabs">
     <button class="view-tab" id="tab-smart" onclick="switchView('smart')">Smart</button>
     <button class="view-tab active" id="tab-data" onclick="switchView('data')">Data</button>
+    <button class="view-tab" id="tab-api" onclick="switchView('api')">API</button>
   </div>
   <div class="lang-btns">
     <button class="lang-btn active" onclick="setLang('en')">EN</button>
@@ -823,18 +847,13 @@ def dashboard():
     </div>
   </div>
 
-  <div class="bottom-row">
-    <div class="card">
-      <div class="card-header"><span class="card-title" data-i18n="fetch_status"></span></div>
-      <div class="status-list" id="status-list">loading...</div>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">API endpoints</span>
-        <a href="/docs" target="_blank" style="font-size:11px;color:#185fa5;text-decoration:none;
-           padding:3px 8px;border:0.5px solid #185fa5;border-radius:5px;opacity:.8">Swagger UI ↗</a>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px" id="api-endpoint-list">
+  <div class="card">
+    <div class="card-header"><span class="card-title" data-i18n="fetch_status"></span></div>
+    <div class="status-list" id="status-list">loading...</div>
+  </div>
+
+  <!-- REMOVED API card – moved to dedicated API tab -->
+  <div style="display:none" id="api-endpoint-list-legacy">
         <div class="api-row">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
             <div><span class="api-method">GET</span><span class="api-path">/api/v1/tariffs</span></div>
@@ -870,17 +889,123 @@ def dashboard():
           </div>
           <div style="font-size:11px;color:#666" data-i18n="api_health_desc"></div>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
-          <a href="/api/v1/tariffs" target="_blank" class="api-open-link">Open /tariffs ↗</a>
-          <a href="/api/v1/health"  target="_blank" class="api-open-link">Open /health ↗</a>
-          <a href="/docs"  target="_blank" class="api-open-link" style="border-color:#185fa5;color:#185fa5">Swagger ↗</a>
-          <a href="/redoc" target="_blank" class="api-open-link" style="border-color:#185fa5;color:#185fa5">ReDoc ↗</a>
-        </div>
-      </div>
-    </div>
-  </div>
+  </div><!-- end api-endpoint-list-legacy -->
 
   </div><!-- end developer-view -->
+
+  <!-- ── API view ──────────────────────────────────────────────────────────── -->
+  <div id="api-view">
+
+    <div class="api-view-header">
+      <div class="api-view-title">API Reference</div>
+      <div class="api-view-sub">REST · UTC timestamps · 15-min intervals · CHF/kWh · as per T-Swiss spec</div>
+    </div>
+
+    <!-- ── API 1: /tariffs ─────────────────────────────────────────────────── -->
+    <div class="api-section">
+      <div class="api-section-header">
+        <div class="api-section-title">
+          <span class="api-method">GET</span>
+          <span class="api-path">/api/v1/tariffs</span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="copy-btn" onclick="copyEndpoint(this,'/api/v1/tariffs')">Copy</button>
+          <a href="/api/v1/tariffs" target="_blank" class="api-open-link">Open ↗</a>
+        </div>
+      </div>
+      <div class="api-desc">List all available tariffs with metadata. No parameters required — returns the full catalogue.</div>
+      <div class="api-params-wrap">
+        <div class="api-params-head">Returns</div>
+        <table class="api-params-table">
+          <tr><td>tariff_id</td><td>Unique identifier, e.g. <code>ckw_home_dynamic</code></td></tr>
+          <tr><td>tariff_name</td><td>Human-readable tariff name</td></tr>
+          <tr><td>provider_name</td><td>Energy utility company</td></tr>
+          <tr><td>daily_update_time_utc</td><td>Time prices are refreshed each day (UTC)</td></tr>
+          <tr><td>datetime_available_from_utc</td><td>First date with available data</td></tr>
+          <tr><td>valid_until_utc</td><td><code>null</code> if the tariff is ongoing</td></tr>
+        </table>
+      </div>
+      <div class="api-url-box">
+        <span>/api/v1/tariffs</span>
+      </div>
+    </div>
+
+    <!-- ── API 2: /prices ──────────────────────────────────────────────────── -->
+    <div class="api-section">
+      <div class="api-section-header">
+        <div class="api-section-title">
+          <span class="api-method">GET</span>
+          <span class="api-path">/api/v1/prices</span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="copy-btn" id="api-copy-prices-btn" onclick="copyApiPricesEndpoint(this)">Copy</button>
+          <a id="api-prices-open" href="/api/v1/prices" target="_blank" class="api-open-link">Open ↗</a>
+        </div>
+      </div>
+      <div class="api-desc">Timeseries of net prices per kWh — energy, grid and residual components — in 15-min UTC slots.</div>
+      <div class="api-params-wrap">
+        <div class="api-params-head">Parameters</div>
+        <table class="api-params-table">
+          <tr>
+            <td>tariff_id <span class="api-badge-req">required</span></td>
+            <td>Tariff identifier — choose a live tariff below</td>
+          </tr>
+          <tr>
+            <td>start_time <span class="api-badge-req">required</span></td>
+            <td>UTC datetime, e.g. <code>{today}T00:00:00Z</code></td>
+          </tr>
+          <tr>
+            <td>end_time <span class="api-badge-opt">optional</span></td>
+            <td>UTC datetime — defaults to <code>start_time + 24h</code></td>
+          </tr>
+        </table>
+        <div class="api-params-head" style="margin-top:8px">Returns</div>
+        <table class="api-params-table">
+          <tr><td>energy_price_utc</td><td>list of <code>&#123;start_timestamp: price_chf&#125;</code></td></tr>
+          <tr><td>grid_price_utc</td><td>list of <code>&#123;start_timestamp: price_chf&#125;</code></td></tr>
+          <tr><td>residual_price_utc</td><td>list of <code>&#123;start_timestamp: price_chf&#125;</code></td></tr>
+          <tr><td>slot_count</td><td>Number of 15-min slots (96 = full day)</td></tr>
+        </table>
+      </div>
+      <div style="margin:12px 0 4px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:11px;color:#555;font-weight:500">Live tariff:</span>
+        <select id="api-tariff-select" class="api-tariff-select" onchange="updateApiPricesUrl()">
+          <option value="">— no live data yet —</option>
+        </select>
+      </div>
+      <div class="api-url-box">
+        <span id="api-prices-url" style="word-break:break-all">/api/v1/prices?tariff_id=...&amp;start_time={today}T00:00:00Z</span>
+      </div>
+    </div>
+
+    <!-- ── /prices/all ─────────────────────────────────────────────────────── -->
+    <div class="api-section">
+      <div class="api-section-header">
+        <div class="api-section-title">
+          <span class="api-method">GET</span>
+          <span class="api-path">/api/v1/prices/all</span>
+          <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#fef3c7;color:#92400e;font-weight:500">all live tariffs</span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="copy-btn" onclick="copyEndpoint(this,'/api/v1/prices/all?start_time={today}T00:00:00Z')">Copy</button>
+          <a href="/api/v1/prices/all?start_time={today}T00:00:00Z" target="_blank" class="api-open-link">Open ↗</a>
+        </div>
+      </div>
+      <div class="api-desc">All currently live tariffs in a single response — JSON keyed by <code>tariff_id</code>. Fixed endpoint, no tariff selection needed. Always reflects real-time available data.</div>
+      <div class="api-url-box">
+        <span>/api/v1/prices/all?start_time={today}T00:00:00Z</span>
+      </div>
+    </div>
+
+    <!-- ── Links ──────────────────────────────────────────────────────────── -->
+    <div class="api-links-row">
+      <a href="/docs"  target="_blank" class="api-open-link" style="border-color:#185fa5;color:#185fa5">Swagger UI ↗</a>
+      <a href="/redoc" target="_blank" class="api-open-link" style="border-color:#185fa5;color:#185fa5">ReDoc ↗</a>
+      <a href="/api/v1/health" target="_blank" class="api-open-link">Health status ↗</a>
+    </div>
+
+  </div><!-- end api-view -->
+
 </main>
 <script>
 // ── Translations ──────────────────────────────────────────────────────────────
@@ -1097,6 +1222,7 @@ async function loadHealth() {{
   document.getElementById('m-total').textContent = lastHealthData.length;
   document.getElementById('m-total-sub').textContent = okCount + ' with prices today';
   renderStatusList(lastHealthData);
+  populateApiTariffSelect();
 }}
 
 function renderStatusList(tariffs) {{
@@ -1388,8 +1514,10 @@ function switchView(view) {{
   currentView = view;
   document.getElementById('consumer-view').style.display  = view==='smart'?'block':'none';
   document.getElementById('developer-view').style.display = view==='data'?'block':'none';
+  document.getElementById('api-view').style.display       = view==='api'?'block':'none';
   document.getElementById('tab-smart').classList.toggle('active', view==='smart');
   document.getElementById('tab-data').classList.toggle('active',  view==='data');
+  document.getElementById('tab-api').classList.toggle('active',   view==='api');
   if (view==='smart' && !smartData) loadSmart();
 }}
 
@@ -1499,6 +1627,45 @@ function updatePricesExample(tariffId) {{
   const el = document.getElementById('prices-example-url');
   if (!el) return;
   el.textContent = `/api/v1/prices?tariff_id=${{tariffId||'ckw_home_dynamic'}}&start_time={today}T00:00:00Z`;
+}}
+
+// ── API tab helpers ───────────────────────────────────────────────────────────
+function populateApiTariffSelect() {{
+  const okTariffs = (lastHealthData || []).filter(t => t.has_today_data || t.status === 'ok');
+  const sel = document.getElementById('api-tariff-select');
+  if (!sel) return;
+  if (!okTariffs.length) {{
+    sel.innerHTML = '<option value="">— no live data yet —</option>';
+  }} else {{
+    sel.innerHTML = okTariffs.map(t =>
+      `<option value="${{t.tariff_id}}">${{t.provider_name}} \u2014 ${{t.tariff_name}}</option>`
+    ).join('');
+  }}
+  updateApiPricesUrl();
+}}
+
+function updateApiPricesUrl() {{
+  const sel = document.getElementById('api-tariff-select');
+  const urlEl = document.getElementById('api-prices-url');
+  const openLink = document.getElementById('api-prices-open');
+  if (!sel || !urlEl) return;
+  const tid = sel.value;
+  const url = tid
+    ? `/api/v1/prices?tariff_id=${{tid}}&start_time={today}T00:00:00Z`
+    : `/api/v1/prices?tariff_id=...&start_time={today}T00:00:00Z`;
+  urlEl.textContent = url;
+  if (openLink) openLink.href = tid ? url : '/api/v1/prices';
+}}
+
+function copyApiPricesEndpoint(btn) {{
+  const urlEl = document.getElementById('api-prices-url');
+  if (!urlEl) return;
+  const url = urlEl.textContent.trim();
+  navigator.clipboard.writeText(window.location.origin + url).then(() => {{
+    const msg = lang==='it'?'Copiato!':lang==='de'?'Kopiert!':lang==='fr'?'Copi\u00e9\u00a0!':'Copied!';
+    btn.textContent = msg; btn.classList.add('copied');
+    setTimeout(() => {{ btn.textContent = 'Copy'; btn.classList.remove('copied'); }}, 1800);
+  }});
 }}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
