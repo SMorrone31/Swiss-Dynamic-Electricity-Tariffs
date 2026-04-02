@@ -19,17 +19,18 @@ from adapters.base import (
     AdapterEmptyError,
 )
 from adapters.ckw import CkwAdapter
+from adapters.primeo_energie import PrimeoEnergieAdapter
 
 # Mappa adapter_class → classe Python
 _REGISTRY: dict[str, type[BaseAdapter]] = {
-    "CkwAdapter": CkwAdapter,
+    "CkwAdapter":           CkwAdapter,
+    "PrimeoEnergieAdapter": PrimeoEnergieAdapter,
     # Aggiungere qui man mano che vengono implementati:
-    # "EkzAdapter":           EkzAdapter,
-    # "PrimeoEnergieAdapter": PrimeoEnergieAdapter,
-    # "GroupeEAdapter":       GroupeEAdapter,
-    # "AemAdapter":           AemAdapter,
-    # "EsitAdapter":          EsitAdapter,
-    # "AilAdapter":           AilAdapter,
+    # "EkzAdapter":   EkzAdapter,
+    # "GroupeEAdapter": GroupeEAdapter,
+    # "AemAdapter":   AemAdapter,
+    # "EsitAdapter":  EsitAdapter,
+    # "AilAdapter":   AilAdapter,
 }
 
 

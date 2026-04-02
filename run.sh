@@ -26,8 +26,9 @@ sleep 0.5
 # Avvia
 if [ $PROD -eq 1 ]; then
   echo "→ Avvio uvicorn (produzione) su http://0.0.0.0:$PORT"
-  uvicorn main:app --host 0.0.0.0 --port $PORT
+  # riga 29
+  python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT
 else
   echo "→ Avvio uvicorn (sviluppo) su http://127.0.0.1:$PORT"
-  uvicorn main:app --reload --port $PORT
+  python3 -m uvicorn main:app --reload --port $PORT
 fi

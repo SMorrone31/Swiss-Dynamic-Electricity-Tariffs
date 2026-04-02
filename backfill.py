@@ -225,7 +225,7 @@ async def backfill(force: bool = False, dry_run: bool = False) -> dict:
     log.info(f"Finestra: {window[0][0]}-{window[0][1]:02d} → {window[-1][0]}-{window[-1][1]:02d}")
     log.info(f"Tariffe da backfillare: {[t.tariff_id for t in active_tariffs]}")
 
-    stats = {"ok": 0, "skip": 0, "fail": 0, "total": 0}
+    stats = {"ok": 0, "skip": 0, "skip_no_backfill": 0, "fail": 0, "total": 0}
 
     for year, month in window:
         days = days_in_month(year, month)
@@ -265,6 +265,19 @@ async def backfill(force: bool = False, dry_run: bool = False) -> dict:
                         if existing >= 88:  # abbastanza slot (92 nei giorni DST)
                             stats["skip"] += 1
                             continue
+
+                # Salta se l'adapter non supporta backfill storico
+                # (es. Primeo: API senza memoria storica, solo day-ahead)
+                import json as _json
+                config = _json.loads(tariff.full_config_json)
+                if not config.get("api_params", {}).get("backfill_supported", True):
+                    log.debug(
+                        f"  {Y}↷{D} {tariff.tariff_id} / {target_date}: "
+                        f"backfill storico non supportato (API day-ahead only)"
+                    )
+                    stats["skip_no_backfill"] += 1
+                    stats["skip"] += 1
+                    continue
 
                 if dry_run:
                     log.info(f"  [DRY RUN] {tariff.tariff_id} / {target_date}")
@@ -361,6 +374,9 @@ async def main():
     print(f"\n{BOLD}Riepilogo:{D}")
     print(f"  {G}✓ OK:{D}    {stats.get('ok', 0)}")
     print(f"  {Y}→ Skip:{D}  {stats.get('skip', 0)} (già presenti)")
+    nb = stats.get('skip_no_backfill', 0)
+    if nb:
+        print(f"  {Y}↷ No-backfill:{D} {nb} (API day-ahead only — Primeo/AVAG/ELAG)")
     print(f"  {R}✗ Fail:{D}  {stats.get('fail', 0)}")
     print(f"\nProssimo step: avvia uvicorn e controlla la dashboard.")
 

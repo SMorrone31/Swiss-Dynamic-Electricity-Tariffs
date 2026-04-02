@@ -648,6 +648,22 @@ def dashboard():
       color:#555;text-decoration:none;transition:all .15s}}
     .api-open-link:hover{{background:#f0f4fa;border-color:#aaa}}
     #api-view{{display:none}}
+    #map-view{{display:none}}
+    #map-svg-container{{width:100%;background:#f8f9fa;border-radius:12px;
+      border:0.5px solid #e5e5e5;overflow:hidden;position:relative}}
+    #map-svg-container svg{{display:block;width:100%}}
+    #map-loading{{padding:3rem;text-align:center;font-size:13px;color:#aaa}}
+    #map-tooltip{{position:absolute;background:white;border:0.5px solid #ddd;
+      border-radius:8px;padding:8px 12px;font-size:12px;pointer-events:none;
+      display:none;z-index:20;max-width:240px;line-height:1.5;box-shadow:0 2px 8px rgba(0,0,0,.08)}}
+    #map-legend{{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:14px;padding:0 2px}}
+    .map-legend-item{{display:flex;align-items:center;gap:7px;font-size:11px;color:#555}}
+    .map-legend-dot{{width:11px;height:11px;border-radius:50%;flex-shrink:0}}
+    #map-filter-row{{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}}
+    .map-filter-btn{{font-size:11px;padding:4px 12px;border-radius:6px;
+      border:0.5px solid #ddd;background:white;color:#555;cursor:pointer;transition:all .15s}}
+    .map-filter-btn:hover{{border-color:#185fa5;color:#185fa5}}
+    .map-filter-btn.active{{background:#1a1a2e;color:white;border-color:#1a1a2e}}
     .api-section{{background:white;border:0.5px solid #e5e5e5;border-radius:12px;padding:1.25rem;margin-bottom:1.25rem}}
     .api-section-header{{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}}
     .api-section-title{{display:flex;align-items:center;gap:8px;flex-wrap:wrap}}
@@ -679,6 +695,7 @@ def dashboard():
   <div class="view-tabs">
     <button class="view-tab" id="tab-smart" onclick="switchView('smart')">Smart</button>
     <button class="view-tab active" id="tab-data" onclick="switchView('data')">Data</button>
+    <button class="view-tab" id="tab-map" onclick="switchView('map')" data-i18n="tab_map">Map</button>
     <button class="view-tab" id="tab-api" onclick="switchView('api')">API</button>
   </div>
   <div class="lang-btns">
@@ -891,6 +908,44 @@ def dashboard():
 
   </div><!-- end developer-view -->
 
+
+  <!-- ── Map view ─────────────────────────────────────────────────────────── -->
+  <div id="map-view">
+
+    <div class="api-view-header">
+      <div class="api-view-title" data-i18n="map_title">Coverage map</div>
+      <div class="api-view-sub" data-i18n="map_subtitle">Dynamic tariff providers by Swiss municipality · source: ElCom 2026</div>
+    </div>
+
+    <div id="map-filter-row">
+      <button class="map-filter-btn active" data-filter="all" onclick="filterMap('all')" data-i18n="map_filter_all">All</button>
+      <button class="map-filter-btn" data-filter="ckw"    onclick="filterMap('ckw')">CKW</button>
+      <button class="map-filter-btn" data-filter="ekz"    onclick="filterMap('ekz')">EKZ</button>
+      <button class="map-filter-btn" data-filter="groupe" onclick="filterMap('groupe')">Groupe E</button>
+      <button class="map-filter-btn" data-filter="primeo" onclick="filterMap('primeo')">Primeo</button>
+      <button class="map-filter-btn" data-filter="ail"    onclick="filterMap('ail')">AIL</button>
+      <button class="map-filter-btn" data-filter="avag"   onclick="filterMap('avag')">AVAG</button>
+      <button class="map-filter-btn" data-filter="aem"    onclick="filterMap('aem')">AEM</button>
+      <button class="map-filter-btn" data-filter="ekze"   onclick="filterMap('ekze')">EKZ Einsiedeln</button>
+      <button class="map-filter-btn" data-filter="ega"    onclick="filterMap('ega')">EGA</button>
+      <button class="map-filter-btn" data-filter="elag"   onclick="filterMap('elag')">ELAG</button>
+    </div>
+
+    <div id="map-svg-container">
+      <div id="map-loading" data-i18n="map_loading">Loading municipality boundaries…</div>
+      <svg id="map-svg"></svg>
+      <div id="map-tooltip"></div>
+    </div>
+
+    <div id="map-legend"></div>
+
+    <div style="margin-top:12px;font-size:11px;color:#aaa;line-height:1.6" data-i18n="map_note">
+      Grey municipalities have no dynamic tariff available in 2026.
+      457 out of 2,148 Swiss municipalities covered. Source: ElCom open data.
+    </div>
+
+  </div><!-- end map-view -->
+
   <!-- ── API view ──────────────────────────────────────────────────────────── -->
   <div id="api-view">
 
@@ -1068,6 +1123,13 @@ const T = {{
     signal_red: 'Expensive \u2014 avoid if possible',
     signal_gray: 'No data for current slot',
     vs_month_avg: 'vs. monthly average',
+    tab_map: 'Map',
+    map_title: 'Coverage map',
+    map_subtitle: 'Dynamic tariff providers by Swiss municipality · source: ElCom 2026',
+    map_filter_all: 'All providers',
+    map_loading: 'Loading municipality boundaries…',
+    map_no_tariff: 'No dynamic tariff',
+    map_note: 'Grey municipalities have no dynamic tariff available in 2026. 457 out of 2,148 Swiss municipalities covered. Source: ElCom open data.',
   }},
   de: {{
     unit_explanation: 'Preise in Rp/kWh (Rappen pro Kilowattstunde). 100 Rp = 1 CHF.',
@@ -1107,6 +1169,13 @@ const T = {{
     signal_red: 'Teuer \u2014 wenn m\u00f6glich vermeiden',
     signal_gray: 'Keine Daten f\u00fcr aktuellen Slot',
     vs_month_avg: 'vs. Monatsdurchschnitt',
+    tab_map: 'Karte',
+    map_title: 'Versorgungskarte',
+    map_subtitle: 'Dynamische Tarifanbieter nach Schweizer Gemeinde · Quelle: ElCom 2026',
+    map_filter_all: 'Alle Anbieter',
+    map_loading: 'Gemeindegrenzen werden geladen…',
+    map_no_tariff: 'Kein dynamischer Tarif',
+    map_note: 'Graue Gemeinden verfügen im Jahr 2026 über keinen dynamischen Tarif. 457 von 2.148 Gemeinden abgedeckt. Quelle: ElCom Open Data.',
     api_view_subtitle: 'REST \u00b7 UTC-Zeitstempel \u00b7 15-Min-Intervalle \u00b7 CHF/kWh \u00b7 gem\u00e4\u00df T-Swiss-Spezifikation',
     api_tariffs_section_desc: 'Listet alle verf\u00fcgbaren Tarife mit Metadaten auf. Keine Parameter erforderlich.',
     api_prices_section_desc: 'Gibt Zeitreihen der Nettopreise pro kWh zur\u00fcck \u2014 Energie, Netz und Rest \u2014 in 15-Min-UTC-Slots.',
@@ -1158,6 +1227,13 @@ const T = {{
     signal_red: 'Cher \u2014 \u00e9viter si possible',
     signal_gray: 'Aucune donn\u00e9e pour le cr\u00e9neau actuel',
     vs_month_avg: 'vs. moyenne mensuelle',
+    tab_map: 'Carte',
+    map_title: 'Carte de couverture',
+    map_subtitle: 'Fournisseurs de tarifs dynamiques par commune suisse · source : ElCom 2026',
+    map_filter_all: 'Tous les fournisseurs',
+    map_loading: 'Chargement des limites communales…',
+    map_no_tariff: 'Pas de tarif dynamique',
+    map_note: 'Les communes grises ne disposent d’aucun tarif dynamique en 2026. 457 communes sur 2 148 couvertes. Source : ElCom open data.',
     api_view_subtitle: 'REST \u00b7 horodatages UTC \u00b7 intervalles 15 min \u00b7 CHF/kWh \u00b7 conform\u00e9ment \u00e0 la sp\u00e9c T-Swiss',
     api_tariffs_section_desc: 'Liste tous les tarifs disponibles avec m\u00e9tadonn\u00e9es. Aucun param\u00e8tre requis.',
     api_prices_section_desc: 'Retourne les s\u00e9ries temporelles de prix nets par kWh \u2014 \u00e9nergie, r\u00e9seau et r\u00e9sidu \u2014 en cr\u00e9neaux UTC de 15 min.',
@@ -1208,6 +1284,13 @@ const T = {{
     signal_red: 'Caro \u2014 evita se possibile',
     signal_gray: 'Nessun dato per lo slot corrente',
     vs_month_avg: 'vs. media mensile',
+    tab_map: 'Mappa',
+    map_title: 'Mappa di copertura',
+    map_subtitle: 'Fornitori di tariffe dinamiche per comune svizzero · fonte: ElCom 2026',
+    map_filter_all: 'Tutti i fornitori',
+    map_loading: 'Caricamento confini comunali…',
+    map_no_tariff: 'Nessuna tariffa dinamica',
+    map_note: 'I comuni grigi non hanno tariffe dinamiche nel 2026. 457 su 2.148 comuni svizzeri coperti. Fonte: ElCom open data.',
     api_view_subtitle: 'REST \u00b7 timestamp UTC \u00b7 intervalli 15 min \u00b7 CHF/kWh \u00b7 conforme alla spec T-Swiss',
     api_tariffs_section_desc: 'Elenca tutte le tariffe disponibili con metadati. Nessun parametro richiesto.',
     api_prices_section_desc: 'Restituisce le serie temporali dei prezzi netti per kWh \u2014 energia, rete e residuo \u2014 in slot UTC da 15 min.',
@@ -1567,6 +1650,115 @@ function renderMonthGrid(months) {{
     </div>`).join('');
 }}
 
+// ── Map view ──────────────────────────────────────────────────────────────────
+let mapLoaded = false, activeFilter = 'all';
+
+const MAP_BFS = {{"5009":{{"id":"aem","label":"AEM – Tariffa dinamica","color":"#3498db"}},"5196":{{"id":"aem","label":"AEM – Tariffa dinamica","color":"#3498db"}},"5226":{{"id":"aem","label":"AEM – Tariffa dinamica","color":"#3498db"}},"2422":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2491":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2493":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2495":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2497":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2499":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2500":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2501":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2502":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2572":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2573":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2582":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2583":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2584":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2585":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2586":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"5141":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5143":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5144":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5148":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5151":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5154":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5160":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5161":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5162":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5167":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5171":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5176":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5180":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5186":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5187":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5189":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5192":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5193":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5194":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5198":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5199":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5203":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5205":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5206":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5208":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5210":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5212":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5214":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5216":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5221":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5225":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5227":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5230":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5231":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5233":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5236":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5237":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5238":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5239":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5240":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5249":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5251":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5260":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5263":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5269":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"1001":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1002":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1004":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1005":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1007":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1008":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1009":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1010":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1021":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1023":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1024":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1025":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1026":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1030":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1032":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1033":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1037":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1039":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1040":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1041":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1051":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1052":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1053":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1054":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1055":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1058":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1059":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1061":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1063":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1064":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1065":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1067":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1081":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1082":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1083":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1084":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1085":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1086":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1088":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1089":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1091":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1093":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1094":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1095":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1097":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1098":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1099":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1100":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1102":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1103":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1104":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1107":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1121":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1122":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1123":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1125":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1127":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1128":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1129":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1131":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1136":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1137":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1139":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1140":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1142":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1143":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1146":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1147":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1150":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1151":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1301":{{"id":"ekze","label":"EKZ Einsiedeln – Dynamisch","color":"#1abc9c"}},"2576":{{"id":"elag","label":"ELAG – Primeo NetzDynamisch","color":"#d35400"}},"4239":{{"id":"ega","label":"EGA – Netz dynamisch","color":"#f39c12"}},"1":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"2":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"3":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"4":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"5":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"6":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"7":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"8":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"9":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"10":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"11":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"12":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"13":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"14":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"23":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"24":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"25":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"26":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"27":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"28":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"29":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"31":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"33":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"34":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"37":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"38":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"39":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"40":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"41":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"43":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"51":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"52":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"53":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"55":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"56":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"57":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"58":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"59":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"60":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"61":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"63":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"64":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"65":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"67":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"68":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"70":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"71":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"72":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"81":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"82":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"83":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"84":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"85":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"86":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"87":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"88":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"89":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"90":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"91":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"92":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"93":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"95":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"96":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"98":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"99":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"100":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"101":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"111":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"112":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"113":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"114":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"115":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"117":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"119":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"131":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"135":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"136":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"137":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"138":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"139":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"141":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"153":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"157":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"160":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"173":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"178":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"180":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"181":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"182":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"192":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"194":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"195":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"196":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"197":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"199":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"200":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"211":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"213":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"214":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"215":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"216":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"218":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"219":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"220":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"221":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"223":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"224":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"225":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"226":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"227":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"228":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"231":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"241":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"242":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"243":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"244":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"245":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"246":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"247":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"248":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"249":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"250":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"251":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"291":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"292":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"293":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"294":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"295":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"296":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"297":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"298":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"1704":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"669":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2008":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2011":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2022":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2025":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2029":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2035":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2041":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2043":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2044":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2045":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2050":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2051":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2053":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2054":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2055":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2063":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2067":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2068":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2079":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2086":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2087":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2096":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2097":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2099":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2102":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2113":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2114":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2115":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2117":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2121":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2122":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2124":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2125":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2134":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2135":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2137":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2138":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2140":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2145":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2147":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2149":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2152":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2153":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2155":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2160":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2162":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2173":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2174":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2175":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2177":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2183":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2186":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2194":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2196":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2197":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2198":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2206":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2208":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2211":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2216":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2220":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2226":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2228":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2230":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2233":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2234":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2235":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2236":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2237":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2238":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2239":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2250":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2254":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2257":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2258":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2261":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2262":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2265":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2266":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2272":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2275":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2276":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2284":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2292":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2293":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2294":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2295":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2296":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2299":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2300":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2301":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2303":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2304":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2305":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2306":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2307":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2308":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2309":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2321":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2323":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2325":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2328":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2333":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2335":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2336":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2337":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2338":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5451":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5456":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5458":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5464":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5790":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5813":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5816":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5817":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5821":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5822":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5827":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5841":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5842":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5843":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6413":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6416":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6417":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6423":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6432":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6433":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6434":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6435":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6437":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6451":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6452":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6456":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6458":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6487":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6504":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6511":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6512":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6513":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2471":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2472":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2473":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2474":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2475":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2476":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2477":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2478":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2479":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2480":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2481":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2611":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2612":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2613":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2614":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2615":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2616":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2617":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2618":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2619":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2620":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2621":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2622":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2761":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2762":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2763":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2764":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2765":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2766":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2767":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2768":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2769":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2770":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2771":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2772":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2773":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2774":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2775":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2782":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2783":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2785":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2786":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2787":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2788":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2830":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2831":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2883":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2889":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}}}};
+
+const MAP_PROVIDERS = [
+  {{id:'ekz',    label:'EKZ – Energie Dynamisch+400D',  color:'#27ae60'}},
+  {{id:'groupe', label:'Groupe E – VARIO',               color:'#2980b9'}},
+  {{id:'ckw',    label:'CKW – Home/Business dynamic',   color:'#e67e22'}},
+  {{id:'primeo', label:'Primeo – NetzDynamisch',         color:'#8e44ad'}},
+  {{id:'ail',    label:'AIL – Tariffa Dinamica',         color:'#9b59b6'}},
+  {{id:'avag',   label:'AVAG – Primeo NetzDynamisch',    color:'#e74c3c'}},
+  {{id:'aem',    label:'AEM – Tariffa dinamica',         color:'#3498db'}},
+  {{id:'ekze',   label:'EKZ Einsiedeln – Dynamisch',    color:'#1abc9c'}},
+  {{id:'ega',    label:'EGA – Netz dynamisch',           color:'#f39c12'}},
+  {{id:'elag',   label:'ELAG – Primeo NetzDynamisch',    color:'#d35400'}},
+];
+
+let mapPaths = [];
+
+function buildMapLegend() {{
+  const leg = document.getElementById('map-legend');
+  if (!leg) return;
+  leg.innerHTML = MAP_PROVIDERS.map(p =>
+    `<div class="map-legend-item"><div class="map-legend-dot" style="background:${{p.color}}"></div>${{p.label}}</div>`
+  ).join('') +
+  `<div class="map-legend-item"><div class="map-legend-dot" style="background:#cccccc"></div>${{t('map_no_tariff')}}</div>`;
+}}
+
+function filterMap(filterId) {{
+  activeFilter = filterId;
+  document.querySelectorAll('.map-filter-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.filter === filterId)
+  );
+  mapPaths.forEach(path => {{
+    const bfsId = path.dataset.bfs;
+    const info  = MAP_BFS[bfsId];
+    if (filterId === 'all') {{
+      path.style.opacity = '1';
+      path.setAttribute('fill', info ? info.color : '#cccccc');
+    }} else if (info && info.id === filterId) {{
+      path.style.opacity = '1';
+      path.setAttribute('fill', info.color);
+    }} else {{
+      path.style.opacity = '0.12';
+      path.setAttribute('fill', info ? info.color : '#cccccc');
+    }}
+  }});
+}}
+
+async function loadMap() {{
+  if (!mapLoaded) {{ mapLoaded = true; }} else {{ return; }}
+  buildMapLegend();
+  const loadingEl = document.getElementById('map-loading');
+  const svgEl     = document.getElementById('map-svg');
+  const tooltip   = document.getElementById('map-tooltip');
+  const container = document.getElementById('map-svg-container');
+  function loadScript(src) {{
+    return new Promise((res, rej) => {{
+      if (document.querySelector(`script[src="${{src}}"]`)) {{ res(); return; }}
+      const s = document.createElement('script');
+      s.src = src; s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    }});
+  }}
+  try {{
+    await loadScript('https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js');
+    await loadScript('https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js');
+    const topo = await fetch('https://unpkg.com/swiss-maps@4/2021/ch-combined.json').then(r => r.json());
+    loadingEl.style.display = 'none';
+    const muni = topojson.feature(topo, topo.objects.municipalities);
+    const W = container.clientWidth || 800;
+    const H = Math.round(W * 0.56);
+    svgEl.setAttribute('height', H);
+    svgEl.style.height = H + 'px';
+    const proj = d3.geoIdentity().reflectY(true).fitSize([W, H], muni);
+    const path = d3.geoPath().projection(proj);
+    const svg  = d3.select('#map-svg');
+    svg.selectAll('path')
+      .data(muni.features)
+      .enter().append('path')
+      .attr('d', path)
+      .attr('fill', d => {{
+        const id = String(d.id || d.properties?.id || '');
+        return MAP_BFS[id] ? MAP_BFS[id].color : '#cccccc';
+      }})
+      .attr('stroke', '#fff')
+      .attr('stroke-width', 0.5)
+      .attr('cursor', 'pointer')
+      .attr('data-bfs', d => String(d.id || d.properties?.id || ''))
+      .on('mousemove', (ev, d) => {{
+        const id   = String(d.id || d.properties?.id || '');
+        const info = MAP_BFS[id];
+        const name = d.properties?.NAME || d.properties?.name || d.properties?.GEM_NAME || id;
+        tooltip.style.display = 'block';
+        tooltip.style.left    = (ev.offsetX + 14) + 'px';
+        tooltip.style.top     = (ev.offsetY - 10) + 'px';
+        tooltip.innerHTML = info
+          ? `<strong style="color:#1a1a2e">${{name}}</strong><br><span style="color:${{info.color}}">&#9679;</span> <span style="color:#555">${{info.label}}</span>`
+          : `<strong style="color:#1a1a2e">${{name}}</strong><br><span style="color:#aaa;font-size:11px">${{t('map_no_tariff')}}</span>`;
+      }})
+      .on('mouseleave', () => {{ tooltip.style.display = 'none'; }});
+    mapPaths = Array.from(svgEl.querySelectorAll('path'));
+  }} catch(e) {{
+    loadingEl.textContent = 'Could not load map — check network connection.';
+    console.error('Map load error:', e);
+  }}
+}}
+
 // ── View switching ────────────────────────────────────────────────────────────
 let currentView = 'data', smartData = null, activeSmartTariff = null;
 
@@ -1574,11 +1766,14 @@ function switchView(view) {{
   currentView = view;
   document.getElementById('consumer-view').style.display  = view==='smart'?'block':'none';
   document.getElementById('developer-view').style.display = view==='data'?'block':'none';
+  document.getElementById('map-view').style.display       = view==='map'?'block':'none';
   document.getElementById('api-view').style.display       = view==='api'?'block':'none';
   document.getElementById('tab-smart').classList.toggle('active', view==='smart');
   document.getElementById('tab-data').classList.toggle('active',  view==='data');
+  document.getElementById('tab-map').classList.toggle('active',   view==='map');
   document.getElementById('tab-api').classList.toggle('active',   view==='api');
   if (view==='smart' && !smartData) loadSmart();
+  if (view==='map'   && !mapLoaded) loadMap();
 }}
 
 // ── Consumer view ─────────────────────────────────────────────────────────────
