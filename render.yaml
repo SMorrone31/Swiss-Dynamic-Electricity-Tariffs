@@ -7,6 +7,10 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: swiss-tariff-db
+          property: connectionString
       - key: ALERT_EMAIL
         sync: false
       - key: EMAIL_LANG
@@ -19,3 +23,12 @@ services:
         sync: false
       - key: SMTP_PASSWORD
         sync: false
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+
+databases:
+  - name: swiss-tariff-db
+    plan: free
+    region: frankfurt
+    databaseName: tariffs
+    user: tariffs
