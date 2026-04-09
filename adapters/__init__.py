@@ -20,19 +20,17 @@ from adapters.base import (
 )
 from adapters.ckw import CkwAdapter
 from adapters.primeo_energie import PrimeoEnergieAdapter
+from adapters.aem import AemAdapter
+from adapters.ekz import EkzAdapter          # ← aggiungi
+from adapters.groupe_e import GroupeEAdapter
 
-# Mappa adapter_class → classe Python
-_REGISTRY: dict[str, type[BaseAdapter]] = {
+_REGISTRY = {
     "CkwAdapter":           CkwAdapter,
     "PrimeoEnergieAdapter": PrimeoEnergieAdapter,
-    # Aggiungere qui man mano che vengono implementati:
-    # "EkzAdapter":   EkzAdapter,
-    # "GroupeEAdapter": GroupeEAdapter,
-    # "AemAdapter":   AemAdapter,
-    # "EsitAdapter":  EsitAdapter,
-    # "AilAdapter":   AilAdapter,
+    "AemAdapter":           AemAdapter,
+    "EkzAdapter":           EkzAdapter,
+    "GroupeEAdapter":       GroupeEAdapter,  # ← aggiungi
 }
-
 
 def get_adapter(tariff_config: dict) -> BaseAdapter:
     """

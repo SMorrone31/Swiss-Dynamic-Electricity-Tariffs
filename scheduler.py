@@ -467,6 +467,58 @@ async def send_health_alert(missing: list[tuple[str, str]], check_date: date) ->
         _t("missing_body", check_date=check_date, now_utc=now_utc, tariff_lines=tariff_lines),
     )
 
+async def fetch(self, target_date: date) -> NormalizedPrices:
+    """
+    Override del fetch base: corregge source_date con la data reale
+    degli slot restituiti dall'API (che è sempre oggi, non target_date).
+    """
+    from schemas import NormalizedPrices, make_day_range_utc, utc_now
+
+    start_utc, end_utc = make_day_range_utc(target_date)
+    url        = self._build_url(start_utc, end_utc)
+    headers    = self._build_headers()
+    fetched_at = utc_now()
+
+    self._log.info(f"Fetch {target_date} → {url[:80]}...")
+
+    raw_response  = await self._http_get_with_retry(url, headers)
+    response_data = self._preprocess_response(raw_response)
+    slots         = self._parse(response_data, target_date)
+
+    if not slots:
+        from adapters.base import AdapterEmptyError
+        raise AdapterEmptyError(
+            f"{self.tariff_id}: nessun slot ricevuto"
+        )
+
+    # ← DIFFERENZA CHIAVE rispetto al base:
+    # Usa la data reale del primo slot, non target_date
+    try:
+        import zoneinfo
+        tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
+    except ImportError:
+        import pytz
+        tz_ch = pytz.timezone("Europe/Zurich")
+
+    actual_date = slots[0].slot_start_utc.astimezone(tz_ch).date()
+
+    result = NormalizedPrices(
+        tariff_id    = self.tariff_id,
+        source_date  = actual_date,   # ← data reale, non target_date
+        fetched_at   = fetched_at,
+        slots        = sorted(slots, key=lambda s: s.slot_start_utc),
+        adapter_name = self.__class__.__name__,
+        raw_url      = url,
+    )
+
+    if not result.is_complete:
+        result.warnings.append(
+            f"Slot count inatteso: {result.slot_count} (attesi ~96)"
+        )
+        self._log.warning(result.warnings[-1])
+
+    self._log.info(result.summary())
+    return result
 
 async def send_anomaly_alert(result, target_date: date, issues: list[str], tariff_config: dict) -> None:
     tariff_id   = result.tariff_id
