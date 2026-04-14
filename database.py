@@ -352,3 +352,37 @@ def get_last_fetch(session: Session, tariff_id: str) -> Optional[datetime]:
     if dt is not None and dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt
+
+def has_data_for_date(session: Session, tariff_id: str, target_date, tz_ch) -> bool:
+    """
+    Controlla se esistono slot per una specifica data locale svizzera.
+
+    A differenza di get_last_fetch (che dice QUANDO hai fetchato),
+    questa funzione dice PER QUALE DATA hai i prezzi nel DB.
+
+    Usata da /api/v1/health per distinguere:
+      - "ho dati di oggi"   → has_data_for_date(session, id, today_ch, tz_ch)
+      - "ho dati di domani" → has_data_for_date(session, id, tomorrow_ch, tz_ch)
+    """
+    from datetime import datetime, timedelta, timezone as _tz
+
+    midnight = datetime(target_date.year, target_date.month, target_date.day,
+                        tzinfo=tz_ch)
+    start_utc = midnight.astimezone(_tz.utc)
+    end_utc   = (midnight + timedelta(days=1)).astimezone(_tz.utc)
+
+    # Stesso trick strftime per SQLite (evita mismatch formato spazio vs T)
+    start_str = start_utc.replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+    end_str   = end_utc.replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+
+    count = (
+        session.query(PriceSlotDB.id)
+        .filter(
+            PriceSlotDB.tariff_id == tariff_id,
+            PriceSlotDB.slot_start_utc >= start_str,
+            PriceSlotDB.slot_start_utc < end_str,
+        )
+        .limit(1)
+        .count()
+    )
+    return count > 0

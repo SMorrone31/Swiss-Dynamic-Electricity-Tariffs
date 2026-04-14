@@ -1,13 +1,23 @@
 #!/bin/bash
-# run.sh — avvia uvicorn liberando prima la porta 8000
-#
-# Uso:
-#   ./run.sh              # avvia con reload (sviluppo)
-#   ./run.sh --prod       # avvia senza reload (produzione)
-#   ./run.sh --port 8080  # porta diversa
 
 PORT=8000
 PROD=0
+
+# Vai nella directory dello script (IMPORTANTE)
+cd "$(dirname "$0")"
+
+# Attiva venv automaticamente
+if [ ! -d "venv" ]; then
+  echo "→ Creo venv..."
+  python3 -m venv venv
+fi
+
+echo "→ Attivo virtualenv..."
+source venv/bin/activate
+
+# Installa requirements se mancano
+echo "→ Controllo dependencies..."
+pip install -r requirements.txt > /dev/null 2>&1
 
 # Leggi argomenti
 while [[ $# -gt 0 ]]; do
@@ -18,15 +28,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Killa tutto quello che usa la porta
+# Killa porta
 echo "→ Libero porta $PORT..."
 lsof -ti tcp:$PORT | xargs kill -9 2>/dev/null && echo "  Processo terminato" || echo "  Porta libera"
 sleep 0.5
 
-# Avvia
+# Avvio
 if [ $PROD -eq 1 ]; then
   echo "→ Avvio uvicorn (produzione) su http://0.0.0.0:$PORT"
-  # riga 29
   python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT
 else
   echo "→ Avvio uvicorn (sviluppo) su http://127.0.0.1:$PORT"

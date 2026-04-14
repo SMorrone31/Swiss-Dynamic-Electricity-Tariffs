@@ -269,9 +269,13 @@ def get_all_prices_endpoint(
     return {"start_time": start_db.isoformat(), "end_time": end_db.isoformat(), "tariffs": result}
 
 # ── Summary / health endpoints ────────────────────────────────────────────────
-
 @app.get("/api/v1/summary/daily")
 def get_daily_summary(tariff_id: str = Query(...), days: int = Query(5, ge=1, le=30)):
+    try:
+        import zoneinfo; tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
+    except ImportError:
+        import pytz; tz_ch = pytz.timezone("Europe/Zurich")
+
     with SessionLocal() as session:
         from database import Tariff
         if not session.get(Tariff, tariff_id):
@@ -286,18 +290,19 @@ def get_daily_summary(tariff_id: str = Query(...), days: int = Query(5, ge=1, le
     if not rows:
         raise HTTPException(404, "Nessun dato disponibile")
 
-    try:
-        import zoneinfo; tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
-    except ImportError:
-        import pytz; tz_ch = pytz.timezone("Europe/Zurich")
+    from schemas import today_ch as _today_ch
+    today_local = _today_ch()   # data svizzera di OGGI — i dati di domani NON devono apparire
 
     from collections import defaultdict
     by_date: dict = defaultdict(list)
     for (dt, energy, grid, residual) in rows:
         if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
-        local_date = dt.astimezone(tz_ch).date().isoformat()
+        local_date = dt.astimezone(tz_ch).date()
+        # ── FIX: esclude i dati pre-fetchati di domani dalla summary di oggi ──
+        if local_date > today_local:
+            continue
         total = sum(p for p in [energy, grid, residual] if p)
-        if total > 0: by_date[local_date].append((total, dt))
+        if total > 0: by_date[local_date.isoformat()].append((total, dt))
 
     result = []
     for d in sorted(sorted(by_date.keys(), reverse=True)[:days]):
@@ -387,55 +392,106 @@ def get_latest(tariff_id: str = Query(...)):
 
 @app.get("/api/v1/health")
 def health():
-    now = datetime.now(timezone.utc)
-    today = now.date()
+    try:
+        import zoneinfo; tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
+    except ImportError:
+        import pytz; tz_ch = pytz.timezone("Europe/Zurich")
+
+    from schemas import today_ch as _today_ch
+    from database import has_data_for_date
+
+    now_utc      = datetime.now(timezone.utc)
+    today_ch     = _today_ch()                        # data locale svizzera OGGI
+    tomorrow_ch  = today_ch + timedelta(days=1)       # data locale svizzera DOMANI
+
     with SessionLocal() as session:
         tariffs = get_active_tariffs(session)
         statuses = []
         from adapters import list_available_adapters
         available_adapters = set(list_available_adapters())
+
         for t in tariffs:
-            last = get_last_fetch(session, t.tariff_id)
-            has_today = last is not None and last.date() >= today
-            adapter_ready = t.adapter_class in available_adapters
+            adapter_ready     = t.adapter_class in available_adapters
+            last_fetch        = get_last_fetch(session, t.tariff_id)   # solo per display
+            has_today_data    = has_data_for_date(session, t.tariff_id, today_ch, tz_ch)
+            has_tomorrow_data = has_data_for_date(session, t.tariff_id, tomorrow_ch, tz_ch)
+
+            # ── Status OGGI ──────────────────────────────────────────────────
             if not adapter_ready:
                 status, meta = "pending", "Adapter non ancora implementato"
-            elif has_today:
+            elif has_today_data:
                 status, meta = "ok", None
-            elif now.hour < 18:
-                status, meta = "pending", f"Atteso dopo le {t.daily_update_time_utc} UTC"
             else:
-                status, meta = "missing", "Dati non ricevuti oggi"
+                # Determina se è ancora troppo presto per aspettarsi i dati
+                try:
+                    upd_h, upd_m = map(int, t.daily_update_time_utc.split(":"))
+                except Exception:
+                    upd_h, upd_m = 17, 0
+                # Il fetch di OGGI avviene la sera di IERI; se non c'è ancora
+                # siamo in un edge case (server spento, primo avvio)
+                if now_utc.hour < 10:
+                    status, meta = "pending", f"Health check mattutino — fetch atteso ieri sera"
+                else:
+                    status, meta = "missing", "Dati non ricevuti per oggi"
+
+            # ── Status DOMANI (pre-fetch) ─────────────────────────────────────
+            if not adapter_ready:
+                tomorrow_status = "adapter_missing"
+            elif has_tomorrow_data:
+                tomorrow_status = "prefetched"
+            else:
+                # Determina l'orario di fetch per questa tariffa
+                try:
+                    upd_h, upd_m = map(int, t.daily_update_time_utc.split(":"))
+                except Exception:
+                    upd_h, upd_m = 17, 0
+                now_past_update = (now_utc.hour > upd_h or
+                                   (now_utc.hour == upd_h and now_utc.minute >= upd_m + 30))
+                if now_past_update:
+                    tomorrow_status = "missing"   # avrebbe dovuto essere fetchato
+                else:
+                    tomorrow_status = "pending"   # non ancora il momento
+
             statuses.append({
-                "tariff_id":        t.tariff_id,
-                "provider_name":    t.provider_name,
-                "tariff_name":      t.tariff_name,
-                "adapter_class":    t.adapter_class,
-                "adapter_ready":    adapter_ready,
-                "last_fetch_utc":   last.isoformat() if last else None,
-                "has_today_data":   has_today,
-                "status":           status,
-                "status_detail":    meta,
-                "daily_update_utc": t.daily_update_time_utc,
+                "tariff_id":          t.tariff_id,
+                "provider_name":      t.provider_name,
+                "tariff_name":        t.tariff_name,
+                "adapter_class":      t.adapter_class,
+                "adapter_ready":      adapter_ready,
+                "last_fetch_utc":     last_fetch.isoformat() if last_fetch else None,
+                # ── nuovi campi semanticamente corretti ──
+                "has_today_data":     has_today_data,     # dati PER oggi (CH locale)
+                "has_tomorrow_data":  has_tomorrow_data,  # pre-fetch PER domani
+                "status":             status,             # ok / pending / missing
+                "status_detail":      meta,
+                "tomorrow_status":    tomorrow_status,    # prefetched / pending / missing
+                "daily_update_utc":   t.daily_update_time_utc,
+                # ── per compatibilità con il JS esistente ──
+                "today_ch":           today_ch.isoformat(),
+                "tomorrow_ch":        tomorrow_ch.isoformat(),
             })
+
     ready_count = sum(1 for s in statuses if s["adapter_ready"])
     ok_count    = sum(1 for s in statuses if s["status"] == "ok")
     return {
-        "status":         "ok" if ok_count == ready_count and ready_count > 0 else "degraded",
-        "timestamp":      now.isoformat(),
-        "adapters_ready": ready_count,
-        "adapters_total": len(statuses),
-        "ok_count":       ok_count,
-        "tariffs":        statuses,
+        "status":           "ok" if ok_count == ready_count and ready_count > 0 else "degraded",
+        "timestamp":        now_utc.isoformat(),
+        "today_ch":         today_ch.isoformat(),
+        "tomorrow_ch":      tomorrow_ch.isoformat(),
+        "adapters_ready":   ready_count,
+        "adapters_total":   len(statuses),
+        "ok_count":         ok_count,
+        "prefetched_count": sum(1 for s in statuses if s["tomorrow_status"] == "prefetched"),
+        "tariffs":          statuses,
     }
-
 
 # ── Smart summary ─────────────────────────────────────────────────────────────
 
 @app.get("/api/v1/smart")
 def get_smart_summary(date_str: Optional[str] = Query(None)):
     import time as _time
-    target_date = date.fromisoformat(date_str) if date_str else date.today()
+    from schemas import today_ch as _today_ch
+    target_date = date.fromisoformat(date_str) if date_str else _today_ch()
     cache_key = f"smart:{target_date}"
     cached = _summary_cache.get(cache_key)
     if cached and _time.time() - cached["ts"] < 120:
@@ -537,7 +593,8 @@ def get_smart_summary(date_str: Optional[str] = Query(None)):
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard():
-    today = date.today().isoformat()
+    from schemas import today_ch as _today_ch
+    today = _today_ch().isoformat()
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>

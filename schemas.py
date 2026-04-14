@@ -292,3 +292,18 @@ def tomorrow_ch() -> date:
     tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
     now_ch = datetime.now(tz_ch)
     return (now_ch + timedelta(days=1)).date()
+
+def today_ch() -> date:
+    """
+    Data di OGGI in ora locale svizzera (CET/CEST).
+    Da usare ovunque al posto di date.today() che ritorna la data UTC.
+    Tra le 22:00-00:00 UTC (= mezzanotte svizzera CEST), date.today()
+    ritornerebbe il giorno sbagliato.
+    """
+    try:
+        import zoneinfo
+        tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
+    except ImportError:
+        import pytz
+        tz_ch = pytz.timezone("Europe/Zurich")
+    return datetime.now(timezone.utc).astimezone(tz_ch).date()
