@@ -26,6 +26,7 @@ import sys
 from calendar import monthrange
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from schemas import today_ch as today_ch
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -42,13 +43,23 @@ B = "\033[94m"; D = "\033[0m"; BOLD = "\033[1m"
 
 # ── Helpers data ──────────────────────────────────────────────────────────────
 
-def months_in_window(today: date = None, window: int = 3) -> list[tuple[int, int]]:
+def months_in_window(today=None, window: int = 3):
     """
     Ritorna la lista di (year, month) nella finestra corrente.
     window=3 → mese corrente + 2 precedenti.
+ 
+    FIX: usa today_ch() invece di date.today() — corretto per i calcoli
+    tra le 22:00-00:00 UTC quando la data UTC è già il giorno successivo
+    ma in Svizzera è ancora il giorno precedente.
     """
     if today is None:
-        today = date.today()
+        try:
+            from schemas import today_ch as _today_ch
+            today = _today_ch()
+        except ImportError:
+            from datetime import date
+            today = date.today()
+ 
     result = []
     y, m = today.year, today.month
     for _ in range(window):
@@ -57,12 +68,22 @@ def months_in_window(today: date = None, window: int = 3) -> list[tuple[int, int
         if m == 0:
             m = 12
             y -= 1
-    return list(reversed(result))  # ordine cronologico
+    return list(reversed(result))
 
-
-def days_in_month(year: int, month: int) -> list[date]:
-    """Tutti i giorni di un mese, escludendo i giorni futuri."""
-    today = date.today()
+def days_in_month(year: int, month: int):
+    """
+    Tutti i giorni di un mese, escludendo i giorni futuri.
+ 
+    FIX: usa today_ch() invece di date.today().
+    """
+    from calendar import monthrange
+    from datetime import date
+    try:
+        from schemas import today_ch as _today_ch
+        today = _today_ch()
+    except ImportError:
+        today = date.today()
+ 
     _, last_day = monthrange(year, month)
     return [
         date(year, month, d)
@@ -71,16 +92,26 @@ def days_in_month(year: int, month: int) -> list[date]:
     ]
 
 
-def cutoff_date(window: int = 3) -> date:
-    """Data prima della quale i dati vengono cancellati."""
-    today = date.today()
+def cutoff_date(window: int = 3):
+    """
+    Data prima della quale i dati vengono cancellati.
+ 
+    FIX: usa today_ch() invece di date.today().
+    """
+    try:
+        from schemas import today_ch as _today_ch
+        today = _today_ch()
+    except ImportError:
+        from datetime import date
+        today = date.today()
+ 
     y, m = today.year, today.month
     for _ in range(window):
         m -= 1
         if m == 0:
             m = 12
             y -= 1
-    # Primo giorno del mese più vecchio nella finestra
+    from datetime import date
     return date(y, m, 1)
 
 
@@ -200,124 +231,130 @@ async def backfill(force: bool = False, dry_run: bool = False) -> dict:
     """
     Carica i dati storici mancanti per la finestra di 2 mesi.
     Salta i giorni già presenti nel DB (a meno che force=True).
+ 
+    FIX SessionLocal:
+      - init_db() è ora un singleton: chiamarlo qui ritorna la factory
+        già creata all'avvio di FastAPI, senza ricreare il connection pool.
+      - La session per l'exists-check viene aperta e chiusa correttamente
+        con context manager per ogni check (non tenuta aperta per tutto il loop,
+        che causerebbe idle connection troppo lunga su PostgreSQL).
     """
-    from database import init_db, get_active_tariffs, seed_tariffs, PriceSlotDB
+    import asyncio
+    import json as _json
+    from datetime import date, datetime, timedelta, timezone
+    from database import init_db, get_active_tariffs, seed_tariffs, PriceSlotDB, has_data_for_date
     from adapters import get_adapter, list_available_adapters, AdapterError, AdapterEmptyError
-
+ 
+    try:
+        from schemas import today_ch as _today_ch
+        _today = _today_ch()
+    except ImportError:
+        _today = date.today()
+ 
+    # FIX: init_db() è singleton — non ricrea il pool, ritorna quello esistente
     SessionLocal = init_db()
-
-    # Seed tariffe se DB vuoto
+ 
     with SessionLocal() as session:
         tariffs = get_active_tariffs(session)
         if not tariffs:
             log.info("DB vuoto — seed tariffe da evu_list.json")
             seed_tariffs(session)
             tariffs = get_active_tariffs(session)
-
-    available = set(list_available_adapters())
-    active_tariffs = [t for t in tariffs if t.adapter_class in available]
-
+        # Materializziamo la lista fuori dalla session (expire_on_commit=False)
+        active_tariffs = [
+            t for t in tariffs
+            if t.adapter_class in list_available_adapters()
+        ]
+        # Pre-carica le config JSON fuori dalla session
+        tariff_configs = {
+            t.tariff_id: _json.loads(t.full_config_json)
+            for t in active_tariffs
+        }
+ 
     if not active_tariffs:
-        log.warning("Nessuna tariffa con adapter implementato — aggiungi gli adapter prima")
+        log.warning("Nessuna tariffa con adapter implementato")
         return {}
-
+ 
+    try:
+        import zoneinfo
+        tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
+    except ImportError:
+        import pytz
+        tz_ch = pytz.timezone("Europe/Zurich")
+ 
     window = months_in_window(window=3)
     log.info(f"Finestra: {window[0][0]}-{window[0][1]:02d} → {window[-1][0]}-{window[-1][1]:02d}")
-    log.info(f"Tariffe da backfillare: {[t.tariff_id for t in active_tariffs]}")
-
+    log.info(f"Tariffe: {[t.tariff_id for t in active_tariffs]}")
+ 
     stats = {"ok": 0, "skip": 0, "skip_no_backfill": 0, "fail": 0, "total": 0}
-
+ 
     for year, month in window:
         days = days_in_month(year, month)
-        is_current = (year, month) == (date.today().year, date.today().month)
+        is_current = (year, month) == (_today.year, _today.month)
         log.info(f"\n--- {year}-{month:02d} {'(corrente)' if is_current else '(storico)'} ---")
-
+ 
         for target_date in days:
-            # Salta solo i giorni futuri (non oggi)
-            if target_date > date.today():
+            if target_date > _today:
                 continue
-
+ 
             stats["total"] += 1
-
+ 
             for tariff in active_tariffs:
-                # Verifica se i dati esistono già
-                # Verifica se i dati esistono già — conta gli slot
-                # usando una finestra UTC leggermente allargata per catturare
-                # tutti gli slot del giorno in ora locale svizzera
-                # (es. 1 gen 00:00 CET = 31 dic 23:00 UTC)
-                if not force:
-                    with SessionLocal() as session:
-                        # Usa strftime spazio per matchare il formato salvato nel DB SQLite.
-                        # datetime aware → SQLAlchemy → isoformat T → no match → existing=0 sempre.
-                        # Fix: stringa spazio diretta, identica al formato nel DB.
-                        start_naive = (datetime(target_date.year, target_date.month,
-                                               target_date.day, tzinfo=timezone.utc)
-                                       - timedelta(hours=2)).replace(tzinfo=None)
-                        end_naive   = (start_naive + timedelta(hours=28))
-                        start_str   = start_naive.strftime("%Y-%m-%d %H:%M:%S")
-                        end_str     = end_naive.strftime("%Y-%m-%d %H:%M:%S")
-                        existing = session.query(PriceSlotDB).filter(
-                            PriceSlotDB.tariff_id == tariff.tariff_id,
-                            PriceSlotDB.slot_start_utc >= start_str,
-                            PriceSlotDB.slot_start_utc < end_str,
-                        ).count()
-
-                        if existing >= 88:  # abbastanza slot (92 nei giorni DST)
-                            stats["skip"] += 1
-                            continue
-
-                # Salta se l'adapter non supporta backfill storico
-                # (es. Primeo: API senza memoria storica, solo day-ahead)
-                import json as _json
-                config = _json.loads(tariff.full_config_json)
+                config = tariff_configs[tariff.tariff_id]
+ 
+                # Salta se non supporta backfill storico
                 if not config.get("api_params", {}).get("backfill_supported", True):
                     log.debug(
-                        f"  {Y}↷{D} {tariff.tariff_id} / {target_date}: "
-                        f"backfill storico non supportato (API day-ahead only)"
+                        f"  ↷ {tariff.tariff_id} / {target_date}: "
+                        f"day-ahead only — skip"
                     )
                     stats["skip_no_backfill"] += 1
                     stats["skip"] += 1
                     continue
-
+ 
+                # Verifica se i dati esistono già — session aperta solo per la query
+                if not force:
+                    with SessionLocal() as session:
+                        already = has_data_for_date(session, tariff.tariff_id, target_date, tz_ch)
+                    if already:
+                        stats["skip"] += 1
+                        continue
+ 
                 if dry_run:
                     log.info(f"  [DRY RUN] {tariff.tariff_id} / {target_date}")
                     stats["ok"] += 1
                     continue
-
+ 
                 # Fetch e salva
-                import json
-                config = json.loads(tariff.full_config_json)
                 try:
                     adapter = get_adapter(config)
                     result  = await adapter.fetch(target_date)
-
+ 
                     from database import upsert_prices
                     with SessionLocal() as session:
                         saved = upsert_prices(session, result)
-
-                    log.info(
-                        f"  {G}✓{D} {tariff.tariff_id} / {target_date} "
-                        f"→ {saved} slot | avg: {result.avg_total_price*100:.1f} Rp"
-                        if result.avg_total_price else
-                        f"  {G}✓{D} {tariff.tariff_id} / {target_date} → {saved} slot"
+ 
+                    avg_str = (
+                        f" | avg: {result.avg_total_price*100:.1f} Rp"
+                        if result.avg_total_price else ""
                     )
+                    log.info(f"  ✓ {tariff.tariff_id} / {target_date} → {saved} slot{avg_str}")
                     stats["ok"] += 1
-
-                    # Piccola pausa per non sovraccaricare l'API
-                    await asyncio.sleep(0.5)
-
+ 
+                    await asyncio.sleep(0.5)   # throttle per non martellare l'API
+ 
                 except AdapterEmptyError as e:
-                    log.warning(f"  {Y}!{D} {tariff.tariff_id} / {target_date}: {e}")
+                    log.warning(f"  ! {tariff.tariff_id} / {target_date}: {e}")
                     stats["skip"] += 1
                 except AdapterError as e:
-                    log.error(f"  {R}✗{D} {tariff.tariff_id} / {target_date}: {e}")
+                    log.error(f"  ✗ {tariff.tariff_id} / {target_date}: {e}")
                     stats["fail"] += 1
                 except Exception as e:
-                    log.error(f"  {R}✗{D} {tariff.tariff_id} / {target_date}: {type(e).__name__}: {e}")
+                    log.error(f"  ✗ {tariff.tariff_id} / {target_date}: {type(e).__name__}: {e}")
                     stats["fail"] += 1
-
+ 
     return stats
-
+ 
 
 # ── Job mensile (chiamato dallo scheduler) ────────────────────────────────────
 

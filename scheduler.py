@@ -4,41 +4,71 @@ scheduler.py
 Scheduler giornaliero automatico per Swiss Tariff Hub.
 
 Flusso giornaliero (ora locale CET/CEST):
+
+  FETCH PRIMARIO
+  ─────────────
   12:05 CET → Fetch CKW (home + business) per DOMANI
                Retry: 12:35, poi 13:35
                Se tutti falliti: EMAIL ❌
+
   18:30 CET → Fetch tutti gli altri EVU per DOMANI
                Retry: 19:00, poi 20:00
                Se tutti falliti: EMAIL ❌
-  10:00 CET → Health check: i dati di OGGI sono nel DB?
-               Se mancano: EMAIL ⚠️
-               (cattura il caso "server era spento ieri")
 
-Validazione post-fetch:
-  Dopo ogni fetch controlla slot count, prezzi a zero/negativi,
-  tutti prezzi identici (possibile errore API).
-  Se anomalie: EMAIL ⚠️
+  RECOVERY (no-op se i dati ci sono già)
+  ───────────────────────────────────────
+  17:30 CET → Recovery CKW: rifetcha solo se dati di domani mancano
+  21:00 CET → Recovery TUTTI: rifetcha solo tariffe ancora mancanti
+
+  LAST RESORT
+  ───────────
+  23:30 CET → Ultima verifica: rifetcha mancanti + EMAIL se ancora vuoto ⚠️
+
+  HEALTH CHECK
+  ────────────
+  10:00 CET → Verifica che i dati di OGGI siano nel DB
+               Se mancano: EMAIL ⚠️
+               (cattura il caso "server era spento ieri sera")
+
+  MANUTENZIONE
+  ────────────
+  02:00 CET → 1° di ogni mese: backfill manutenzione mensile
+
+Validazione post-fetch (validate_result):
+  - Slot count fuori range (< 90 o > 102)
+  - Prezzi a zero o negativi
+  - Tutti i prezzi identici — SALTATO se expect_uniform_prices=true in evu_list.json
+    (EKZ 2026 ha prezzi fissi annuali: identici by design, non è un errore)
+  - Gap temporali nella serie (slot non contigui a 15 min esatti)
+  Se anomalie reali: EMAIL ⚠️
+
+Circuit breaker (MAX_CONSECUTIVE_FAILURES = 3):
+  Se una tariffa fallisce per 3 giorni consecutivi, il fetch automatico
+  viene sospeso (log di avviso, nessuna email aggiuntiva — già inviata).
+  Si resetta al primo fetch riuscito oppure con --tariff manuale.
 
 Configurazione (.env nella cartella del progetto):
-  ALERT_EMAIL=simomorro24@gmail.com   # destinatario alert
-  EMAIL_LANG=it                       # lingua email: en / de / fr / it
+  ALERT_EMAIL=simomorro24@gmail.com
+  EMAIL_LANG=it
   SMTP_HOST=smtp.gmail.com
   SMTP_PORT=587
   SMTP_USER=simomorro24@gmail.com
-  SMTP_PASSWORD=xxxxxxxxxxxxxxxx      # App Password Gmail (16 caratteri, no spazi)
+  SMTP_PASSWORD=xxxxxxxxxxxxxxxx
 
 Uso CLI:
   python scheduler.py                                      # avvia scheduler
-  python scheduler.py --now                                # fetch tutte le tariffe oggi
+  python scheduler.py --now                                # fetch tutte le tariffe per domani
   python scheduler.py --tariff ckw_home_dynamic            # fetch singola tariffa
   python scheduler.py --tariff ckw_home_dynamic --date 2026-03-18
   python scheduler.py --health                             # health check manuale
+  python scheduler.py --recovery                           # recovery manuale (solo mancanti)
   python scheduler.py --test-email                         # invia email di test
 """
 
 from __future__ import annotations
 
 import asyncio
+import random
 import logging
 import os
 import smtplib
@@ -68,9 +98,15 @@ log = logging.getLogger("scheduler")
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-RETRY_DELAYS       = [0, 30 * 60, 60 * 60]   # subito, +30 min, +60 min
-EXPECTED_SLOTS_MIN = 90
-EXPECTED_SLOTS_MAX = 102
+RETRY_DELAYS             = [0, 30 * 60, 60 * 60]   # subito, +30 min, +60 min
+EXPECTED_SLOTS_MIN       = 90
+EXPECTED_SLOTS_MAX       = 102
+MAX_CONSECUTIVE_FAILURES = 3   # giorni prima che il circuit breaker scatti
+
+# ── Circuit breaker — stato in memoria ───────────────────────────────────────
+# { tariff_id: contatore_fallimenti_consecutivi }
+# Si azzera al primo fetch riuscito o con --tariff manuale. Reset al riavvio.
+_failure_streak: dict[str, int] = {}
 
 
 # ── Traduzioni email ──────────────────────────────────────────────────────────
@@ -96,20 +132,22 @@ What to do:
   3. Retry manually:
      python scheduler.py --tariff {tariff_id} --date {target_date}
 """,
-        "missing_subject": "[Swiss Tariff Hub] ⚠️  Missing data — {count} tariff(s) ({date})",
+        "missing_subject": "[Swiss Tariff Hub] ⚠️  Missing data — {count} tariff(s) for {date}",
         "missing_body": """\
 Swiss Tariff Hub — Missing Data
 ================================================
 
 Check date: {check_date}
 Alert time: {now_utc}
+Context:    {context}
 
-The following tariff(s) have NO data for today:
+The following tariff(s) have NO data for {check_date}:
 {tariff_lines}
 
 Expected fetch schedule (CET):
-  CKW:       12:05 (retry 12:35, 13:35)
-  Other EVU: 18:30 (retry 19:00, 20:00)
+  CKW:       12:05 (retry 12:35, 13:35) + recovery 17:30
+  Other EVU: 18:30 (retry 19:00, 20:00) + recovery 21:00
+  Last resort: 23:30
 
 What to do:
   1. Check the system logs
@@ -146,14 +184,19 @@ Swiss Tariff Hub — Email Test
 If you receive this email, your alert configuration is working correctly.
 
 Alerts will be sent automatically when:
-  ❌  A fetch fails after all retries (~13:35 CET for CKW)
+  ❌  A fetch fails after all retries (~13:35 CET for CKW, ~20:30 CET for others)
   ⚠️   Data is missing during the morning health check (10:00 CET)
-  ⚠️   Fetched data has anomalies (wrong slot count, zero prices, etc.)
+  ⚠️   Data is still missing at the last resort check (23:30 CET)
+  ⚠️   Fetched data has REAL anomalies (wrong slot count, gaps, zero prices)
+       NOTE: uniform prices are NOT flagged if expect_uniform_prices=true (e.g. EKZ)
 
 Current schedule (CET):
-  12:05 → Fetch CKW (retry 12:35, 13:35)
-  18:30 → Fetch other EVU (retry 19:00, 20:00)
-  10:00 → Health check
+  12:05 → Fetch CKW        (retry 12:35, 13:35)
+  17:30 → Recovery CKW     (only if data missing)
+  18:30 → Fetch other EVU  (retry 19:00, 20:00)
+  21:00 → Recovery all     (only if data missing)
+  23:30 → Last resort all  (final check + alert if still missing)
+  10:00 → Morning health check
 """,
     },
     "de": {
@@ -176,20 +219,22 @@ Was tun:
   3. Manuell erneut versuchen:
      python scheduler.py --tariff {tariff_id} --date {target_date}
 """,
-        "missing_subject": "[Swiss Tariff Hub] ⚠️  Fehlende Daten — {count} Tarif(e) ({date})",
+        "missing_subject": "[Swiss Tariff Hub] ⚠️  Fehlende Daten — {count} Tarif(e) für {date}",
         "missing_body": """\
 Swiss Tariff Hub — Fehlende Daten
 ================================================
 
 Prüfdatum:  {check_date}
 Alarmzeit:  {now_utc}
+Kontext:    {context}
 
-Folgende Tarife haben KEINE Daten für heute:
+Folgende Tarife haben KEINE Daten für {check_date}:
 {tariff_lines}
 
 Erwarteter Abrufplan (CET):
-  CKW:        12:05 (Retry 12:35, 13:35)
-  Andere EVU: 18:30 (Retry 19:00, 20:00)
+  CKW:        12:05 (Retry 12:35, 13:35) + Recovery 17:30
+  Andere EVU: 18:30 (Retry 19:00, 20:00) + Recovery 21:00
+  Last Resort: 23:30
 
 Was tun:
   1. Systemprotokolle prüfen
@@ -226,14 +271,19 @@ Swiss Tariff Hub — E-Mail-Test
 Wenn Sie diese E-Mail erhalten, funktioniert die Alarmkonfiguration korrekt.
 
 Alarme werden automatisch gesendet bei:
-  ❌  Fehlgeschlagenem Abruf nach allen Versuchen (~13:35 CET bei CKW)
+  ❌  Fehlgeschlagenem Abruf nach allen Versuchen
   ⚠️   Fehlenden Daten beim Gesundheitscheck (10:00 CET)
-  ⚠️   Anomalien in abgerufenen Daten
+  ⚠️   Noch fehlenden Daten beim Last-Resort-Check (23:30 CET)
+  ⚠️   ECHTEN Anomalien in Daten (falsche Slot-Anzahl, Lücken, Nullpreise)
+       HINWEIS: einheitliche Preise werden NICHT gemeldet wenn expect_uniform_prices=true (z.B. EKZ)
 
 Aktueller Zeitplan (CET):
-  12:05 → CKW abrufen (Retry 12:35, 13:35)
-  18:30 → Andere EVU (Retry 19:00, 20:00)
-  10:00 → Gesundheitscheck
+  12:05 → CKW abrufen       (Retry 12:35, 13:35)
+  17:30 → CKW Recovery      (nur bei fehlenden Daten)
+  18:30 → Andere EVU        (Retry 19:00, 20:00)
+  21:00 → Recovery alle     (nur bei fehlenden Daten)
+  23:30 → Last Resort alle  (finale Prüfung + Alert)
+  10:00 → Morgen-Gesundheitscheck
 """,
     },
     "fr": {
@@ -256,20 +306,22 @@ Que faire:
   3. Réessayer manuellement:
      python scheduler.py --tariff {tariff_id} --date {target_date}
 """,
-        "missing_subject": "[Swiss Tariff Hub] ⚠️  Données manquantes — {count} tarif(s) ({date})",
+        "missing_subject": "[Swiss Tariff Hub] ⚠️  Données manquantes — {count} tarif(s) pour {date}",
         "missing_body": """\
 Swiss Tariff Hub — Données manquantes
 ================================================
 
 Date de vérif.: {check_date}
 Heure alerte:   {now_utc}
+Contexte:       {context}
 
-Les tarifs suivants n'ont PAS de données pour aujourd'hui:
+Les tarifs suivants n'ont PAS de données pour {check_date}:
 {tariff_lines}
 
 Planning de collecte prévu (CET):
-  CKW:         12h05 (retry 12h35, 13h35)
-  Autres EVU:  18h30 (retry 19h00, 20h00)
+  CKW:         12h05 (retry 12h35, 13h35) + recovery 17h30
+  Autres EVU:  18h30 (retry 19h00, 20h00) + recovery 21h00
+  Last resort: 23h30
 
 Que faire:
   1. Consulter les journaux système
@@ -305,15 +357,13 @@ Swiss Tariff Hub — Test Email
 
 Si vous recevez cet email, la configuration des alertes fonctionne correctement.
 
-Des alertes seront envoyées automatiquement quand:
-  ❌  Une collecte échoue après toutes les tentatives (~13h35 CET pour CKW)
-  ⚠️   Des données manquent lors du contrôle matinal (10h00 CET)
-  ⚠️   Les données collectées présentent des anomalies
-
 Planning actuel (CET):
-  12h05 → Collecte CKW (retry 12h35, 13h35)
+  12h05 → Collecte CKW       (retry 12h35, 13h35)
+  17h30 → Recovery CKW       (seulement si données manquantes)
   18h30 → Collecte autres EVU (retry 19h00, 20h00)
-  10h00 → Contrôle de santé
+  21h00 → Recovery tous      (seulement si données manquantes)
+  23h30 → Last resort tous   (vérification finale + alerte)
+  10h00 → Contrôle de santé matinal
 """,
     },
     "it": {
@@ -336,20 +386,22 @@ Cosa fare:
   3. Riprova manualmente:
      python scheduler.py --tariff {tariff_id} --date {target_date}
 """,
-        "missing_subject": "[Swiss Tariff Hub] ⚠️  Dati mancanti — {count} tariffa/e ({date})",
+        "missing_subject": "[Swiss Tariff Hub] ⚠️  Dati mancanti — {count} tariffa/e per {date}",
         "missing_body": """\
 Swiss Tariff Hub — Dati Mancanti
 ================================================
 
 Data controllo: {check_date}
 Ora alert:      {now_utc}
+Contesto:       {context}
 
-Le seguenti tariffe NON hanno dati per oggi:
+Le seguenti tariffe NON hanno dati per {check_date}:
 {tariff_lines}
 
 Orari fetch previsti (CET):
-  CKW:        12:05 (retry 12:35, 13:35)
-  Altri EVU:  18:30 (retry 19:00, 20:00)
+  CKW:        12:05 (retry 12:35, 13:35) + recovery 17:30
+  Altri EVU:  18:30 (retry 19:00, 20:00) + recovery 21:00
+  Last resort: 23:30
 
 Cosa fare:
   1. Controlla i log del sistema
@@ -386,14 +438,19 @@ Swiss Tariff Hub — Test Email
 Se ricevi questa email, la configurazione degli alert è corretta.
 
 Gli alert arriveranno automaticamente quando:
-  ❌  Un fetch fallisce dopo tutti i retry (~13:35 CET per CKW)
+  ❌  Un fetch fallisce dopo tutti i retry
   ⚠️   Mancano dati all'health check delle 10:00 CET
-  ⚠️   I dati fetchati hanno anomalie (slot errati, prezzi a zero, ecc.)
+  ⚠️   Mancano dati al last resort delle 23:30 CET
+  ⚠️   I dati hanno ANOMALIE REALI (slot errati, gap temporali, prezzi zero)
+       NOTA: prezzi uniformi NON vengono segnalati se expect_uniform_prices=true (es. EKZ)
 
 Orari correnti (CET):
-  12:05 → Fetch CKW (retry 12:35, 13:35)
-  18:30 → Fetch altri EVU (retry 19:00, 20:00)
-  10:00 → Health check
+  12:05 → Fetch CKW        (retry 12:35, 13:35)
+  17:30 → Recovery CKW     (solo se dati mancano)
+  18:30 → Fetch altri EVU  (retry 19:00, 20:00)
+  21:00 → Recovery tutti   (solo se dati mancano)
+  23:30 → Last resort tutti (verifica finale + alert)
+  10:00 → Health check mattutino
 """,
     },
 }
@@ -407,6 +464,17 @@ def _lang() -> str:
 def _t(key: str, **kwargs) -> str:
     tmpl = _T[_lang()].get(key, _T["en"][key])
     return tmpl.format(**kwargs) if kwargs else tmpl
+
+
+# ── Timezone helper ───────────────────────────────────────────────────────────
+
+def _tz_ch():
+    try:
+        import zoneinfo
+        return zoneinfo.ZoneInfo("Europe/Zurich")
+    except ImportError:
+        import pytz
+        return pytz.timezone("Europe/Zurich")
 
 
 # ── Invio email ───────────────────────────────────────────────────────────────
@@ -453,72 +521,35 @@ async def send_fetch_alert(tariff_config: dict, target_date: date, error_detail:
     error_line = f"Error detail: {error_detail}\n" if error_detail else ""
     await send_email(
         _t("fetch_failed_subject", tariff_id=tariff_id, date=target_date),
-        _t("fetch_failed_body", tariff_id=tariff_id, provider=provider,
-           target_date=target_date, now_utc=now_utc, retries=len(RETRY_DELAYS),
-           error_line=error_line, api_url=tariff_config.get("api_base_url", "N/A")),
+        _t("fetch_failed_body",
+           tariff_id=tariff_id, provider=provider,
+           target_date=target_date, now_utc=now_utc,
+           retries=len(RETRY_DELAYS),
+           error_line=error_line,
+           api_url=tariff_config.get("api_base_url", "N/A")),
     )
 
 
-async def send_health_alert(missing: list[tuple[str, str]], check_date: date) -> None:
+async def send_missing_alert(
+    missing: list[tuple[str, str]],
+    check_date: date,
+    context: str = "health check",
+) -> None:
+    """Email generica 'dati mancanti', usata da health check e last resort."""
     now_utc      = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     tariff_lines = "\n".join(f"  • {tid}  ({provider})" for tid, provider in missing)
     await send_email(
         _t("missing_subject", count=len(missing), date=check_date),
-        _t("missing_body", check_date=check_date, now_utc=now_utc, tariff_lines=tariff_lines),
+        _t("missing_body",
+           check_date=check_date, now_utc=now_utc,
+           context=context, tariff_lines=tariff_lines),
     )
 
-async def fetch(self, target_date: date) -> NormalizedPrices:
-    """
-    Override del fetch base: corregge source_date con la data reale
-    degli slot restituiti dall'API (che è sempre oggi, non target_date).
-    """
-    from schemas import NormalizedPrices, make_day_range_utc, utc_now
 
-    start_utc, end_utc = make_day_range_utc(target_date)
-    url        = self._build_url(start_utc, end_utc)
-    headers    = self._build_headers()
-    fetched_at = utc_now()
+# Alias per compatibilità con codice esistente che chiama send_health_alert
+async def send_health_alert(missing: list[tuple[str, str]], check_date: date) -> None:
+    await send_missing_alert(missing, check_date, context="morning health check (10:00 CET)")
 
-    self._log.info(f"Fetch {target_date} → {url[:80]}...")
-
-    raw_response  = await self._http_get_with_retry(url, headers)
-    response_data = self._preprocess_response(raw_response)
-    slots         = self._parse(response_data, target_date)
-
-    if not slots:
-        from adapters.base import AdapterEmptyError
-        raise AdapterEmptyError(
-            f"{self.tariff_id}: nessun slot ricevuto"
-        )
-
-    # ← DIFFERENZA CHIAVE rispetto al base:
-    # Usa la data reale del primo slot, non target_date
-    try:
-        import zoneinfo
-        tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
-    except ImportError:
-        import pytz
-        tz_ch = pytz.timezone("Europe/Zurich")
-
-    actual_date = slots[0].slot_start_utc.astimezone(tz_ch).date()
-
-    result = NormalizedPrices(
-        tariff_id    = self.tariff_id,
-        source_date  = actual_date,   # ← data reale, non target_date
-        fetched_at   = fetched_at,
-        slots        = sorted(slots, key=lambda s: s.slot_start_utc),
-        adapter_name = self.__class__.__name__,
-        raw_url      = url,
-    )
-
-    if not result.is_complete:
-        result.warnings.append(
-            f"Slot count inatteso: {result.slot_count} (attesi ~96)"
-        )
-        self._log.warning(result.warnings[-1])
-
-    self._log.info(result.summary())
-    return result
 
 async def send_anomaly_alert(result, target_date: date, issues: list[str], tariff_config: dict) -> None:
     tariff_id   = result.tariff_id
@@ -527,50 +558,139 @@ async def send_anomaly_alert(result, target_date: date, issues: list[str], tarif
     issue_lines = "\n".join(f"  • {i}" for i in issues)
     await send_email(
         _t("anomaly_subject", tariff_id=tariff_id, date=target_date),
-        _t("anomaly_body", tariff_id=tariff_id, provider=provider,
-           target_date=target_date, now_utc=now_utc, issue_lines=issue_lines),
+        _t("anomaly_body",
+           tariff_id=tariff_id, provider=provider,
+           target_date=target_date, now_utc=now_utc,
+           issue_lines=issue_lines),
     )
 
 
 # ── Validazione post-fetch ────────────────────────────────────────────────────
 
-def validate_result(result) -> list[str]:
-    """Ritorna lista di problemi trovati. Lista vuota = tutto ok."""
-    issues = []
-    sc = result.slot_count
+def validate_result(result, tariff_config: dict | None = None) -> list[str]:
+    """
+    Controlla la qualità dei dati fetchati.
+    Ritorna lista di problemi trovati. Lista vuota = tutto ok.
 
+    tariff_config: entry completa da evu_list.json (opzionale ma consigliato).
+                   Necessario per leggere api_params.expect_uniform_prices.
+
+    Checks applicati:
+      1. Slot count (< 90 o > 102)
+      2. Prezzi a zero
+      3. Prezzi negativi
+      4. Tutti i prezzi identici — SALTATO se expect_uniform_prices=true
+         EKZ 2026 pubblica prezzi fissi annuali: 96 slot identici è atteso,
+         non un errore. Senza questo check arrivava una falsa email ogni sera.
+      5. Gap temporali nella serie: verifica che ogni slot sia esattamente
+         15 min dopo il precedente. Un'API potrebbe restituire 96 slot ma
+         con un buco di 2 ore nel mezzo — prima non veniva rilevato.
+    """
+    issues     = []
+    config     = tariff_config or {}
+    api_params = config.get("api_params", {})
+
+    # 1. Slot count
+    sc = result.slot_count
     if sc < EXPECTED_SLOTS_MIN:
         issues.append(f"Too few slots: {sc} (expected ~96, min {EXPECTED_SLOTS_MIN})")
     elif sc > EXPECTED_SLOTS_MAX:
         issues.append(f"Too many slots: {sc} (expected ~96, max {EXPECTED_SLOTS_MAX})")
 
-    zero_slots     = [s.slot_start_utc.strftime("%H:%M") for s in result.slots if s.total_price == 0.0]
-    negative_slots = [s.slot_start_utc.strftime("%H:%M") for s in result.slots
-                      if s.total_price is not None and s.total_price < 0]
-
+    # 2. Prezzi a zero
+    zero_slots = [
+        s.slot_start_utc.strftime("%H:%M")
+        for s in result.slots
+        if s.total_price is not None and s.total_price == 0.0
+    ]
     if zero_slots:
         sample = zero_slots[:5]
         more   = f" (+{len(zero_slots)-5} more)" if len(zero_slots) > 5 else ""
         issues.append(f"Zero-price slots: {', '.join(sample)}{more}")
 
+    # 3. Prezzi negativi
+    negative_slots = [
+        s.slot_start_utc.strftime("%H:%M")
+        for s in result.slots
+        if s.total_price is not None and s.total_price < 0
+    ]
     if negative_slots:
         sample = negative_slots[:5]
         more   = f" (+{len(negative_slots)-5} more)" if len(negative_slots) > 5 else ""
         issues.append(f"Negative-price slots: {', '.join(sample)}{more}")
 
-    totals = [s.total_price for s in result.slots if s.total_price is not None]
-    if len(totals) > 4 and len(set(round(t, 6) for t in totals)) == 1:
-        issues.append(
-            f"All {len(totals)} slots have identical price "
-            f"({totals[0]*100:.2f} Rp/kWh) — possible API error"
-        )
+    # 4. Tutti i prezzi identici — FIX EKZ falsi positivi
+    # EKZ ha expect_uniform_prices=true in evu_list.json: skip il check.
+    if not api_params.get("expect_uniform_prices", False):
+        totals = [s.total_price for s in result.slots if s.total_price is not None]
+        if len(totals) > 4 and len(set(round(t, 6) for t in totals)) == 1:
+            issues.append(
+                f"All {len(totals)} slots have identical price "
+                f"({totals[0]*100:.2f} Rp/kWh) — possible API error"
+            )
+    else:
+        log.debug(f"[{result.tariff_id}] expect_uniform_prices=true — skip identical-price check")
+
+    # 5. Gap temporali nella serie (nuovo check)
+    if len(result.slots) >= 2:
+        gaps = []
+        for i in range(len(result.slots) - 1):
+            expected_next = result.slots[i].slot_start_utc + timedelta(minutes=15)
+            actual_next   = result.slots[i + 1].slot_start_utc
+            delta_min     = int((actual_next - expected_next).total_seconds() / 60)
+            if abs(delta_min) > 0:
+                gap_time = result.slots[i].slot_start_utc.strftime("%H:%M")
+                gaps.append(f"{gap_time} (gap {delta_min:+d} min)")
+        if gaps:
+            sample = gaps[:3]
+            more   = f" (+{len(gaps)-3} more)" if len(gaps) > 3 else ""
+            issues.append(f"Temporal gaps in series: {', '.join(sample)}{more}")
 
     return issues
+
+
+# ── Circuit breaker ───────────────────────────────────────────────────────────
+
+def _circuit_open(tariff_id: str) -> bool:
+    """
+    True se il circuit breaker è aperto (troppi fallimenti consecutivi).
+    Quando aperto: skip del fetch + log di avviso, senza email aggiuntive
+    (l'email è già stata inviata al momento del fallimento).
+    """
+    streak = _failure_streak.get(tariff_id, 0)
+    if streak >= MAX_CONSECUTIVE_FAILURES:
+        log.warning(
+            f"[{tariff_id}] Circuit breaker APERTO ({streak} fallimenti consecutivi) — "
+            f"fetch skippato. Usa --tariff {tariff_id} per forzare."
+        )
+        return True
+    return False
+
+
+def _record_success(tariff_id: str) -> None:
+    """Azzera il contatore di fallimenti per questa tariffa."""
+    if tariff_id in _failure_streak:
+        old = _failure_streak.pop(tariff_id)
+        log.info(f"[{tariff_id}] Circuit breaker resettato (era a {old} fallimenti consecutivi)")
+
+
+def _record_failure(tariff_id: str) -> int:
+    """Incrementa il contatore di fallimenti. Ritorna il nuovo valore."""
+    _failure_streak[tariff_id] = _failure_streak.get(tariff_id, 0) + 1
+    return _failure_streak[tariff_id]
 
 
 # ── Fetch singola tariffa con retry ───────────────────────────────────────────
 
 async def fetch_with_retry(tariff_config: dict, target_date: date, _unused) -> bool:
+    """
+    Fetcha una tariffa con fino a 3 tentativi (0, +30min, +60min).
+
+    Novità rispetto alla versione precedente:
+      - Applica il circuit breaker prima di provare
+      - Passa tariff_config a validate_result() per leggere expect_uniform_prices
+      - Aggiorna il contatore del circuit breaker dopo ogni esito
+    """
     from adapters import get_adapter, AdapterError, AdapterEmptyError, list_available_adapters
     from database import upsert_prices, init_db
 
@@ -579,6 +699,10 @@ async def fetch_with_retry(tariff_config: dict, target_date: date, _unused) -> b
 
     if adapter_class not in list_available_adapters():
         log.warning(f"[{tariff_id}] Adapter '{adapter_class}' non implementato — skip")
+        return False
+
+    # Circuit breaker: se in streak di fallimenti, skip silenzioso
+    if _circuit_open(tariff_id):
         return False
 
     last_error = ""
@@ -599,13 +723,16 @@ async def fetch_with_retry(tariff_config: dict, target_date: date, _unused) -> b
             avg_str = f" | avg: {result.avg_total_price*100:.2f} Rp/kWh" if result.avg_total_price else ""
             log.info(f"[{tariff_id}] ✓ {saved} slot salvati{avg_str}")
 
-            issues = validate_result(result)
+            # Passa tariff_config per il check expect_uniform_prices (fix EKZ)
+            issues = validate_result(result, tariff_config)
             if issues:
                 log.warning(f"[{tariff_id}] Anomalie: {issues}")
                 await send_anomaly_alert(result, target_date, issues, tariff_config)
             else:
                 log.info(f"[{tariff_id}] ✓ Validazione OK ({result.slot_count} slot)")
 
+            # Fetch riuscito → azzera circuit breaker
+            _record_success(tariff_id)
             return True
 
         except AdapterEmptyError as e:
@@ -621,7 +748,84 @@ async def fetch_with_retry(tariff_config: dict, target_date: date, _unused) -> b
 
     log.error(f"[{tariff_id}] TUTTI I TENTATIVI FALLITI per {target_date}")
     await send_fetch_alert(tariff_config, target_date, last_error)
+
+    # Aggiorna streak fallimenti
+    streak = _record_failure(tariff_id)
+    if streak >= MAX_CONSECUTIVE_FAILURES:
+        log.warning(
+            f"[{tariff_id}] Circuit breaker: {streak} fallimenti consecutivi. "
+            f"Fetch automatico sospeso. Usa --tariff {tariff_id} per riprendere."
+        )
+
     return False
+
+
+# ── Recovery: fetch solo tariffe mancanti ─────────────────────────────────────
+
+async def fetch_missing_for_date(
+    target_date: date,
+    adapter_class_filter: Optional[str] = None,
+    label: str = "recovery",
+) -> list[tuple[str, str]]:
+    """
+    Fetcha SOLO le tariffe che NON hanno già dati per target_date nel DB.
+    È un no-op efficiente se i dati ci sono già (una COUNT query per tariffa).
+
+    Ritorna la lista di (tariff_id, provider_name) ancora mancanti DOPO il tentativo.
+    """
+    from database import init_db, get_active_tariffs, has_data_for_date
+    from adapters import list_available_adapters
+    import json as _json
+
+    tz_ch = _tz_ch()
+
+    SessionLocal = init_db()
+    available    = set(list_available_adapters())
+    missing_configs = []
+
+    with SessionLocal() as session:
+        for t in get_active_tariffs(session):
+            if adapter_class_filter and t.adapter_class != adapter_class_filter:
+                continue
+            if t.adapter_class not in available:
+                continue
+            if not has_data_for_date(session, t.tariff_id, target_date, tz_ch):
+                missing_configs.append(_json.loads(t.full_config_json))
+
+    if not missing_configs:
+        log.info(f"[{label}] ✓ Nessuna tariffa mancante per {target_date}")
+        return []
+
+    missing_ids = [c["tariff_id"] for c in missing_configs]
+    log.info(f"[{label}] {len(missing_configs)} tariffe mancanti per {target_date}: {missing_ids}")
+
+    semaphore = asyncio.Semaphore(3)
+
+    async def bounded(config):
+        async with semaphore:
+            await fetch_with_retry(config, target_date, None)
+
+    await asyncio.gather(*[bounded(c) for c in missing_configs])
+
+    # Verifica quali sono ancora mancanti dopo il tentativo
+    still_missing = []
+    SessionLocal2 = init_db()
+    with SessionLocal2() as session:
+        for config in missing_configs:
+            tid      = config["tariff_id"]
+            provider = config.get("provider_name", "?")
+            if not has_data_for_date(session, tid, target_date, tz_ch):
+                still_missing.append((tid, provider))
+
+    if still_missing:
+        log.warning(
+            f"[{label}] Ancora {len(still_missing)} tariffe senza dati: "
+            f"{[t for t, _ in still_missing]}"
+        )
+    else:
+        log.info(f"[{label}] ✓ Tutti i dati recuperati per {target_date}")
+
+    return still_missing
 
 
 # ── Health check ─────────────────────────────────────────────────────────────
@@ -630,22 +834,17 @@ async def run_health_check() -> None:
     """
     Alle 10:00 CET: verifica che i dati di OGGI siano nel DB.
 
-    I fetch del giorno prima (12:05 e 18:30 CET) salvano i prezzi per OGGI.
-    Se questa mattina i dati mancano → qualcosa è andato storto ieri
-    (server spento, errore silenzioso senza email) → manda email.
+    Usa has_data_for_date (controlla per QUALE DATA ci sono slot, non QUANDO
+    è stato fatto il fetch) — semantica corretta.
     """
-    from database import init_db, get_active_tariffs, get_last_fetch
+    from database import init_db, get_active_tariffs, has_data_for_date
     from adapters import list_available_adapters
+    from schemas import today_ch as _today_ch
 
-    log.info("=== HEALTH CHECK ===")
+    log.info("=== HEALTH CHECK (10:00 CET) ===")
 
-    try:
-        import zoneinfo; tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
-    except ImportError:
-        import pytz; tz_ch = pytz.timezone("Europe/Zurich")
-
-    today     = datetime.now(timezone.utc).astimezone(tz_ch).date()
-    yesterday = today - timedelta(days=1)
+    tz_ch = _tz_ch()
+    today = _today_ch()
 
     SessionLocal = init_db()
     available    = set(list_available_adapters())
@@ -654,34 +853,33 @@ async def run_health_check() -> None:
     with SessionLocal() as session:
         for t in get_active_tariffs(session):
             if t.adapter_class not in available:
+                log.info(f"[{t.tariff_id}] skip — adapter non implementato")
                 continue
-            last = get_last_fetch(session, t.tariff_id)
-            if last is None:
-                log.warning(f"[{t.tariff_id}] ❌ Nessun dato nel DB")
-                missing.append((t.tariff_id, t.provider_name))
-            elif last.date() < yesterday:
-                log.warning(f"[{t.tariff_id}] ❌ Ultimo dato: {last.date()} (atteso >= {yesterday})")
-                missing.append((t.tariff_id, t.provider_name))
+            has_data = has_data_for_date(session, t.tariff_id, today, tz_ch)
+            if has_data:
+                log.info(f"[{t.tariff_id}] ✓ Dati presenti per oggi ({today})")
             else:
-                log.info(f"[{t.tariff_id}] ✓ Ultimo dato: {last.date()}")
+                log.warning(f"[{t.tariff_id}] ❌ Nessun dato per oggi ({today})")
+                missing.append((t.tariff_id, t.provider_name))
 
     if missing:
-        log.error(f"Health check: {len(missing)} tariffe con dati mancanti")
-        await send_health_alert(missing, today)
+        log.error(f"Health check: {len(missing)} tariffe senza dati per oggi")
+        await send_missing_alert(missing, today, context="morning health check (10:00 CET)")
     else:
-        log.info("Health check: ✓ tutte le tariffe hanno dati recenti")
+        log.info("Health check: ✓ tutte le tariffe hanno dati per oggi")
 
 
-# ── Fetch tutte le tariffe ────────────────────────────────────────────────────
+# ── Fetch tutte le tariffe (CLI --now) ────────────────────────────────────────
 
 async def fetch_all(target_date: Optional[date] = None) -> dict[str, bool]:
     from database import init_db, get_active_tariffs, seed_tariffs
     from schemas import tomorrow_ch
+    import json
 
     if target_date is None:
         target_date = tomorrow_ch()
 
-    log.info(f"Fetch di {target_date}")
+    log.info(f"=== FETCH ALL per {target_date} ===")
     SessionLocal = init_db()
     with SessionLocal() as session:
         tariffs = get_active_tariffs(session)
@@ -718,8 +916,9 @@ def start_scheduler() -> None:
 
     scheduler = AsyncIOScheduler(timezone="UTC")
 
+    # ── JOB 1: Fetch primario CKW (12:05 CET = 11:05 UTC) ────────────────────
     async def job_ckw():
-        log.info("=== JOB CKW (11:05 UTC = 12:05 CET) ===")
+        log.info("=== JOB CKW PRIMARIO (11:05 UTC = 12:05 CET) ===")
         from database import init_db, get_active_tariffs
         from schemas import tomorrow_ch
         target = tomorrow_ch()
@@ -733,8 +932,17 @@ def start_scheduler() -> None:
         for config in ckw_configs:
             await fetch_with_retry(config, target, None)
 
+    # ── JOB 2: Recovery CKW (17:30 CET = 16:30 UTC) ──────────────────────────
+    async def job_ckw_recovery():
+        log.info("=== JOB CKW RECOVERY (16:30 UTC = 17:30 CET) ===")
+        from schemas import tomorrow_ch
+        target = tomorrow_ch()
+        await fetch_missing_for_date(target, adapter_class_filter="CkwAdapter", label="ckw_recovery")
+
+    # ── JOB 3: Fetch primario altri EVU (18:30 CET = 17:30 UTC) ──────────────
     async def job_others():
-        log.info("=== JOB ALTRI EVU (17:30 UTC = 18:30 CET) ===")
+        log.info("=== JOB ALTRI EVU PRIMARIO (17:30 UTC = 18:30 CET) ===")
+        asyncio.sleep(random.uniform(0, 30))
         from database import init_db, get_active_tariffs
         from schemas import tomorrow_ch
         target = tomorrow_ch()
@@ -746,31 +954,67 @@ def start_scheduler() -> None:
                 if t.adapter_class != "CkwAdapter"
             ]
         semaphore = asyncio.Semaphore(3)
+
         async def bounded(config):
+            await asyncio.sleep(random.uniform(0, 30))
             async with semaphore:
                 await fetch_with_retry(config, target, None)
+
         await asyncio.gather(*[bounded(c) for c in other_configs])
 
+    # ── JOB 4: Recovery tutti (21:00 CET = 20:00 UTC) ────────────────────────
+    async def job_all_recovery():
+        log.info("=== JOB ALL RECOVERY (20:00 UTC = 21:00 CET) ===")
+        from schemas import tomorrow_ch
+        target = tomorrow_ch()
+        await fetch_missing_for_date(target, label="all_recovery")
+
+    # ── JOB 5: Last resort (23:30 CET = 22:30 UTC) ───────────────────────────
+    async def job_last_resort():
+        log.info("=== LAST RESORT (22:30 UTC = 23:30 CET) ===")
+        from schemas import tomorrow_ch
+        target = tomorrow_ch()
+        still_missing = await fetch_missing_for_date(target, label="last_resort")
+        if still_missing:
+            log.error(
+                f"LAST RESORT: {len(still_missing)} tariffe ANCORA senza dati per {target} "
+                f"alle 23:30 CET — invio alert email"
+            )
+            await send_missing_alert(
+                still_missing,
+                target,
+                context="last resort check (23:30 CET) — all recovery attempts exhausted",
+            )
+
+    # ── JOB 6: Health check mattutino (10:00 CET = 09:00 UTC) ────────────────
     async def job_health_check():
         await run_health_check()
 
+    # ── JOB 7: Manutenzione mensile (2:00 CET = 1:00 UTC, 1° del mese) ───────
     async def job_monthly():
         from backfill import monthly_maintenance
         await monthly_maintenance()
 
-    scheduler.add_job(job_ckw,          CronTrigger(hour=11, minute=5),         id="ckw_fetch")
-    scheduler.add_job(job_others,        CronTrigger(hour=17, minute=30),        id="others_fetch")
-    scheduler.add_job(job_health_check,  CronTrigger(hour=9,  minute=0),         id="health_check")
-    scheduler.add_job(job_monthly,       CronTrigger(day=1, hour=3, minute=0),   id="monthly")
+    # ── Registrazione job ─────────────────────────────────────────────────────
+    scheduler.add_job(job_ckw,           CronTrigger(hour=11, minute=5),       id="ckw_fetch")
+    scheduler.add_job(job_ckw_recovery,  CronTrigger(hour=16, minute=30),      id="ckw_recovery")
+    scheduler.add_job(job_others,        CronTrigger(hour=17, minute=30),      id="others_fetch")
+    scheduler.add_job(job_all_recovery,  CronTrigger(hour=20, minute=0),       id="all_recovery")
+    scheduler.add_job(job_last_resort,   CronTrigger(hour=22, minute=30),      id="last_resort")
+    scheduler.add_job(job_health_check,  CronTrigger(hour=9,  minute=0),       id="health_check")
+    scheduler.add_job(job_monthly,       CronTrigger(day=1, hour=1, minute=0), id="monthly")
 
-    log.info("╔══════════════════════════════════════════╗")
-    log.info("║      Swiss Tariff Hub — Scheduler        ║")
-    log.info("╠══════════════════════════════════════════╣")
-    log.info("║  11:05 UTC (12:05 CET) → fetch CKW       ║")
-    log.info("║  17:30 UTC (18:30 CET) → fetch altri EVU ║")
-    log.info("║  09:00 UTC (10:00 CET) → health check    ║")
-    log.info("║  1° mese  03:00 UTC    → manutenzione    ║")
-    log.info("╚══════════════════════════════════════════╝")
+    log.info("╔══════════════════════════════════════════════════════════╗")
+    log.info("║           Swiss Tariff Hub — Scheduler                   ║")
+    log.info("╠══════════════════════════════════════════════════════════╣")
+    log.info("║  11:05 UTC (12:05 CET) → fetch CKW primario             ║")
+    log.info("║  16:30 UTC (17:30 CET) → recovery CKW  [no-op se ok]   ║")
+    log.info("║  17:30 UTC (18:30 CET) → fetch altri EVU primario       ║")
+    log.info("║  20:00 UTC (21:00 CET) → recovery tutti [no-op se ok]   ║")
+    log.info("║  22:30 UTC (23:30 CET) → last resort   [alert se vuoto] ║")
+    log.info("║  09:00 UTC (10:00 CET) → health check mattutino         ║")
+    log.info("║  1° mese   01:00 UTC   → manutenzione mensile           ║")
+    log.info("╚══════════════════════════════════════════════════════════╝")
 
     email = os.getenv("ALERT_EMAIL", "")
     lang  = _lang()
@@ -798,10 +1042,7 @@ import json
 
 
 def _parse_target_date() -> date:
-    try:
-        import zoneinfo; tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
-    except ImportError:
-        import pytz; tz_ch = pytz.timezone("Europe/Zurich")
+    tz_ch = _tz_ch()
 
     if "--date" in sys.argv:
         idx = sys.argv.index("--date") + 1
@@ -812,10 +1053,8 @@ def _parse_target_date() -> date:
                 print(f"Data non valida: {sys.argv[idx]}. Formato: YYYY-MM-DD")
                 sys.exit(1)
 
-    if "--now" in sys.argv or "--tariff" in sys.argv:
-        return datetime.now(timezone.utc).astimezone(
-            __import__("zoneinfo").ZoneInfo("Europe/Zurich")
-        ).date()
+    if "--now" in sys.argv or "--tariff" in sys.argv or "--recovery" in sys.argv:
+        return datetime.now(timezone.utc).astimezone(tz_ch).date()
 
     from schemas import tomorrow_ch
     return tomorrow_ch()
@@ -831,6 +1070,18 @@ async def cli():
         return
 
     target = _parse_target_date()
+
+    if "--recovery" in sys.argv:
+        log.info(f"Recovery manuale per {target}")
+        still_missing = await fetch_missing_for_date(target, label="manual_recovery")
+        print()
+        if still_missing:
+            print(f"  ⚠️  Ancora {len(still_missing)} tariffe senza dati:")
+            for tid, provider in still_missing:
+                print(f"     ✗ {tid}  ({provider})")
+        else:
+            print("  ✓ Tutti i dati presenti per", target)
+        return
 
     if "--tariff" in sys.argv:
         idx = sys.argv.index("--tariff") + 1
@@ -848,7 +1099,9 @@ async def cli():
         if not config:
             print(f"Tariffa '{tariff_id}' non trovata")
             return
-        log.info(f"Fetch manuale: {tariff_id} per {target}")
+        # Fetch manuale resetta esplicitamente il circuit breaker
+        _failure_streak.pop(tariff_id, None)
+        log.info(f"Fetch manuale: {tariff_id} per {target} (circuit breaker resettato)")
         ok = await fetch_with_retry(config, target, None)
         print("✓ OK" if ok else "✗ FALLITO")
 
@@ -863,7 +1116,7 @@ async def cli():
 
 
 if __name__ == "__main__":
-    if any(f in sys.argv for f in ["--now", "--tariff", "--health", "--test-email"]):
+    if any(f in sys.argv for f in ["--now", "--tariff", "--health", "--test-email", "--recovery"]):
         asyncio.run(cli())
     else:
         start_scheduler()

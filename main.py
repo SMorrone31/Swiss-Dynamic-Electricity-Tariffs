@@ -45,6 +45,13 @@ from schemas import make_day_range_utc
 
 SessionLocal = None
 
+"""
+SOSTITUZIONE DEL BLOCCO lifespan IN main.py
+============================================
+Sostituisci TUTTO il blocco @asynccontextmanager async def lifespan(...)
+con questo codice. Il resto di main.py rimane identico.
+"""
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global SessionLocal
@@ -53,7 +60,6 @@ async def lifespan(app: FastAPI):
         n = seed_tariffs(session)
     print(f"[startup] DB pronto — {n} tariffe caricate")
 
-    # Scheduler integrato nel processo FastAPI (necessario per Render free)
     import asyncio as _asyncio
     import json as _json
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -61,46 +67,99 @@ async def lifespan(app: FastAPI):
 
     _scheduler = AsyncIOScheduler(timezone="UTC")
 
+    # ── JOB 1: Fetch primario CKW (12:05 CET = 11:05 UTC) ────────────────────
     async def _job_ckw():
         from scheduler import fetch_with_retry
         from schemas import tomorrow_ch
         target = tomorrow_ch()
         with SessionLocal() as _s:
-            _ckw = [_json.loads(t.full_config_json) for t in get_active_tariffs(_s) if t.adapter_class == "CkwAdapter"]
+            _ckw = [
+                _json.loads(t.full_config_json)
+                for t in get_active_tariffs(_s)
+                if t.adapter_class == "CkwAdapter"
+            ]
         for _cfg in _ckw:
             await fetch_with_retry(_cfg, target, None)
 
+    # ── JOB 2: Recovery CKW (17:30 CET = 16:30 UTC) ──────────────────────────
+    async def _job_ckw_recovery():
+        from scheduler import fetch_missing_for_date
+        from schemas import tomorrow_ch
+        await fetch_missing_for_date(
+            tomorrow_ch(), adapter_class_filter="CkwAdapter", label="ckw_recovery"
+        )
+
+    # ── JOB 3: Fetch primario altri EVU (18:30 CET = 17:30 UTC) ──────────────
     async def _job_others():
         from scheduler import fetch_with_retry
         from schemas import tomorrow_ch
         target = tomorrow_ch()
         with SessionLocal() as _s:
-            _others = [_json.loads(t.full_config_json) for t in get_active_tariffs(_s) if t.adapter_class != "CkwAdapter"]
+            _others = [
+                _json.loads(t.full_config_json)
+                for t in get_active_tariffs(_s)
+                if t.adapter_class != "CkwAdapter"
+            ]
         _sem = _asyncio.Semaphore(3)
+
         async def _b(c):
-            async with _sem: await fetch_with_retry(c, target, None)
+            async with _sem:
+                await fetch_with_retry(c, target, None)
+
         await _asyncio.gather(*[_b(c) for c in _others])
 
+    # ── JOB 4: Recovery tutti (21:00 CET = 20:00 UTC) ────────────────────────
+    async def _job_all_recovery():
+        from scheduler import fetch_missing_for_date
+        from schemas import tomorrow_ch
+        await fetch_missing_for_date(tomorrow_ch(), label="all_recovery")
+
+    # ── JOB 5: Last resort (23:30 CET = 22:30 UTC) ───────────────────────────
+    async def _job_last_resort():
+        from scheduler import fetch_missing_for_date, send_missing_alert
+        from schemas import tomorrow_ch
+        target = tomorrow_ch()
+        still_missing = await fetch_missing_for_date(target, label="last_resort")
+        if still_missing:
+            await send_missing_alert(
+                still_missing,
+                target,
+                context="last resort check (23:30 CET) — all recovery attempts exhausted",
+            )
+
+    # ── JOB 6: Health check mattutino (10:00 CET = 09:00 UTC) ────────────────
     async def _job_health():
         from scheduler import run_health_check
         await run_health_check()
 
+    # ── JOB 7: Manutenzione mensile (2:00 CET = 1:00 UTC, 1° del mese) ───────
     async def _job_monthly():
         from backfill import monthly_maintenance
         await monthly_maintenance()
 
-    _scheduler.add_job(_job_ckw,     CronTrigger(hour=11, minute=5),      id="ckw")
-    _scheduler.add_job(_job_others,  CronTrigger(hour=17, minute=30),     id="others")
-    _scheduler.add_job(_job_health,  CronTrigger(hour=9,  minute=0),      id="health")
-    _scheduler.add_job(_job_monthly, CronTrigger(day=1, hour=3, minute=0),id="monthly")
+    # ── Registrazione ─────────────────────────────────────────────────────────
+    _scheduler.add_job(_job_ckw,          CronTrigger(hour=11, minute=5),       id="ckw")
+    _scheduler.add_job(_job_ckw_recovery, CronTrigger(hour=16, minute=30),      id="ckw_recovery")
+    _scheduler.add_job(_job_others,       CronTrigger(hour=17, minute=30),      id="others")
+    _scheduler.add_job(_job_all_recovery, CronTrigger(hour=20, minute=0),       id="all_recovery")
+    _scheduler.add_job(_job_last_resort,  CronTrigger(hour=22, minute=30),      id="last_resort")
+    _scheduler.add_job(_job_health,       CronTrigger(hour=9,  minute=0),       id="health")
+    _scheduler.add_job(_job_monthly,      CronTrigger(day=1, hour=1, minute=0), id="monthly")
     _scheduler.start()
-    print("[startup] Scheduler avviato — 11:05 / 17:30 / 09:00 UTC")
+
+    print("[startup] Scheduler avviato:")
+    print("  11:05 UTC (12:05 CET) → fetch CKW primario")
+    print("  16:30 UTC (17:30 CET) → recovery CKW     [no-op se ok]")
+    print("  17:30 UTC (18:30 CET) → fetch altri EVU primario")
+    print("  20:00 UTC (21:00 CET) → recovery tutti   [no-op se ok]")
+    print("  22:30 UTC (23:30 CET) → last resort      [alert se vuoto]")
+    print("  09:00 UTC (10:00 CET) → health check mattutino")
+    print("  1° mese   01:00 UTC   → manutenzione mensile")
 
     yield
 
     _scheduler.shutdown()
     print("[shutdown] Scheduler fermato")
-
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
@@ -110,6 +169,28 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# In main.py, dopo la creazione dell'app:
+from fastapi import Request
+import os
+
+VALID_API_KEYS: set[str] = set(
+    k.strip()
+    for k in os.getenv("API_KEYS", "").split(",")
+    if k.strip()
+)
+
+@app.middleware("http")
+async def api_key_middleware(request: Request, call_next):
+    # Escludi dashboard, health interno e docs
+    public_paths = {"/", "/docs", "/redoc", "/openapi.json", "/api/v1/health"}
+    if request.url.path in public_paths or not VALID_API_KEYS:
+        return await call_next(request)
+    key = request.headers.get("X-API-Key", "")
+    if key not in VALID_API_KEYS:
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"error": "Invalid or missing API key"}, status_code=401)
+    return await call_next(request)
 
 
 # ── API 1: lista tariffe ──────────────────────────────────────────────────────
@@ -212,8 +293,56 @@ def get_prices_endpoint(
     return response
 
 
+def _find_tariff_for_zip(zip_code: int) -> Optional[str]:
+    """Trova il tariff_id che copre questo CAP."""
+    with SessionLocal() as session:
+        tariffs = get_active_tariffs(session)
+    for t in tariffs:
+        config = json.loads(t.full_config_json)
+        zip_ranges = config.get("zip_ranges", [])
+        if _zip_in_ranges(zip_code, zip_ranges):
+            return t.tariff_id
+    return None
 
-
+def _zip_in_ranges(zip_code: int, ranges) -> bool:
+    for r in ranges:
+        if isinstance(r, int) and r == zip_code:
+            return True
+        if isinstance(r, str):
+            # Formato "4000-4199"
+            if "-" in r:
+                lo, hi = r.split("-")
+                if int(lo) <= zip_code <= int(hi):
+                    return True
+            elif int(r) == zip_code:
+                return True
+    return False
+  
+@app.get("/api/v1/prices/today")
+def get_today_prices(
+    zip_code: Optional[int] = Query(None, description="ZIP, ex. 8600"),
+    tariff_id: Optional[str] = Query(None, description="Tariff ID"),
+):
+    """
+    Prezzi di oggi per CAP o tariff_id. Nessuna gestione date richiesta.
+    Restituisce tutti i 96 slot della giornata corrente svizzera.
+    """
+    from schemas import today_ch as _today_ch
+    today = _today_ch()
+    start_time = f"{today}T00:00:00Z"
+    
+    if zip_code and not tariff_id:
+        # Trova la tariffa per questo CAP
+        tariff_id = _find_tariff_for_zip(zip_code)
+        if not tariff_id:
+            raise HTTPException(404, f"NO tariff founded for the CAP {zip_code}")
+    
+    if not tariff_id:
+        raise HTTPException(400, "Specify zip_code or tariff_id")
+    
+    # Delega all'endpoint esistente
+    return get_prices_endpoint(tariff_id=tariff_id, start_time=start_time)
+  
 # ── API 2b: tutti i prezzi in un colpo ───────────────────────────────────────
 
 @app.get("/api/v1/prices/all")

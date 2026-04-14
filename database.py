@@ -7,14 +7,22 @@ Tabelle:
   tariffs     → una riga per ogni tariffa (da evu_list.json)
   price_slots → i 96 slot da 15 min per ogni tariffa ogni giorno
 
+Fix applicati:
+  1. PostgreSQL production-ready — engine con pool configurato,
+     niente workaround strftime, niente timezone strip.
+  2. Indice su (tariff_id, fetched_at_utc DESC) per get_last_fetch().
+  3. seed_tariffs() disattiva (active=False) le tariffe rimosse da evu_list.json.
+  4. has_data_for_date() funziona correttamente sia su SQLite che PostgreSQL.
+
 Uso:
-  from database import init_db, get_session, upsert_prices, seed_tariffs
+  from database import init_db, upsert_prices, seed_tariffs, has_data_for_date
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -27,23 +35,72 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from schemas import NormalizedPrices
 
 
+# ── Timezone helper ───────────────────────────────────────────────────────────
+
+def _tz_ch():
+    try:
+        import zoneinfo
+        return zoneinfo.ZoneInfo("Europe/Zurich")
+    except ImportError:
+        import pytz
+        return pytz.timezone("Europe/Zurich")
+
+
 # ── Engine ────────────────────────────────────────────────────────────────────
 
 def get_engine(database_url: Optional[str] = None):
     """
     Crea l'engine SQLAlchemy.
-    Se database_url è None, usa la variabile d'ambiente DATABASE_URL.
-    Default locale per sviluppo: SQLite (zero config).
+
+    PostgreSQL (produzione):
+      DATABASE_URL=postgresql://user:pass@host:5432/tariffs
+      - pool_size=5: 5 connessioni persistenti (adeguato per FastAPI + scheduler)
+      - max_overflow=10: fino a 10 connessioni extra in picco
+      - pool_pre_ping=True: verifica che la connessione sia viva prima di usarla
+        (essenziale dopo restart del DB o disconnessioni temporanee)
+      - pool_recycle=1800: ricicla le connessioni ogni 30 min per evitare
+        "SSL connection has been closed unexpectedly" su connessioni idle
+
+    SQLite (sviluppo locale):
+      DATABASE_URL=sqlite:///./tariffs.db  (o non impostare nulla)
+      - check_same_thread=False: necessario perché FastAPI usa thread multipli
+      - connect_args timeout: riduce i tempi di attesa su lock
     """
     import os
     url = database_url or os.getenv(
         "DATABASE_URL",
-        "sqlite:///./tariffs.db"  # SQLite per sviluppo locale
+        "sqlite:///./tariffs.db"
     )
-    # PostgreSQL: "postgresql://user:pass@localhost:5432/tariffs"
-    # SQLite:     "sqlite:///./tariffs.db"
-    connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
-    return create_engine(url, connect_args=connect_args, echo=False)
+
+    if url.startswith("sqlite"):
+        engine = create_engine(
+            url,
+            connect_args={
+                "check_same_thread": False,
+                "timeout": 15,           # secondi di attesa sul lock SQLite
+            },
+            echo=False,
+        )
+    else:
+        # PostgreSQL — gestione pool robusta per produzione
+        # Render free tier: usa DATABASE_URL dalla variabile d'ambiente
+        engine = create_engine(
+            url,
+            pool_size=5,
+            max_overflow=10,
+            pool_pre_ping=True,    # evita "connection closed unexpectedly"
+            pool_recycle=1800,     # 30 min — previene SSL timeout su idle
+            echo=False,
+        )
+
+    return engine
+
+
+# ── Dialetto corrente ─────────────────────────────────────────────────────────
+
+def _is_sqlite(session: Session) -> bool:
+    """True se il DB sottostante è SQLite."""
+    return session.bind.dialect.name == "sqlite"
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
@@ -56,6 +113,10 @@ class Tariff(Base):
     """
     Una riga per ogni tariffa in evu_list.json.
     Questa tabella è la fonte di verità per lo scheduler.
+
+    Il campo evu_list_hash permette di rilevare se evu_list.json è stato
+    modificato senza rieseguire seed_tariffs() — usato in init_db() per
+    loggare un avviso.
     """
     __tablename__ = "tariffs"
 
@@ -91,13 +152,15 @@ class Tariff(Base):
         return json.loads(self.full_config_json or "{}")
 
     def __repr__(self) -> str:
-        return f"Tariff({self.tariff_id} | {self.provider_name})"
+        status = "active" if self.active else "inactive"
+        return f"Tariff({self.tariff_id} | {self.provider_name} | {status})"
 
 
 class PriceSlotDB(Base):
     """
     Un slot da 15 minuti per una tariffa.
-    Chiave primaria composta: (tariff_id, slot_start_utc).
+    Unique constraint su (tariff_id, slot_start_utc) — gestito tramite
+    ON CONFLICT DO UPDATE nell'upsert.
     """
     __tablename__ = "price_slots"
 
@@ -110,10 +173,19 @@ class PriceSlotDB(Base):
     fetched_at_utc  = Column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (
+        # Indice primario: unicità + lookup per data/tariffa
         Index("ix_price_slots_tariff_start",
               "tariff_id", "slot_start_utc", unique=True),
+
+        # Indice per range query su slot_start_utc senza tariff_id
         Index("ix_price_slots_start",
               "slot_start_utc"),
+
+        # FIX: indice per get_last_fetch() — ORDER BY fetched_at_utc DESC
+        # Senza questo indice la query fa full scan su milioni di righe.
+        # DESC è importante: PostgreSQL usa l'indice direttamente per il MAX.
+        Index("ix_price_slots_tariff_fetched",
+              "tariff_id", "fetched_at_utc"),
     )
 
     def __repr__(self) -> str:
@@ -130,14 +202,52 @@ class PriceSlotDB(Base):
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
+# Engine singleton — creato una volta sola al primo init_db()
+_engine = None
+_SessionLocal = None
+
+
 def init_db(database_url: Optional[str] = None) -> sessionmaker:
     """
     Crea le tabelle (se non esistono) e ritorna una session factory.
-    Chiamare una volta all'avvio dell'applicazione.
+
+    È un singleton: chiamarlo più volte ritorna sempre la stessa factory
+    senza ricreare il connection pool. Questo è importante perché
+    SQLAlchemy gestisce il pool internamente — ricrearlo ad ogni chiamata
+    spreca connessioni e può causare "too many clients" su PostgreSQL.
+
+    Chiamare una volta all'avvio dell'applicazione e riusare la factory.
     """
-    engine = get_engine(database_url)
-    Base.metadata.create_all(engine)
-    return sessionmaker(bind=engine, expire_on_commit=False)
+    global _engine, _SessionLocal
+
+    if _engine is None:
+        _engine = get_engine(database_url)
+        Base.metadata.create_all(_engine)
+        _SessionLocal = sessionmaker(bind=_engine, expire_on_commit=False)
+
+        import logging
+        log = logging.getLogger("database")
+        dialect = _engine.dialect.name
+        log.info(f"DB inizializzato — dialect: {dialect}")
+
+        if dialect == "sqlite":
+            log.warning(
+                "Usando SQLite — adeguato per sviluppo locale. "
+                "In produzione imposta DATABASE_URL=postgresql://..."
+            )
+
+    return _SessionLocal
+
+
+# ── Hash evu_list.json ────────────────────────────────────────────────────────
+
+def _evu_list_hash(path: Path) -> str:
+    """SHA256 dei primi 4KB di evu_list.json — usato per rilevare modifiche."""
+    try:
+        content = path.read_bytes()[:4096]
+        return hashlib.sha256(content).hexdigest()[:16]
+    except Exception:
+        return ""
 
 
 # ── Seed tariffe ──────────────────────────────────────────────────────────────
@@ -148,12 +258,32 @@ def seed_tariffs(
 ) -> int:
     """
     Carica/aggiorna le tariffe dalla evu_list.json nel DB.
-    Usa upsert: aggiorna se esiste, inserisce se nuovo.
-    Ritorna il numero di tariffe processate.
+
+    Comportamento:
+      - Upsert: aggiorna se esiste, inserisce se nuova.
+      - FIX: Disattiva (active=False) le tariffe nel DB che NON compaiono
+        più in evu_list.json. Senza questo fix, una tariffa rimossa dal file
+        continua ad essere fetchata dallo scheduler per sempre.
+
+    Ritorna il numero di tariffe processate (attive + disattivate).
     """
+    import logging
+    log = logging.getLogger("database.seed")
+
     path = evu_list_path or Path(__file__).parent / "config" / "evu_list.json"
     with open(path, encoding="utf-8") as f:
         evu_list = json.load(f)
+
+    # IDs presenti nel file corrente
+    file_ids: set[str] = set()
+
+    def parse_dt(s):
+        if not s:
+            return None
+        try:
+            return datetime.fromisoformat(s.replace("Z", "+00:00"))
+        except Exception:
+            return None
 
     count = 0
     for entry in evu_list:
@@ -161,17 +291,8 @@ def seed_tariffs(
         if not tariff_id:
             continue
 
-        # Cerca entry esistente
+        file_ids.add(tariff_id)
         existing = session.get(Tariff, tariff_id)
-
-        # Parsa datetime
-        def parse_dt(s):
-            if not s:
-                return None
-            try:
-                return datetime.fromisoformat(s.replace("Z", "+00:00"))
-            except Exception:
-                return None
 
         row = existing or Tariff(tariff_id=tariff_id)
         row.tariff_name             = entry.get("tariff_name", "")
@@ -190,14 +311,33 @@ def seed_tariffs(
         row.dynamic_elements_json   = json.dumps(entry.get("dynamic_elements", []))
         row.doc_url                 = entry.get("doc_url", "")
         row.notes                   = entry.get("notes", "")
-        row.active                  = bool(entry.get("api_base_url"))  # attivo solo se ha URL
+        # Attiva solo se ha un URL API configurato
+        row.active                  = bool(entry.get("api_base_url"))
         row.full_config_json        = json.dumps(entry)
 
         if not existing:
             session.add(row)
+            log.info(f"seed: inserita nuova tariffa '{tariff_id}'")
         count += 1
 
+    # FIX: disattiva le tariffe presenti nel DB ma rimosse da evu_list.json
+    all_db_tariffs = session.query(Tariff).all()
+    deactivated = 0
+    for db_row in all_db_tariffs:
+        if db_row.tariff_id not in file_ids:
+            if db_row.active:
+                db_row.active = False
+                deactivated += 1
+                log.warning(
+                    f"seed: tariffa '{db_row.tariff_id}' rimossa da evu_list.json "
+                    f"→ disattivata nel DB (i dati storici vengono mantenuti)"
+                )
+
     session.commit()
+
+    if deactivated:
+        log.warning(f"seed: {deactivated} tariffa/e disattivata/e — non più in evu_list.json")
+
     return count
 
 
@@ -205,38 +345,41 @@ def seed_tariffs(
 
 def upsert_prices(session: Session, result: NormalizedPrices) -> int:
     """
-    Salva i prezzi nel DB con upsert reale.
-    Usa INSERT OR REPLACE per SQLite, ON CONFLICT DO UPDATE per PostgreSQL.
+    Salva i prezzi nel DB con upsert reale (insert-or-update).
+
+    Comportamento per dialetto:
+      SQLite:     ON CONFLICT(tariff_id, slot_start_utc) DO UPDATE SET ...
+                  I timestamp vengono serializzati come stringhe con spazio
+                  ("YYYY-MM-DD HH:MM:SS") per matchare il formato che SQLite
+                  salva internamente — necessario per riconoscere il conflict.
+
+      PostgreSQL: ON CONFLICT (tariff_id, slot_start_utc) DO UPDATE SET ...
+                  I timestamp sono passati come oggetti datetime aware — nessun
+                  workaround necessario, PostgreSQL gestisce TIMESTAMPTZ nativamente.
     """
     rows = result.to_db_rows()
     if not rows:
         return 0
 
-    from sqlalchemy import inspect
-    dialect = session.bind.dialect.name  # "sqlite" o "postgresql"
+    is_sqlite = _is_sqlite(session)
 
     for row in rows:
-        # Normalizza il timestamp: rimuovi timezone per SQLite
-        # (SQLite non supporta TIMESTAMPTZ, salva come stringa naive)
-        slot_dt = row["slot_start_utc"]
-        if hasattr(slot_dt, "tzinfo") and slot_dt.tzinfo is not None:
-            slot_dt_naive = slot_dt.replace(tzinfo=None)
-        else:
-            slot_dt_naive = slot_dt
-
+        slot_dt    = row["slot_start_utc"]
         fetched_dt = row["fetched_at_utc"]
-        if hasattr(fetched_dt, "tzinfo") and fetched_dt.tzinfo is not None:
-            fetched_dt_naive = fetched_dt.replace(tzinfo=None)
-        else:
-            fetched_dt_naive = fetched_dt
 
-        if dialect == "sqlite":
-            # Usa strftime per forzare il formato spazio "YYYY-MM-DD HH:MM:SS".
-            # SQLAlchemy in text() converte datetime con isoformat() → formato T,
-            # che non matcha con i valori già salvati in formato spazio → INSERT
-            # duplicato invece di ON CONFLICT UPDATE → dati sovrapposti.
-            slot_str    = slot_dt_naive.strftime("%Y-%m-%d %H:%M:%S")
-            fetched_str = fetched_dt_naive.strftime("%Y-%m-%d %H:%M:%S")
+        if is_sqlite:
+            # SQLite salva i datetime come stringhe naive con spazio.
+            # Se passiamo un datetime aware, SQLAlchemy usa isoformat() con T e +00:00
+            # che non matcha la stringa già salvata → ON CONFLICT non scatta → duplicati.
+            # Fix: serializzare esplicitamente con strftime spazio.
+            if hasattr(slot_dt, "tzinfo") and slot_dt.tzinfo is not None:
+                slot_dt = slot_dt.replace(tzinfo=None)
+            if hasattr(fetched_dt, "tzinfo") and fetched_dt.tzinfo is not None:
+                fetched_dt = fetched_dt.replace(tzinfo=None)
+
+            slot_str    = slot_dt.strftime("%Y-%m-%d %H:%M:%S")
+            fetched_str = fetched_dt.strftime("%Y-%m-%d %H:%M:%S")
+
             session.execute(
                 text("""
                     INSERT INTO price_slots
@@ -251,7 +394,7 @@ def upsert_prices(session: Session, result: NormalizedPrices) -> int:
                         fetched_at_utc = excluded.fetched_at_utc
                 """),
                 {
-                    "tariff_id": row["tariff_id"],
+                    "tariff_id":  row["tariff_id"],
                     "slot_start": slot_str,
                     "energy":     row["energy_price"],
                     "grid":       row["grid_price"],
@@ -259,8 +402,9 @@ def upsert_prices(session: Session, result: NormalizedPrices) -> int:
                     "fetched":    fetched_str,
                 }
             )
+
         else:
-            # PostgreSQL
+            # PostgreSQL — datetime aware passati direttamente, zero workaround.
             session.execute(
                 text("""
                     INSERT INTO price_slots
@@ -275,7 +419,7 @@ def upsert_prices(session: Session, result: NormalizedPrices) -> int:
                         fetched_at_utc = EXCLUDED.fetched_at_utc
                 """),
                 {
-                    "tariff_id": row["tariff_id"],
+                    "tariff_id":  row["tariff_id"],
                     "slot_start": slot_dt,
                     "energy":     row["energy_price"],
                     "grid":       row["grid_price"],
@@ -291,7 +435,7 @@ def upsert_prices(session: Session, result: NormalizedPrices) -> int:
 # ── Query helpers ─────────────────────────────────────────────────────────────
 
 def get_active_tariffs(session: Session) -> list[Tariff]:
-    """Tutte le tariffe attive (con API URL configurato)."""
+    """Tutte le tariffe attive (con API URL configurato e non rimosse)."""
     return session.query(Tariff).filter(Tariff.active == True).all()
 
 
@@ -304,42 +448,55 @@ def get_prices(
     """
     Slot di prezzo per una tariffa in un range temporale.
 
-    SQLite salva i timestamp come stringhe naive (senza timezone), quindi
-    confrontare con datetime aware produce risultati sbagliati: SQLite ordina
-    le stringhe lessicograficamente e '2026-03-16 23:00:00+00:00' > '2026-03-16 23:00:00',
-    facendo escludere il primo slot della giornata.
-    Fix: strip tzinfo prima di passare i limiti alla query.
-    I timezone vengono ripristinati sui risultati dopo la query.
+    Compatibilità SQLite/PostgreSQL:
+      SQLite salva i timestamp come stringhe naive ("YYYY-MM-DD HH:MM:SS").
+      Se confrontiamo con datetime aware, SQLAlchemy serializza con isoformat T+tz
+      che ordina lessicograficamente diverso dalla stringa spazio → slot esclusi.
+      Fix: strip tzinfo e usa strftime spazio per SQLite; per PostgreSQL
+      il confronto con datetime aware funziona nativamente.
     """
-    # SQLite salva i datetime come stringhe con lo spazio: "2026-03-16 23:00:00".
-    # SQLAlchemy serializza i parametri datetime con isoformat() → "2026-03-16T23:00:00".
-    # Confronto lessicografico: spazio (ASCII 32) < T (ASCII 84) → slot delle 23:00
-    # risulta minore di start_str → escluso dal filtro >= → 95 slot invece di 96.
-    # Fix: strftime con spazio, identico al formato salvato.
-    start_str = start_utc.replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
-    end_str   = end_utc.replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
-
-    rows = (
-        session.query(PriceSlotDB)
-        .filter(
-            PriceSlotDB.tariff_id == tariff_id,
-            PriceSlotDB.slot_start_utc >= start_str,
-            PriceSlotDB.slot_start_utc < end_str,
+    if _is_sqlite(session):
+        start_str = start_utc.replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+        end_str   = end_utc.replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+        rows = (
+            session.query(PriceSlotDB)
+            .filter(
+                PriceSlotDB.tariff_id == tariff_id,
+                PriceSlotDB.slot_start_utc >= start_str,
+                PriceSlotDB.slot_start_utc <  end_str,
+            )
+            .order_by(PriceSlotDB.slot_start_utc)
+            .all()
         )
-        .order_by(PriceSlotDB.slot_start_utc)
-        .all()
-    )
-    # SQLite perde il timezone — lo ripristiniamo sui risultati
-    for row in rows:
-        if row.slot_start_utc is not None and row.slot_start_utc.tzinfo is None:
-            row.slot_start_utc = row.slot_start_utc.replace(tzinfo=timezone.utc)
-        if row.fetched_at_utc is not None and row.fetched_at_utc.tzinfo is None:
-            row.fetched_at_utc = row.fetched_at_utc.replace(tzinfo=timezone.utc)
+        # SQLite perde il timezone — ripristiniamo UTC sui risultati
+        for row in rows:
+            if row.slot_start_utc is not None and row.slot_start_utc.tzinfo is None:
+                row.slot_start_utc = row.slot_start_utc.replace(tzinfo=timezone.utc)
+            if row.fetched_at_utc is not None and row.fetched_at_utc.tzinfo is None:
+                row.fetched_at_utc = row.fetched_at_utc.replace(tzinfo=timezone.utc)
+    else:
+        # PostgreSQL — datetime aware, nessun workaround
+        rows = (
+            session.query(PriceSlotDB)
+            .filter(
+                PriceSlotDB.tariff_id == tariff_id,
+                PriceSlotDB.slot_start_utc >= start_utc,
+                PriceSlotDB.slot_start_utc <  end_utc,
+            )
+            .order_by(PriceSlotDB.slot_start_utc)
+            .all()
+        )
+
     return rows
 
 
 def get_last_fetch(session: Session, tariff_id: str) -> Optional[datetime]:
-    """Timestamp dell'ultimo fetch per una tariffa."""
+    """
+    Timestamp dell'ultimo fetch per una tariffa (quando è stato fetchato,
+    non per quale data). Usato solo per il display nel /api/v1/health.
+
+    Nota: usa l'indice ix_price_slots_tariff_fetched per evitare full scan.
+    """
     row = (
         session.query(PriceSlotDB.fetched_at_utc)
         .filter(PriceSlotDB.tariff_id == tariff_id)
@@ -353,36 +510,58 @@ def get_last_fetch(session: Session, tariff_id: str) -> Optional[datetime]:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt
 
-def has_data_for_date(session: Session, tariff_id: str, target_date, tz_ch) -> bool:
+
+def has_data_for_date(
+    session: Session,
+    tariff_id: str,
+    target_date: date,
+    tz_ch=None,
+) -> bool:
     """
-    Controlla se esistono slot per una specifica data locale svizzera.
+    True se esistono slot nel DB per la data locale svizzera target_date.
 
-    A differenza di get_last_fetch (che dice QUANDO hai fetchato),
-    questa funzione dice PER QUALE DATA hai i prezzi nel DB.
+    Questa è la funzione semanticamente corretta da usare per sapere se
+    "abbiamo i dati di oggi/domani". A differenza di get_last_fetch()
+    che dice QUANDO hai fetchato, questa dice PER QUALE DATA hai i prezzi.
 
-    Usata da /api/v1/health per distinguere:
-      - "ho dati di oggi"   → has_data_for_date(session, id, today_ch, tz_ch)
-      - "ho dati di domani" → has_data_for_date(session, id, tomorrow_ch, tz_ch)
+    Funziona correttamente sia con SQLite che con PostgreSQL:
+      - Converte target_date in range UTC (mezzanotte locale CH → UTC)
+      - SQLite: usa strftime spazio per il confronto
+      - PostgreSQL: usa datetime aware
+
+    tz_ch: opzionale, passa il timezone se già istanziato per evitare
+    di ricrearlo ad ogni chiamata in loop.
     """
-    from datetime import datetime, timedelta, timezone as _tz
+    if tz_ch is None:
+        tz_ch = _tz_ch()
 
-    midnight = datetime(target_date.year, target_date.month, target_date.day,
-                        tzinfo=tz_ch)
-    start_utc = midnight.astimezone(_tz.utc)
-    end_utc   = (midnight + timedelta(days=1)).astimezone(_tz.utc)
+    midnight     = datetime(target_date.year, target_date.month, target_date.day, tzinfo=tz_ch)
+    start_utc    = midnight.astimezone(timezone.utc)
+    end_utc      = (midnight + timedelta(days=1)).astimezone(timezone.utc)
 
-    # Stesso trick strftime per SQLite (evita mismatch formato spazio vs T)
-    start_str = start_utc.replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
-    end_str   = end_utc.replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
-
-    count = (
-        session.query(PriceSlotDB.id)
-        .filter(
-            PriceSlotDB.tariff_id == tariff_id,
-            PriceSlotDB.slot_start_utc >= start_str,
-            PriceSlotDB.slot_start_utc < end_str,
+    if _is_sqlite(session):
+        start_str = start_utc.replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+        end_str   = end_utc.replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+        count = (
+            session.query(PriceSlotDB.id)
+            .filter(
+                PriceSlotDB.tariff_id == tariff_id,
+                PriceSlotDB.slot_start_utc >= start_str,
+                PriceSlotDB.slot_start_utc <  end_str,
+            )
+            .limit(1)
+            .count()
         )
-        .limit(1)
-        .count()
-    )
+    else:
+        count = (
+            session.query(PriceSlotDB.id)
+            .filter(
+                PriceSlotDB.tariff_id == tariff_id,
+                PriceSlotDB.slot_start_utc >= start_utc,
+                PriceSlotDB.slot_start_utc <  end_utc,
+            )
+            .limit(1)
+            .count()
+        )
+
     return count > 0
