@@ -1,19 +1,26 @@
 """
 main.py
 =======
-FastAPI app — espone le API definite nel PDF + endpoint di monitoraggio.
+FastAPI application — exposes the APIs defined in the PDF + monitoring endpoints.
 
 Endpoints:
-  GET /api/v1/tariffs                           → lista tariffe (API 1 del PDF)
-  GET /api/v1/prices?tariff_id=...&start_time=...  → prezzi (API 2 del PDF)
-  GET /api/v1/health                            → stato fetch per EVU
-  GET /                                         → dashboard HTML
+  GET /api/v1/tariffs
+      → list of tariffs (API 1 from the PDF)
 
-Avvio:
+  GET /api/v1/prices?tariff_id=...&start_time=...
+      → time series prices (API 2 from the PDF)
+
+  GET /api/v1/health
+      → fetch and adapter status per EVU
+
+  GET /
+      → HTML dashboard
+
+Startup:
   pip install fastapi uvicorn sqlalchemy apscheduler
   uvicorn main:app --reload
 
-In produzione:
+Production:
   uvicorn main:app --host 0.0.0.0 --port 8000
 """
 
@@ -99,7 +106,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Swiss Dynamic Tariffs API",
-    description="API unificata per le tariffe elettriche dinamiche svizzere",
+    description="Unified API for Swiss dynamic electricity tariffs",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -134,9 +141,9 @@ def get_tariffs():
 
 @app.get("/api/v1/prices")
 def get_prices_endpoint(
-    tariff_id:  str = Query(..., description="ID della tariffa"),
-    start_time: str = Query(..., description="Data/ora inizio UTC (es. 2026-03-16T00:00:00Z)"),
-    end_time:   Optional[str] = Query(None, description="Data/ora fine UTC (opzionale, default: +1 giorno)"),
+    tariff_id:  str = Query(..., description="Tariff ID"),
+    start_time: str = Query(..., description="Date/time start UTC (es. 2026-03-16T00:00:00Z)"),
+    end_time:   Optional[str] = Query(None, description="Date/time end UTC (optional, default: +1 day)"),
 ):
     # zoneinfo gestisce DST automaticamente per qualsiasi anno futuro
     try:
@@ -147,13 +154,13 @@ def get_prices_endpoint(
     try:
         start_utc = datetime.fromisoformat(start_time.replace("Z", "+00:00")).astimezone(timezone.utc)
     except ValueError:
-        raise HTTPException(400, f"start_time non valido: {start_time!r}. Formato: 2026-03-16T00:00:00Z")
+        raise HTTPException(400, f"Invalid start_time: {start_time!r}. Format: 2026-03-16T00:00:00Z")
 
     if end_time:
         try:
             end_utc = datetime.fromisoformat(end_time.replace("Z", "+00:00")).astimezone(timezone.utc)
         except ValueError:
-            raise HTTPException(400, f"end_time non valido: {end_time!r}")
+            raise HTTPException(400, f"Invalid end_time: {end_time!r}")
     else:
         end_utc = start_utc + timedelta(days=1)
 
@@ -174,14 +181,14 @@ def get_prices_endpoint(
         from database import Tariff
         tariff = session.get(Tariff, tariff_id)
         if not tariff:
-            raise HTTPException(404, f"Tariffa '{tariff_id}' non trovata")
+            raise HTTPException(404, f"Tariff '{tariff_id}' not found")
         slots = get_prices(session, tariff_id, start_db, end_db)
         # Filtra per data locale richiesta (esclude slot di giorni adiacenti)
         slots = [s for s in slots
                  if start_ld <= s.slot_start_utc.astimezone(tz_ch).date() < end_ld]
 
     if not slots:
-        raise HTTPException(404, f"Nessun prezzo disponibile per '{tariff_id}' nel range {start_time} — {end_time or 'auto'}")
+        raise HTTPException(404, f"No prices for '{tariff_id}' in the range {start_time} — {end_time or 'auto'}")
 
     response: dict = {
         "tariff_id":  tariff_id,
@@ -211,8 +218,8 @@ def get_prices_endpoint(
 
 @app.get("/api/v1/prices/all")
 def get_all_prices_endpoint(
-    start_time: str = Query(..., description="Data/ora inizio UTC (es. 2026-03-17T00:00:00Z)"),
-    end_time:   Optional[str] = Query(None, description="Data/ora fine UTC (opzionale, default: +1 giorno)"),
+    start_time: str = Query(..., description="Date/time start UTC (es. 2026-03-17T00:00:00Z)"),
+    end_time:   Optional[str] = Query(None, description="Date/time end UTC (optional, default: +1 day)"),
 ):
     """
     Restituisce i prezzi di TUTTE le tariffe attive in un unico JSON.
@@ -226,12 +233,12 @@ def get_all_prices_endpoint(
     try:
         start_utc = datetime.fromisoformat(start_time.replace("Z", "+00:00")).astimezone(timezone.utc)
     except ValueError:
-        raise HTTPException(400, f"start_time non valido: {start_time!r}")
+        raise HTTPException(400, f"Invalid start_time : {start_time!r}")
     if end_time:
         try:
             end_utc = datetime.fromisoformat(end_time.replace("Z", "+00:00")).astimezone(timezone.utc)
         except ValueError:
-            raise HTTPException(400, f"end_time non valido: {end_time!r}")
+            raise HTTPException(400, f"Invalid end_time : {end_time!r}")
     else:
         end_utc = start_utc + timedelta(days=1)
 
@@ -265,7 +272,7 @@ def get_all_prices_endpoint(
             result[tariff.tariff_id] = td
 
     if not result:
-        raise HTTPException(404, "Nessun dato disponibile per il range richiesto")
+        raise HTTPException(404, "No data for this range of days.")
     return {"start_time": start_db.isoformat(), "end_time": end_db.isoformat(), "tariffs": result}
 
 # ── Summary / health endpoints ────────────────────────────────────────────────
@@ -279,7 +286,7 @@ def get_daily_summary(tariff_id: str = Query(...), days: int = Query(5, ge=1, le
     with SessionLocal() as session:
         from database import Tariff
         if not session.get(Tariff, tariff_id):
-            raise HTTPException(404, f"Tariffa '{tariff_id}' non trovata")
+            raise HTTPException(404, f"Tariff '{tariff_id}' not found")
         cutoff = datetime.now(timezone.utc) - timedelta(days=days + 1)
         rows = (
             session.query(PriceSlotDB.slot_start_utc, PriceSlotDB.energy_price,
@@ -288,7 +295,7 @@ def get_daily_summary(tariff_id: str = Query(...), days: int = Query(5, ge=1, le
             .order_by(PriceSlotDB.slot_start_utc).all()
         )
     if not rows:
-        raise HTTPException(404, "Nessun dato disponibile")
+        raise HTTPException(404, "NO data available")
 
     from schemas import today_ch as _today_ch
     today_local = _today_ch()   # data svizzera di OGGI — i dati di domani NON devono apparire
@@ -333,7 +340,7 @@ def get_monthly_summary(tariff_id: str = Query(...), months: int = Query(3, ge=1
     with SessionLocal() as session:
         from database import Tariff
         if not session.get(Tariff, tariff_id):
-            raise HTTPException(404, f"Tariffa '{tariff_id}' non trovata")
+            raise HTTPException(404, f"Tariff '{tariff_id}' not found")
         cutoff = datetime.now(timezone.utc) - timedelta(days=months * 32)
         rows = (
             session.query(PriceSlotDB.slot_start_utc, PriceSlotDB.energy_price,
@@ -342,7 +349,7 @@ def get_monthly_summary(tariff_id: str = Query(...), months: int = Query(3, ge=1
             .order_by(PriceSlotDB.slot_start_utc).all()
         )
     if not rows:
-        raise HTTPException(404, "Nessun dato disponibile")
+        raise HTTPException(404, "NO data available")
 
     from collections import defaultdict
     by_month: dict = defaultdict(list)
@@ -379,12 +386,12 @@ def get_latest(tariff_id: str = Query(...)):
     with SessionLocal() as session:
         from database import Tariff
         if not session.get(Tariff, tariff_id):
-            raise HTTPException(404, f"Tariffa '{tariff_id}' non trovata")
+            raise HTTPException(404, f"Tariff '{tariff_id}' not found")
         row = (session.query(PriceSlotDB.slot_start_utc)
                .filter(PriceSlotDB.tariff_id == tariff_id)
                .order_by(PriceSlotDB.slot_start_utc.desc()).first())
     if not row:
-        raise HTTPException(404, "Nessun dato disponibile")
+        raise HTTPException(404, "NO data available")
     dt = row[0]
     if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
     return {"tariff_id": tariff_id, "latest_date": dt.date().isoformat()}
@@ -418,7 +425,7 @@ def health():
 
             # ── Status OGGI ──────────────────────────────────────────────────
             if not adapter_ready:
-                status, meta = "pending", "Adapter non ancora implementato"
+                status, meta = "pending", "Adapter not implemented yet"
             elif has_today_data:
                 status, meta = "ok", None
             else:
@@ -430,9 +437,9 @@ def health():
                 # Il fetch di OGGI avviene la sera di IERI; se non c'è ancora
                 # siamo in un edge case (server spento, primo avvio)
                 if now_utc.hour < 10:
-                    status, meta = "pending", f"Health check mattutino — fetch atteso ieri sera"
+                    status, meta = "pending", f"Morning Health check — fetch expected last night"
                 else:
-                    status, meta = "missing", "Dati non ricevuti per oggi"
+                    status, meta = "missing", "NO data received for today"
 
             # ── Status DOMANI (pre-fetch) ─────────────────────────────────────
             if not adapter_ready:
