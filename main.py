@@ -299,49 +299,112 @@ def _find_tariff_for_zip(zip_code: int) -> Optional[str]:
         tariffs = get_active_tariffs(session)
     for t in tariffs:
         config = json.loads(t.full_config_json)
-        zip_ranges = config.get("zip_ranges", [])
-        if _zip_in_ranges(zip_code, zip_ranges):
-            return t.tariff_id
+        for r in config.get("zip_ranges", []):
+            if isinstance(r, int) and r == zip_code:
+                return t.tariff_id
+            if isinstance(r, str):
+                if "-" in r:
+                    lo, hi = r.split("-")
+                    if int(lo) <= zip_code <= int(hi):
+                        return t.tariff_id
+                elif int(r) == zip_code:
+                    return t.tariff_id
     return None
-
-def _zip_in_ranges(zip_code: int, ranges) -> bool:
-    for r in ranges:
-        if isinstance(r, int) and r == zip_code:
-            return True
-        if isinstance(r, str):
-            # Formato "4000-4199"
-            if "-" in r:
-                lo, hi = r.split("-")
-                if int(lo) <= zip_code <= int(hi):
-                    return True
-            elif int(r) == zip_code:
-                return True
-    return False
   
+def _prices_for_date(tariff_id: str, target_date) -> dict:
+    """
+    Logica comune per restituire i prezzi di un giorno specifico.
+    Funzione Python pura — non un endpoint FastAPI, quindi chiamabile
+    direttamente senza problemi con i Query objects.
+    """
+    try:
+        import zoneinfo; tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
+    except ImportError:
+        import pytz; tz_ch = pytz.timezone("Europe/Zurich")
+
+    # Calcola il range UTC corretto per la data locale svizzera
+    midnight    = datetime(target_date.year, target_date.month, target_date.day, tzinfo=tz_ch)
+    start_db    = midnight.astimezone(timezone.utc)
+    end_db      = (midnight + timedelta(days=1)).astimezone(timezone.utc)
+    start_ld    = target_date
+    end_ld      = target_date  # stesso giorno
+
+    with SessionLocal() as session:
+        from database import Tariff
+        tariff = session.get(Tariff, tariff_id)
+        if not tariff:
+            raise HTTPException(404, f"Tariff '{tariff_id}' not found")
+        slots = get_prices(session, tariff_id, start_db, end_db)
+        slots = [s for s in slots
+                 if s.slot_start_utc.astimezone(tz_ch).date() == target_date]
+
+    if not slots:
+        raise HTTPException(
+            404,
+            {
+                "error":   "no_data",
+                "message": f"No prices for '{tariff_id}' on {target_date}",
+                "date":    target_date.isoformat(),
+                "tariff_id": tariff_id,
+            }
+        )
+
+    energy_series, grid_series, residual_series = [], [], []
+    for s in slots:
+        dt = s.slot_start_utc
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        ts = dt.isoformat()
+        if s.energy_price   is not None: energy_series.append({ts: s.energy_price})
+        if s.grid_price     is not None: grid_series.append({ts: s.grid_price})
+        if s.residual_price is not None: residual_series.append({ts: s.residual_price})
+
+    response: dict = {
+        "tariff_id":  tariff_id,
+        "date":       target_date.isoformat(),
+        "start_time": start_db.isoformat(),
+        "end_time":   end_db.isoformat(),
+        "slot_count": len(slots),
+    }
+    if energy_series:   response["energy_price_utc"]   = energy_series
+    if grid_series:     response["grid_price_utc"]     = grid_series
+    if residual_series: response["residual_price_utc"] = residual_series
+    return response
+
+
+# ── /api/v1/prices/today ──────────────────────────────────────────────────────
+
 @app.get("/api/v1/prices/today")
 def get_today_prices(
-    zip_code: Optional[int] = Query(None, description="ZIP, ex. 8600"),
-    tariff_id: Optional[str] = Query(None, description="Tariff ID"),
+    zip_code:  Optional[int] = Query(None, description="CAP svizzero, es. 6810"),
+    tariff_id: Optional[str] = Query(None, description="Tariff ID diretto, es. aem_tariffa_dinamica"),
 ):
     """
-    Prezzi di oggi per CAP o tariff_id. Nessuna gestione date richiesta.
-    Restituisce tutti i 96 slot della giornata corrente svizzera.
+    Prezzi della giornata corrente (ora locale svizzera).
+    Usa zip_code OPPURE tariff_id — non entrambi.
     """
     from schemas import today_ch as _today_ch
-    today = _today_ch()
-    start_time = f"{today}T00:00:00Z"
-    
+
     if zip_code and not tariff_id:
-        # Trova la tariffa per questo CAP
         tariff_id = _find_tariff_for_zip(zip_code)
         if not tariff_id:
-            raise HTTPException(404, f"NO tariff founded for the CAP {zip_code}")
-    
+            raise HTTPException(
+                404,
+                {"error": "zip_not_found",
+                 "message": f"No tariff found for ZIP {zip_code}",
+                 "zip_code": zip_code}
+            )
+
     if not tariff_id:
-        raise HTTPException(400, "Specify zip_code or tariff_id")
-    
-    # Delega all'endpoint esistente
-    return get_prices_endpoint(tariff_id=tariff_id, start_time=start_time)
+        raise HTTPException(
+            400,
+            {"error": "missing_param",
+             "message": "Provide either zip_code or tariff_id"}
+        )
+
+    return _prices_for_date(tariff_id, _today_ch())
+  
+  
   
 # ── API 2b: tutti i prezzi in un colpo ───────────────────────────────────────
 
