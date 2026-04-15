@@ -567,36 +567,37 @@ async def send_anomaly_alert(result, target_date: date, issues: list[str], tarif
 
 # ── Validazione post-fetch ────────────────────────────────────────────────────
 
-def validate_result(result, tariff_config: dict | None = None) -> list[str]:
+def validate_result(
+    result,
+    tariff_config: dict | None = None,
+    session=None,
+) -> list[str]:
     """
     Controlla la qualità dei dati fetchati.
     Ritorna lista di problemi trovati. Lista vuota = tutto ok.
-
-    tariff_config: entry completa da evu_list.json (opzionale ma consigliato).
-                   Necessario per leggere api_params.expect_uniform_prices.
-
-    Checks applicati:
+ 
+    Se session è fornita, aggiunge un confronto con la mediana degli ultimi
+    3 giorni — utile per capire se un'anomalia è nuova o strutturale.
+ 
+    Checks:
       1. Slot count (< 90 o > 102)
       2. Prezzi a zero
       3. Prezzi negativi
-      4. Tutti i prezzi identici — SALTATO se expect_uniform_prices=true
-         EKZ 2026 pubblica prezzi fissi annuali: 96 slot identici è atteso,
-         non un errore. Senza questo check arrivava una falsa email ogni sera.
-      5. Gap temporali nella serie: verifica che ogni slot sia esattamente
-         15 min dopo il precedente. Un'API potrebbe restituire 96 slot ma
-         con un buco di 2 ore nel mezzo — prima non veniva rilevato.
+      4. Prezzi identici — saltato se expect_uniform_prices=true (es. EKZ)
+      5. Gap temporali nella serie
+      6. [se session] Confronto con mediana ultimi 3 giorni
     """
     issues     = []
     config     = tariff_config or {}
     api_params = config.get("api_params", {})
-
+ 
     # 1. Slot count
     sc = result.slot_count
     if sc < EXPECTED_SLOTS_MIN:
         issues.append(f"Too few slots: {sc} (expected ~96, min {EXPECTED_SLOTS_MIN})")
     elif sc > EXPECTED_SLOTS_MAX:
         issues.append(f"Too many slots: {sc} (expected ~96, max {EXPECTED_SLOTS_MAX})")
-
+ 
     # 2. Prezzi a zero
     zero_slots = [
         s.slot_start_utc.strftime("%H:%M")
@@ -607,7 +608,7 @@ def validate_result(result, tariff_config: dict | None = None) -> list[str]:
         sample = zero_slots[:5]
         more   = f" (+{len(zero_slots)-5} more)" if len(zero_slots) > 5 else ""
         issues.append(f"Zero-price slots: {', '.join(sample)}{more}")
-
+ 
     # 3. Prezzi negativi
     negative_slots = [
         s.slot_start_utc.strftime("%H:%M")
@@ -618,9 +619,8 @@ def validate_result(result, tariff_config: dict | None = None) -> list[str]:
         sample = negative_slots[:5]
         more   = f" (+{len(negative_slots)-5} more)" if len(negative_slots) > 5 else ""
         issues.append(f"Negative-price slots: {', '.join(sample)}{more}")
-
-    # 4. Tutti i prezzi identici — FIX EKZ falsi positivi
-    # EKZ ha expect_uniform_prices=true in evu_list.json: skip il check.
+ 
+    # 4. Prezzi identici — FIX EKZ
     if not api_params.get("expect_uniform_prices", False):
         totals = [s.total_price for s in result.slots if s.total_price is not None]
         if len(totals) > 4 and len(set(round(t, 6) for t in totals)) == 1:
@@ -630,8 +630,8 @@ def validate_result(result, tariff_config: dict | None = None) -> list[str]:
             )
     else:
         log.debug(f"[{result.tariff_id}] expect_uniform_prices=true — skip identical-price check")
-
-    # 5. Gap temporali nella serie (nuovo check)
+ 
+    # 5. Gap temporali nella serie
     if len(result.slots) >= 2:
         gaps = []
         for i in range(len(result.slots) - 1):
@@ -645,7 +645,67 @@ def validate_result(result, tariff_config: dict | None = None) -> list[str]:
             sample = gaps[:3]
             more   = f" (+{len(gaps)-3} more)" if len(gaps) > 3 else ""
             issues.append(f"Temporal gaps in series: {', '.join(sample)}{more}")
-
+ 
+    # 6. Confronto con mediana ultimi 3 giorni (solo se session disponibile)
+    if session is not None and result.avg_total_price is not None:
+        try:
+            from database import PriceSlotDB
+            from datetime import timezone
+ 
+            # Recupera i prezzi degli ultimi 3 giorni (escluso oggi)
+            cutoff = result.slots[0].slot_start_utc - timedelta(days=4)
+            end    = result.slots[0].slot_start_utc
+            hist_rows = (
+                session.query(PriceSlotDB.energy_price, PriceSlotDB.grid_price,
+                              PriceSlotDB.residual_price)
+                .filter(
+                    PriceSlotDB.tariff_id == result.tariff_id,
+                    PriceSlotDB.slot_start_utc >= cutoff,
+                    PriceSlotDB.slot_start_utc <  end,
+                )
+                .all()
+            )
+            hist_totals = [
+                sum(p for p in [e, g, r] if p)
+                for e, g, r in hist_rows
+                if sum(p for p in [e, g, r] if p) > 0
+            ]
+            if len(hist_totals) >= 48:  # almeno mezzo giorno di storico
+                # Mediana (più robusta della media agli outlier)
+                hist_sorted = sorted(hist_totals)
+                n = len(hist_sorted)
+                median_hist = (
+                    hist_sorted[n // 2]
+                    if n % 2 == 1
+                    else (hist_sorted[n // 2 - 1] + hist_sorted[n // 2]) / 2
+                )
+                today_avg = result.avg_total_price
+                ratio = today_avg / median_hist if median_hist > 0 else 1.0
+                diff_pct = (ratio - 1.0) * 100
+ 
+                context_line = (
+                    f"Historical context: today avg {today_avg*100:.2f} Rp/kWh vs "
+                    f"3-day median {median_hist*100:.2f} Rp/kWh "
+                    f"({diff_pct:+.1f}% — "
+                    f"{'NEW anomaly' if abs(diff_pct) > 20 else 'within normal range'}"
+                    f", based on {len(hist_totals)} historical slots)"
+                )
+                # Aggiunge il contesto come nota (non come issue) nella prima anomalia
+                # oppure come issue separata se la variazione è estrema (>50%)
+                if abs(diff_pct) > 50:
+                    issues.append(
+                        f"Price deviation: today avg {today_avg*100:.2f} Rp vs "
+                        f"3-day median {median_hist*100:.2f} Rp ({diff_pct:+.1f}%)"
+                    )
+                elif issues:
+                    # Appende il contesto storico alla prima issue esistente
+                    issues[0] = issues[0] + f" [{context_line}]"
+                else:
+                    # Nessun issue ma aggiunge contesto se chiesto
+                    log.info(f"[{result.tariff_id}] {context_line}")
+        except Exception as e:
+            log.debug(f"[{result.tariff_id}] Historical context unavailable: {e}")
+ 
     return issues
 
 
@@ -685,58 +745,74 @@ def _record_failure(tariff_id: str) -> int:
 async def fetch_with_retry(tariff_config: dict, target_date: date, _unused) -> bool:
     """
     Fetcha una tariffa con fino a 3 tentativi (0, +30min, +60min).
-
-    Novità rispetto alla versione precedente:
-      - Applica il circuit breaker prima di provare
-      - Passa tariff_config a validate_result() per leggere expect_uniform_prices
-      - Aggiorna il contatore del circuit breaker dopo ogni esito
+    Scrive un record in fetch_log dopo ogni esito (ok / error / empty / anomaly).
     """
     from adapters import get_adapter, AdapterError, AdapterEmptyError, list_available_adapters
-    from database import upsert_prices, init_db
-
+    from database import upsert_prices, init_db, log_fetch
+    import time as _time
+ 
     tariff_id     = tariff_config["tariff_id"]
     adapter_class = tariff_config.get("adapter_class", "")
-
+ 
     if adapter_class not in list_available_adapters():
-        log.warning(f"[{tariff_id}] Adapter '{adapter_class}' non implementato — skip")
+        log.warning(f"[{tariff_id}] Adapter \'{adapter_class}\' non implementato — skip")
         return False
-
-    # Circuit breaker: se in streak di fallimenti, skip silenzioso
+ 
     if _circuit_open(tariff_id):
         return False
-
+ 
     last_error = ""
     for attempt, delay in enumerate(RETRY_DELAYS, 1):
         if delay > 0:
             log.info(f"[{tariff_id}] Retry {attempt}/{len(RETRY_DELAYS)} tra {delay//60} min")
             await asyncio.sleep(delay)
-
+ 
+        t0 = _time.monotonic()
         try:
             log.info(f"[{tariff_id}] Tentativo {attempt}/{len(RETRY_DELAYS)} — {target_date}")
             adapter = get_adapter(tariff_config)
             result  = await adapter.fetch(target_date)
-
+            duration_ms = int((_time.monotonic() - t0) * 1000)
+ 
             SessionLocal = init_db()
             with SessionLocal() as session:
                 saved = upsert_prices(session, result)
-
+ 
             avg_str = f" | avg: {result.avg_total_price*100:.2f} Rp/kWh" if result.avg_total_price else ""
             log.info(f"[{tariff_id}] ✓ {saved} slot salvati{avg_str}")
-
-            # Passa tariff_config per il check expect_uniform_prices (fix EKZ)
+ 
             issues = validate_result(result, tariff_config)
             if issues:
                 log.warning(f"[{tariff_id}] Anomalie: {issues}")
                 await send_anomaly_alert(result, target_date, issues, tariff_config)
+                # Log come "anomaly" — dati salvati ma con problemi
+                SessionLocal2 = init_db()
+                with SessionLocal2() as session:
+                    log_fetch(session, tariff_id, target_date, "anomaly",
+                              duration_ms=duration_ms,
+                              slot_count=result.slot_count,
+                              avg_price_rp=round(result.avg_total_price * 100, 2) if result.avg_total_price else None,
+                              anomaly_flags=issues)
             else:
                 log.info(f"[{tariff_id}] ✓ Validazione OK ({result.slot_count} slot)")
-
-            # Fetch riuscito → azzera circuit breaker
+                # Log come "ok"
+                SessionLocal2 = init_db()
+                with SessionLocal2() as session:
+                    log_fetch(session, tariff_id, target_date, "ok",
+                              duration_ms=duration_ms,
+                              slot_count=result.slot_count,
+                              avg_price_rp=round(result.avg_total_price * 100, 2) if result.avg_total_price else None)
+ 
             _record_success(tariff_id)
             return True
-
+ 
         except AdapterEmptyError as e:
+            duration_ms = int((_time.monotonic() - t0) * 1000)
             log.warning(f"[{tariff_id}] Dati non disponibili: {e}")
+            SessionLocal = init_db()
+            with SessionLocal() as session:
+                log_fetch(session, tariff_id, target_date, "empty",
+                          duration_ms=duration_ms, error_msg=str(e))
             return False
         except AdapterError as e:
             last_error = str(e)
@@ -745,20 +821,25 @@ async def fetch_with_retry(tariff_config: dict, target_date: date, _unused) -> b
             last_error = f"{type(e).__name__}: {e}"
             log.error(f"[{tariff_id}] Errore inatteso: {last_error}")
             import traceback; traceback.print_exc()
-
+ 
+    duration_ms = int((_time.monotonic() - t0) * 1000)
     log.error(f"[{tariff_id}] TUTTI I TENTATIVI FALLITI per {target_date}")
     await send_fetch_alert(tariff_config, target_date, last_error)
-
-    # Aggiorna streak fallimenti
+ 
+    # Log come "error"
+    SessionLocal = init_db()
+    with SessionLocal() as session:
+        log_fetch(session, tariff_id, target_date, "error",
+                  duration_ms=duration_ms, error_msg=last_error)
+ 
     streak = _record_failure(tariff_id)
     if streak >= MAX_CONSECUTIVE_FAILURES:
         log.warning(
             f"[{tariff_id}] Circuit breaker: {streak} fallimenti consecutivi. "
             f"Fetch automatico sospeso. Usa --tariff {tariff_id} per riprendere."
         )
-
+ 
     return False
-
 
 # ── Recovery: fetch solo tariffe mancanti ─────────────────────────────────────
 

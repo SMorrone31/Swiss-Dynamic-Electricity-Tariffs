@@ -200,6 +200,41 @@ class PriceSlotDB(Base):
         )
 
 
+class FetchLog(Base):
+    """
+    Registro strutturato di ogni tentativo di fetch.
+ 
+    Una riga per ogni chiamata all'adapter — successo o fallimento.
+    Permette query tipo:
+      "quante volte ha fallito EKZ nell'ultima settimana?"
+      "qual è la latenza media del fetch di Primeo?"
+      "qual è il tasso di successo per tariffa negli ultimi 30 giorni?"
+ 
+    Dimensioni stimate: ~8 tariffe × 365 giorni × 3 tentativi = ~8.760 righe/anno.
+    Ogni riga pesa ~200 byte → ~1.7 MB/anno. Trascurabile.
+    """
+    __tablename__ = "fetch_log"
+ 
+    id            = Column(Integer, primary_key=True, autoincrement=True)
+    tariff_id     = Column(String(100), nullable=False, index=True)
+    target_date   = Column(String(10),  nullable=False)        # "2026-04-15"
+    fetched_at    = Column(DateTime(timezone=True), nullable=False,
+                           default=lambda: datetime.now(timezone.utc))
+    status        = Column(String(20),  nullable=False)        # "ok" | "empty" | "error" | "anomaly"
+    duration_ms   = Column(Integer,     nullable=True)         # durata fetch in ms
+    slot_count    = Column(Integer,     nullable=True)         # slot ricevuti
+    avg_price_rp  = Column(Float,       nullable=True)         # media prezzi in Rp/kWh
+    error_msg     = Column(Text,        nullable=True)         # dettaglio errore se status != ok
+    anomaly_flags = Column(Text,        nullable=True)         # issues JSON se status == anomaly
+ 
+    __table_args__ = (
+        Index("ix_fetch_log_tariff_date", "tariff_id", "target_date"),
+        Index("ix_fetch_log_fetched_at",  "fetched_at"),
+    )
+ 
+    def __repr__(self):
+        return f"FetchLog({self.tariff_id} | {self.target_date} | {self.status})"
+
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
 # Engine singleton — creato una volta sola al primo init_db()
@@ -248,6 +283,85 @@ def _evu_list_hash(path: Path) -> str:
         return hashlib.sha256(content).hexdigest()[:16]
     except Exception:
         return ""
+
+#####
+def get_evu_list_hash(evu_list_path=None) -> str:
+    """
+    Calcola l'SHA256 del file evu_list.json.
+    Usato per rilevare modifiche al file senza doverlo rileggere completamente.
+    Ritorna stringa hex (64 caratteri) o "" se il file non esiste.
+    """
+    import hashlib
+    path = evu_list_path or Path(__file__).parent / "config" / "evu_list.json"
+    try:
+        content = path.read_bytes()
+        return hashlib.sha256(content).hexdigest()
+    except Exception:
+        return ""
+ 
+ 
+def check_evu_list_staleness(session: Session, evu_list_path=None) -> bool:
+    """
+    Verifica se evu_list.json è cambiato rispetto all'ultimo seed_tariffs().
+ 
+    Ritorna True se il file è cambiato (seed necessario).
+    Ritorna False se il file è uguale all'ultimo seed.
+ 
+    Salva l'hash corrente in una riga speciale della tabella tariffs
+    (tariff_id="_evu_list_hash_") per persistenza tra riavvii.
+ 
+    Comportamento:
+      - Prima esecuzione (nessun hash salvato) → True (forza seed)
+      - File invariato → False (seed opzionale, skip sicuro)
+      - File cambiato → True (seed obbligatorio + log di avviso)
+    """
+    import logging
+    _log = logging.getLogger("database.seed")
+    current_hash = get_evu_list_hash(evu_list_path)
+    if not current_hash:
+        _log.warning("evu_list.json non trovato — impossibile verificare staleness")
+        return True
+ 
+    # Legge l'hash precedentemente salvato
+    # Usiamo un hack: salviamo l'hash nel campo `notes` di una riga fantasma
+    # con tariff_id="_evu_list_hash_". Non è elegante ma non richiede tabelle aggiuntive.
+    marker = session.get(Tariff, "_evu_list_hash_")
+    if marker is None:
+        # Prima esecuzione — salva l'hash e forza seed
+        _log.info("Prima esecuzione seed — nessun hash precedente trovato")
+        _save_evu_hash(session, current_hash)
+        return True
+ 
+    saved_hash = marker.notes or ""
+    if saved_hash == current_hash:
+        _log.debug(f"evu_list.json invariato (hash: {current_hash[:12]}...)")
+        return False
+    else:
+        _log.warning(
+            f"evu_list.json MODIFICATO dall'ultimo seed! "
+            f"Hash precedente: {saved_hash[:12]}... → Attuale: {current_hash[:12]}... "
+            f"Eseguo seed_tariffs() per aggiornare il DB."
+        )
+        _save_evu_hash(session, current_hash)
+        return True
+ 
+ 
+def _save_evu_hash(session: Session, hash_value: str) -> None:
+    """Salva l'hash corrente di evu_list.json nel DB."""
+    marker = session.get(Tariff, "_evu_list_hash_")
+    if marker is None:
+        marker = Tariff(
+            tariff_id="_evu_list_hash_",
+            tariff_name="[internal] evu_list hash marker",
+            provider_name="[internal]",
+            adapter_class="[internal]",
+            active=False,
+        )
+        session.add(marker)
+    marker.notes = hash_value
+    session.commit()
+
+#####
 
 
 # ── Seed tariffe ──────────────────────────────────────────────────────────────
@@ -431,6 +545,51 @@ def upsert_prices(session: Session, result: NormalizedPrices) -> int:
     session.commit()
     return len(rows)
 
+def log_fetch(
+    session: Session,
+    tariff_id: str,
+    target_date,
+    status: str,
+    duration_ms: int | None = None,
+    slot_count: int | None = None,
+    avg_price_rp: float | None = None,
+    error_msg: str | None = None,
+    anomaly_flags: list | None = None,
+) -> None:
+    """
+    Scrive un record nel fetch_log.
+ 
+    Parametri:
+      tariff_id    → ID della tariffa
+      target_date  → data per cui è stato fatto il fetch (date o str "YYYY-MM-DD")
+      status       → "ok" | "empty" | "error" | "anomaly"
+      duration_ms  → durata della chiamata HTTP + parsing in millisecondi
+      slot_count   → numero di slot ricevuti dall'API
+      avg_price_rp → media prezzi in Rp/kWh (result.avg_total_price * 100)
+      error_msg    → messaggio errore (solo se status == "error")
+      anomaly_flags→ lista di issue strings (solo se status == "anomaly")
+ 
+    Non solleva eccezioni — se la scrittura fallisce logga un warning
+    ma non interrompe il flusso principale.
+    """
+    import json as _json
+    import logging
+    _log = logging.getLogger("database.fetch_log")
+    try:
+        row = FetchLog(
+            tariff_id     = tariff_id,
+            target_date   = str(target_date),
+            status        = status,
+            duration_ms   = duration_ms,
+            slot_count    = slot_count,
+            avg_price_rp  = avg_price_rp,
+            error_msg     = error_msg,
+            anomaly_flags = _json.dumps(anomaly_flags) if anomaly_flags else None,
+        )
+        session.add(row)
+        session.commit()
+    except Exception as e:
+        _log.warning(f"fetch_log write failed for {tariff_id}/{target_date}: {e}")
 
 # ── Query helpers ─────────────────────────────────────────────────────────────
 

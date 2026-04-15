@@ -57,8 +57,14 @@ async def lifespan(app: FastAPI):
     global SessionLocal
     SessionLocal = init_db()
     with SessionLocal() as session:
-        n = seed_tariffs(session)
-    print(f"[startup] DB pronto — {n} tariffe caricate")
+        from database import check_evu_list_staleness
+        if check_evu_list_staleness(session):
+            n = seed_tariffs(session)
+            print(f"[startup] DB aggiornato — {n} tariffe caricate da evu_list.json")
+        else:
+            from database import get_active_tariffs as _gat
+            n = len(_gat(session))
+            print(f"[startup] DB invariato — {n} tariffe attive (evu_list.json non cambiato)")
 
     import asyncio as _asyncio
     import json as _json
@@ -157,9 +163,18 @@ async def lifespan(app: FastAPI):
     print("  1° mese   01:00 UTC   → manutenzione mensile")
 
     yield
+    
+    try:
+        _scheduler.shutdown(wait=True)
+        print("[shutdown] Scheduler fermato — tutti i job completati.")
+    except Exception as e:
+        print(f"[shutdown] Scheduler shutdown con errore: {e}")
+        try:
+            _scheduler.shutdown(wait=False)  # forza se necessario
+        except Exception:
+            pass
+    print("[shutdown] Processo terminato correttamente.")
 
-    _scheduler.shutdown()
-    print("[shutdown] Scheduler fermato")
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
@@ -588,6 +603,92 @@ def get_latest(tariff_id: str = Query(...)):
     if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
     return {"tariff_id": tariff_id, "latest_date": dt.date().isoformat()}
 
+@app.get("/api/v1/metrics")
+def get_metrics(
+    tariff_id: Optional[str] = Query(None, description="Filtra per tariffa specifica"),
+    days:      int           = Query(7,    ge=1, le=90, description="Finestra temporale in giorni"),
+):
+    """
+    Statistiche strutturate sui fetch degli ultimi N giorni.
+ 
+    Permette query tipo:
+      - Quante volte ha fallito EKZ nell'ultima settimana?
+      - Qual è la latenza media del fetch di Primeo?
+      - Qual è il tasso di successo per tariffa?
+ 
+    Risposta per ogni tariffa:
+      total_fetches   → numero totale di tentativi
+      success_rate    → percentuale di successi (status "ok" + "anomaly")
+      avg_duration_ms → latenza media fetch in ms
+      avg_slot_count  → slot medi ricevuti
+      avg_price_rp    → prezzo medio in Rp/kWh (ultimi giorni con dati)
+      last_status     → stato dell'ultimo fetch
+      last_fetched_at → timestamp ultimo fetch
+      errors_count    → numero di errori
+      anomalies_count → numero di anomalie rilevate
+      by_status       → breakdown per status: {"ok": N, "error": N, ...}
+    """
+    from database import FetchLog
+    from datetime import timezone
+ 
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+ 
+    with SessionLocal() as session:
+        q = session.query(FetchLog).filter(FetchLog.fetched_at >= cutoff)
+        if tariff_id:
+            q = q.filter(FetchLog.tariff_id == tariff_id)
+        rows = q.order_by(FetchLog.fetched_at.desc()).all()
+ 
+    if not rows:
+        return {
+            "window_days": days,
+            "cutoff_utc":  cutoff.isoformat(),
+            "tariffs":     {},
+            "note":        "No fetch logs found. Logs are written starting from the next fetch cycle.",
+        }
+ 
+    from collections import defaultdict
+    by_tariff: dict = defaultdict(list)
+    for r in rows:
+        by_tariff[r.tariff_id].append(r)
+ 
+    result = {}
+    for tid, entries in by_tariff.items():
+        total    = len(entries)
+        ok       = sum(1 for e in entries if e.status in ("ok", "anomaly"))
+        errors   = sum(1 for e in entries if e.status == "error")
+        anomalies= sum(1 for e in entries if e.status == "anomaly")
+        empties  = sum(1 for e in entries if e.status == "empty")
+ 
+        durations = [e.duration_ms for e in entries if e.duration_ms is not None]
+        slots     = [e.slot_count  for e in entries if e.slot_count  is not None]
+        prices    = [e.avg_price_rp for e in entries if e.avg_price_rp is not None]
+ 
+        last = entries[0]  # già ordinati desc
+        by_status = {}
+        for e in entries:
+            by_status[e.status] = by_status.get(e.status, 0) + 1
+ 
+        result[tid] = {
+            "total_fetches":   total,
+            "success_rate":    round(ok / total * 100, 1) if total else 0,
+            "errors_count":    errors,
+            "anomalies_count": anomalies,
+            "empty_count":     empties,
+            "avg_duration_ms": round(sum(durations) / len(durations)) if durations else None,
+            "avg_slot_count":  round(sum(slots) / len(slots), 1) if slots else None,
+            "avg_price_rp":    round(sum(prices) / len(prices), 2) if prices else None,
+            "last_status":     last.status,
+            "last_fetched_at": last.fetched_at.isoformat() if last.fetched_at else None,
+            "last_error":      last.error_msg if last.status == "error" else None,
+            "by_status":       by_status,
+        }
+ 
+    return {
+        "window_days": days,
+        "cutoff_utc":  cutoff.isoformat(),
+        "tariffs":     result,
+    }
 
 @app.get("/api/v1/health")
 def health():
