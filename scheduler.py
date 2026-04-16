@@ -5,8 +5,19 @@ Scheduler giornaliero automatico per Swiss Tariff Hub.
 
 Flusso giornaliero (ora locale CET/CEST):
 
-  FETCH PRIMARIO
-  ─────────────
+  STARTUP (ogni riavvio del server)
+  ──────────────────────────────────
+  Avvio   → Startup recovery in background:
+              fetch immediato di TODAY e TOMORROW se mancanti
+              (copre "server era spento ieri sera")
+
+  RECOVERY TODAY (fetch attivo per OGGI se mancante)
+  ────────────────────────────────────────────────────
+  07:30 CET → Recovery mattutino TODAY: fetcha chi manca oggi [no-op se ok]
+  13:00 CET → Recovery pomeridiano TODAY: secondo tentativo    [no-op se ok]
+
+  FETCH PRIMARIO (dati per DOMANI)
+  ─────────────────────────────────
   12:05 CET → Fetch CKW (home + business) per DOMANI
                Retry: 12:35, poi 13:35
                Se tutti falliti: EMAIL ❌
@@ -15,8 +26,8 @@ Flusso giornaliero (ora locale CET/CEST):
                Retry: 19:00, poi 20:00
                Se tutti falliti: EMAIL ❌
 
-  RECOVERY (no-op se i dati ci sono già)
-  ───────────────────────────────────────
+  RECOVERY TOMORROW (no-op se i dati ci sono già)
+  ─────────────────────────────────────────────────
   17:30 CET → Recovery CKW: rifetcha solo se dati di domani mancano
   21:00 CET → Recovery TUTTI: rifetcha solo tariffe ancora mancanti
 

@@ -134,9 +134,37 @@ async def lifespan(app: FastAPI):
             )
 
     # ── JOB 6: Health check mattutino (10:00 CET = 09:00 UTC) ────────────────
+    # ── JOB 6: Health check mattutino (10:00 CET = 09:00 UTC) ────────────────
     async def _job_health():
         from scheduler import run_health_check
         await run_health_check()
+
+    # ── JOB 8: Recovery mattutino TODAY (07:30 CET = 06:30 UTC) ──────────────
+    # Fetcha attivamente le tariffe mancanti PER OGGI — copre il caso in cui
+    # i fetch serali di ieri siano falliti. È un no-op se i dati ci sono.
+    async def _job_morning_recovery_today():
+        from scheduler import fetch_missing_for_date
+        from schemas import today_ch
+        target = today_ch()
+        print(f"[morning_recovery_today] Verifica dati mancanti per oggi ({target})...")
+        still_missing = await fetch_missing_for_date(target, label="morning_recovery_today")
+        if still_missing:
+            print(f"[morning_recovery_today] ⚠ Ancora mancanti dopo recovery: "
+                  f"{[t for t, _ in still_missing]}")
+        else:
+            print(f"[morning_recovery_today] ✓ Tutti i dati presenti per oggi ({target})")
+
+    # ── JOB 9: Recovery pomeridiano TODAY (13:00 CET = 12:00 UTC) ────────────
+    # Secondo tentativo per TODAY in caso il mattutino non abbia risolto.
+    # È un no-op efficiente se i dati ci sono già.
+    async def _job_afternoon_recovery_today():
+        from scheduler import fetch_missing_for_date
+        from schemas import today_ch
+        target = today_ch()
+        still_missing = await fetch_missing_for_date(target, label="afternoon_recovery_today")
+        if still_missing:
+            print(f"[afternoon_recovery_today] ⚠ Ancora mancanti: "
+                  f"{[t for t, _ in still_missing]}")
 
     # ── JOB 7: Manutenzione mensile (2:00 CET = 1:00 UTC, 1° del mese) ───────
     async def _job_monthly():
@@ -144,23 +172,56 @@ async def lifespan(app: FastAPI):
         await monthly_maintenance()
 
     # ── Registrazione ─────────────────────────────────────────────────────────
-    _scheduler.add_job(_job_ckw,          CronTrigger(hour=11, minute=5),       id="ckw")
-    _scheduler.add_job(_job_ckw_recovery, CronTrigger(hour=16, minute=30),      id="ckw_recovery")
-    _scheduler.add_job(_job_others,       CronTrigger(hour=17, minute=30),      id="others")
-    _scheduler.add_job(_job_all_recovery, CronTrigger(hour=20, minute=0),       id="all_recovery")
-    _scheduler.add_job(_job_last_resort,  CronTrigger(hour=22, minute=30),      id="last_resort")
-    _scheduler.add_job(_job_health,       CronTrigger(hour=9,  minute=0),       id="health")
-    _scheduler.add_job(_job_monthly,      CronTrigger(day=1, hour=1, minute=0), id="monthly")
+    _scheduler.add_job(_job_ckw,                      CronTrigger(hour=11, minute=5),       id="ckw")
+    _scheduler.add_job(_job_ckw_recovery,             CronTrigger(hour=16, minute=30),      id="ckw_recovery")
+    _scheduler.add_job(_job_others,                   CronTrigger(hour=17, minute=30),      id="others")
+    _scheduler.add_job(_job_all_recovery,             CronTrigger(hour=20, minute=0),       id="all_recovery")
+    _scheduler.add_job(_job_last_resort,              CronTrigger(hour=22, minute=30),      id="last_resort")
+    _scheduler.add_job(_job_health,                   CronTrigger(hour=9,  minute=0),       id="health")
+    _scheduler.add_job(_job_morning_recovery_today,   CronTrigger(hour=6,  minute=30),      id="morning_recovery_today")
+    _scheduler.add_job(_job_afternoon_recovery_today, CronTrigger(hour=12, minute=0),       id="afternoon_recovery_today")
+    _scheduler.add_job(_job_monthly,                  CronTrigger(day=1, hour=1, minute=0), id="monthly")
     _scheduler.start()
 
+    # ── Startup fetch immediato: recupera TODAY e TOMORROW se mancanti ────────
+    # Lanciato in background subito dopo lo start dello scheduler, senza
+    # bloccare il boot di FastAPI. Copre il caso "server era spento ieri sera".
+    async def _startup_recovery():
+        import asyncio as _aio
+        from scheduler import fetch_missing_for_date
+        from schemas import today_ch, tomorrow_ch
+
+        today    = today_ch()
+        tomorrow = tomorrow_ch()
+
+        print(f"[startup_recovery] Avvio — verifica dati per oggi ({today}) e domani ({tomorrow})...")
+        await _aio.sleep(5)  # lascia tempo al DB di stabilizzarsi
+
+        missing_today = await fetch_missing_for_date(today, label="startup_today")
+        if missing_today:
+            print(f"[startup_recovery] ⚠ Ancora mancanti OGGI: {[t for t, _ in missing_today]}")
+        else:
+            print(f"[startup_recovery] ✓ Dati TODAY completi ({today})")
+
+        missing_tomorrow = await fetch_missing_for_date(tomorrow, label="startup_tomorrow")
+        if missing_tomorrow:
+            print(f"[startup_recovery] ⚠ Ancora mancanti DOMANI: {[t for t, _ in missing_tomorrow]}")
+        else:
+            print(f"[startup_recovery] ✓ Dati TOMORROW completi ({tomorrow})")
+
+    _asyncio.ensure_future(_startup_recovery())
+
     print("[startup] Scheduler avviato:")
+    print("  06:30 UTC (07:30 CET) → recovery TODAY mattutino    [no-op se ok]")
+    print("  09:00 UTC (10:00 CET) → health check mattutino      [alert se mancano]")
     print("  11:05 UTC (12:05 CET) → fetch CKW primario")
-    print("  16:30 UTC (17:30 CET) → recovery CKW     [no-op se ok]")
+    print("  12:00 UTC (13:00 CET) → recovery TODAY pomeridiano  [no-op se ok]")
+    print("  16:30 UTC (17:30 CET) → recovery CKW                [no-op se ok]")
     print("  17:30 UTC (18:30 CET) → fetch altri EVU primario")
-    print("  20:00 UTC (21:00 CET) → recovery tutti   [no-op se ok]")
-    print("  22:30 UTC (23:30 CET) → last resort      [alert se vuoto]")
-    print("  09:00 UTC (10:00 CET) → health check mattutino")
+    print("  20:00 UTC (21:00 CET) → recovery tutti              [no-op se ok]")
+    print("  22:30 UTC (23:30 CET) → last resort                 [alert se vuoto]")
     print("  1° mese   01:00 UTC   → manutenzione mensile")
+    print("[startup] Startup recovery lanciato in background (today + tomorrow)")
 
     yield
     
