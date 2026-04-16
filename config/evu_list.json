@@ -265,7 +265,12 @@
     "dynamic_elements": ["grid"],
     "sgr_compliant": true,
     "doc_url": "https://www.groupe-e.ch/de/strom/vario",
-    "notes": "Active since 01.01.2024. Only grid component is dynamic. API uses non-standard timezone offset (+0200 without colon)."
+    "notes": "Active since 01.01.2024. Only grid component is dynamic. API uses non-standard timezone offset (+0200 without colon).",
+    "api_params": {
+      "backfill_supported": false,
+      "skip_date_param": true,
+      "allow_negative_prices": true
+    }
   },
   {
     "tariff_id": "primeo_netzdynamisch",

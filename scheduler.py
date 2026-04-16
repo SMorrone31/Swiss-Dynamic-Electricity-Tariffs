@@ -620,16 +620,19 @@ def validate_result(
         more   = f" (+{len(zero_slots)-5} more)" if len(zero_slots) > 5 else ""
         issues.append(f"Zero-price slots: {', '.join(sample)}{more}")
  
-    # 3. Prezzi negativi
-    negative_slots = [
-        s.slot_start_utc.strftime("%H:%M")
-        for s in result.slots
-        if s.total_price is not None and s.total_price < 0
-    ]
-    if negative_slots:
-        sample = negative_slots[:5]
-        more   = f" (+{len(negative_slots)-5} more)" if len(negative_slots) > 5 else ""
-        issues.append(f"Negative-price slots: {', '.join(sample)}{more}")
+    # 3. Prezzi negativi — saltato se allow_negative_prices=true (es. Groupe E)
+    if not api_params.get("allow_negative_prices", False):
+        negative_slots = [
+            s.slot_start_utc.strftime("%H:%M")
+            for s in result.slots
+            if s.total_price is not None and s.total_price < 0
+        ]
+        if negative_slots:
+            sample = negative_slots[:5]
+            more   = f" (+{len(negative_slots)-5} more)" if len(negative_slots) > 5 else ""
+            issues.append(f"Negative-price slots: {', '.join(sample)}{more}")
+    else:
+        log.debug(f"[{result.tariff_id}] allow_negative_prices=true — skip negative-price check")
  
     # 4. Prezzi identici — FIX EKZ
     if not api_params.get("expect_uniform_prices", False):

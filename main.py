@@ -134,7 +134,6 @@ async def lifespan(app: FastAPI):
             )
 
     # ── JOB 6: Health check mattutino (10:00 CET = 09:00 UTC) ────────────────
-    # ── JOB 6: Health check mattutino (10:00 CET = 09:00 UTC) ────────────────
     async def _job_health():
         from scheduler import run_health_check
         await run_health_check()
@@ -156,6 +155,7 @@ async def lifespan(app: FastAPI):
 
     # ── JOB 9: Recovery pomeridiano TODAY (13:00 CET = 12:00 UTC) ────────────
     # Secondo tentativo per TODAY in caso il mattutino non abbia risolto.
+    # Utile per provider che aggiornano in mattinata (es. Primeo ~16:00 CET).
     # È un no-op efficiente se i dati ci sono già.
     async def _job_afternoon_recovery_today():
         from scheduler import fetch_missing_for_date
@@ -1791,9 +1791,9 @@ function renderStatusList(tariffs) {{
     const pendingMsg = lang==='de'?'Adapter noch nicht implementiert':lang==='fr'?'Adaptateur non impl\u00e9ment\u00e9':lang==='it'?'Adattatore non ancora implementato':'Adapter not yet implemented';
     const updatedPrefix = lang==='de'?'Aktualisiert ':lang==='fr'?'Mis \u00e0 jour \u00e0 ':lang==='it'?'Aggiornato alle ':'Updated ';
     const neverMsg = lang==='de'?'Nie aktualisiert':lang==='fr'?'Jamais mis \u00e0 jour':lang==='it'?'Mai aggiornato':'Never updated';
-    const meta = t.status === 'pending' && !t.last_fetch_utc ? pendingMsg
-      : t.last_fetch_utc ? updatedPrefix + new Date(t.last_fetch_utc).toLocaleTimeString('en-GB') + ' UTC'
-      : neverMsg;
+    const _fd = t.last_fetch_utc ? new Date(t.last_fetch_utc) : null;
+    const _fmeta = _fd ? updatedPrefix + _fd.toLocaleDateString('en-GB') + ' ' + _fd.toLocaleTimeString('en-GB') + ' UTC' : neverMsg;
+    const meta = t.status === 'pending' && !t.last_fetch_utc ? pendingMsg : _fmeta;
     return `<div class="status-row">
       <div>
         <div class="status-name">${{t.provider_name}} \u2014 ${{t.tariff_name||''}}</div>
@@ -2351,8 +2351,9 @@ function renderApiStatusList(tariffs) {{
   }}
   el.innerHTML = tariffs.map(t => {{
     const isOk = t.has_today_data || t.status === 'ok';
-    const meta = isOk && t.last_fetch_utc
-      ? 'Updated ' + new Date(t.last_fetch_utc).toLocaleTimeString('en-GB') + ' UTC'
+    const _afd = t.last_fetch_utc ? new Date(t.last_fetch_utc) : null;
+    const meta = isOk && _afd
+      ? 'Updated ' + _afd.toLocaleDateString('en-GB') + ' ' + _afd.toLocaleTimeString('en-GB') + ' UTC'
       : !isOk && !t.last_fetch_utc ? '' : '';
     const badge = isOk
       ? `<span class="s-ok">live</span>`
