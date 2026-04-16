@@ -874,6 +874,7 @@ async def fetch_missing_for_date(
 
     tz_ch = _tz_ch()
 
+    from datetime import timedelta as _td
     SessionLocal = init_db()
     available    = set(list_available_adapters())
     missing_configs = []
@@ -884,8 +885,15 @@ async def fetch_missing_for_date(
                 continue
             if t.adapter_class not in available:
                 continue
-            if not has_data_for_date(session, t.tariff_id, target_date, tz_ch):
-                missing_configs.append(_json.loads(t.full_config_json))
+            config         = _json.loads(t.full_config_json)
+            day_ahead_only = not config.get("api_params", {}).get("backfill_supported", True)
+            prev_date      = target_date - _td(days=1)
+
+            has_target = has_data_for_date(session, t.tariff_id, target_date, tz_ch)
+            has_prev   = day_ahead_only and has_data_for_date(session, t.tariff_id, prev_date, tz_ch)
+
+            if not has_target and not has_prev:
+                missing_configs.append(config)
 
     if not missing_configs:
         log.info(f"[{label}] ✓ Nessuna tariffa mancante per {target_date}")
@@ -902,15 +910,36 @@ async def fetch_missing_for_date(
 
     await asyncio.gather(*[bounded(c) for c in missing_configs])
 
-    # Verifica quali sono ancora mancanti dopo il tentativo
+    # Verifica quali sono ancora mancanti dopo il tentativo.
+    #
+    # NOTA sulle API day-ahead (backfill_supported: false):
+    # Queste API (AEM, EKZ, Groupe E, Primeo...) restituiscono sempre i dati
+    # del giorno successivo rispetto a quello in cui vengono chiamate.
+    # Quando le chiamiamo con target_date = domani, i loro slot UTC coprono
+    # la data locale CH di "domani" ma iniziano alle 22:00 UTC di "oggi".
+    # has_data_for_date(target_date) può quindi risultare False anche se il
+    # fetch è riuscito, perché gli slot sono registrati sotto target_date - 1.
+    # Per queste tariffe accettiamo i dati anche se sono sotto target_date - 1.
+    from datetime import timedelta as _td
     still_missing = []
     SessionLocal2 = init_db()
     with SessionLocal2() as session:
         for config in missing_configs:
-            tid      = config["tariff_id"]
-            provider = config.get("provider_name", "?")
-            if not has_data_for_date(session, tid, target_date, tz_ch):
+            tid              = config["tariff_id"]
+            provider         = config.get("provider_name", "?")
+            day_ahead_only   = not config.get("api_params", {}).get("backfill_supported", True)
+            prev_date        = target_date - _td(days=1)
+
+            has_target = has_data_for_date(session, tid, target_date, tz_ch)
+            has_prev   = day_ahead_only and has_data_for_date(session, tid, prev_date, tz_ch)
+
+            if not has_target and not has_prev:
                 still_missing.append((tid, provider))
+            elif not has_target and has_prev:
+                log.info(
+                    f"[{label}] [{tid}] Dati trovati sotto {prev_date} "
+                    f"(API day-ahead — normale)"
+                )
 
     if still_missing:
         log.warning(
@@ -1214,4 +1243,5 @@ if __name__ == "__main__":
     if any(f in sys.argv for f in ["--now", "--tariff", "--health", "--test-email", "--recovery"]):
         asyncio.run(cli())
     else:
+        
         start_scheduler()

@@ -273,22 +273,53 @@ async def api_key_middleware(request: Request, call_next):
 
 @app.get("/api/v1/tariffs")
 def get_tariffs():
+    def expand_zip_ranges(raw: list) -> list[int]:
+        """
+        Normalizza zip_ranges in lista di interi, qualunque sia il formato nel JSON:
+          - int       →  [6810]
+          - [lo, hi]  →  range espanso
+          - "4000-4199" → range espanso
+          - "4242"    →  [4242]
+        """
+        result = []
+        for z in raw:
+            if isinstance(z, int):
+                result.append(z)
+            elif isinstance(z, list) and len(z) == 2:
+                result.extend(range(int(z[0]), int(z[1]) + 1))
+            elif isinstance(z, str):
+                z = z.strip()
+                if "-" in z:
+                    parts = z.split("-")
+                    try:
+                        result.extend(range(int(parts[0]), int(parts[1]) + 1))
+                    except ValueError:
+                        pass
+                else:
+                    try:
+                        result.append(int(z))
+                    except ValueError:
+                        pass
+        return sorted(set(result))
+
     with SessionLocal() as session:
         tariffs = get_active_tariffs(session)
     return [
         {
-            "tariff_id":               t.tariff_id,
-            "tariff_name":             t.tariff_name,
-            "provider_name":           t.provider_name,
-            "zip_ranges":              json.loads(t.full_config_json).get("zip_ranges", []),
-            "daily_update_time_utc":   t.daily_update_time_utc,
+            "tariff_id":                  t.tariff_id,
+            "tariff_name":                t.tariff_name,
+            "provider_name":              t.provider_name,
+            "zip_ranges":                 expand_zip_ranges(
+                                              json.loads(t.full_config_json).get("zip_ranges", [])
+                                          ),
+            "daily_update_time_utc":      t.daily_update_time_utc,
             "datetime_available_from_utc": (
                 t.datetime_available_from.isoformat() if t.datetime_available_from else None
             ),
-            "valid_until_utc":         (t.valid_until.isoformat() if t.valid_until else None),
-            "sgr_compliant":           t.sgr_compliant,
-            "dynamic_elements":        json.loads(t.dynamic_elements_json),
-            "time_resolution_minutes": t.time_resolution_minutes,
+            "valid_until_utc":            (t.valid_until.isoformat() if t.valid_until else None),
+            "sgr_compliant":              t.sgr_compliant,
+            "dynamic_elements":           json.loads(t.dynamic_elements_json),
+            "time_resolution_minutes":    t.time_resolution_minutes,
         }
         for t in tariffs
     ]
@@ -751,6 +782,183 @@ def get_metrics(
         "tariffs":     result,
     }
 
+@app.get("/api/v1/zip-map")
+def get_zip_map():
+    """
+    ZIP display string per tariff_id, calcolato da evu_list.json.
+    Usato dalla mappa per mostrare il CAP nel tooltip.
+    """
+    import pathlib
+    cfg_path = pathlib.Path(__file__).parent / "config" / "evu_list.json"
+    try:
+        with open(cfg_path, encoding="utf-8") as f:
+            evus = json.load(f)
+    except Exception:
+        return JSONResponse(content={})
+    result = {}
+    for e in evus:
+        tid      = e.get("tariff_id", "")
+        zips_raw = e.get("zip_ranges", [])
+        zips_all = []
+        for z in zips_raw:
+            if isinstance(z, int):
+                zips_all.append(z)
+            elif isinstance(z, list) and len(z) == 2:
+                zips_all.extend(range(int(z[0]), int(z[1]) + 1))
+            elif isinstance(z, str):
+                # Formato "4000-4199" oppure singolo "4242"
+                z = z.strip()
+                if "-" in z:
+                    parts = z.split("-")
+                    try:
+                        zips_all.extend(range(int(parts[0]), int(parts[1]) + 1))
+                    except ValueError:
+                        pass
+                else:
+                    try:
+                        zips_all.append(int(z))
+                    except ValueError:
+                        pass
+        zips_all = sorted(set(zips_all))
+        if len(zips_all) == 0:
+            display = ""
+        elif len(zips_all) <= 6:
+            display = ", ".join(str(z) for z in zips_all)
+        else:
+            display = str(zips_all[0]) + "–" + str(zips_all[-1])
+        result[tid] = {"zip_display": display, "zip_count": len(zips_all)}
+    return JSONResponse(content=result)
+
+
+@app.get("/api/v1/municipalities")
+def get_municipalities():
+    """
+    Mapping BFS-ID -> nome comune svizzero ufficiale (2024).
+    Usato dalla mappa per il tooltip. Fonte: BFS registro comuni 2024.
+    """
+    bfs_names = {
+        # Canton Zurigo (ZH)
+        "1":"Aeugst am Albis","2":"Affoltern am Albis","3":"Bonstetten","4":"Hausen am Albis","5":"Hedingen",
+        "6":"Knonau","7":"Maschwanden","8":"Mettmenstetten","9":"Obfelden","10":"Ottikon (Knonau)",
+        "11":"Rifferswil","12":"Stallikon","13":"Wettswil am Albis","14":"Adliswil","15":"Dübendorf",
+        "16":"Fällanden","17":"Greifensee","18":"Kilchberg (ZH)","19":"Küsnacht (ZH)",
+        "21":"Langnau am Albis","22":"Maur","23":"Männedorf","24":"Meilen","25":"Neftenbach",
+        "26":"Oetwil am See","27":"Oetwil an der Limmat","28":"Opfikon","29":"Regensdorf","30":"Richterswil",
+        "31":"Rüschlikon","32":"Schlieren","33":"Schönenberg (ZH)","34":"Staefa","35":"Thalwil",
+        "36":"Uetikon am See","37":"Uitikon","38":"Uster","39":"Volketswil","40":"Wädenswil",
+        "41":"Wallisellen","42":"Wangen-Brüttisellen","43":"Zollikon","44":"Zumikon","45":"Zürich",
+        "51":"Bachenbülach","52":"Bassersdorf","53":"Bülach","54":"Dietlikon","55":"Eglisau",
+        "56":"Embrach","57":"Freienstein-Teufen","58":"Glattfelden","59":"Hochfelden","60":"Höri",
+        "61":"Hüntwangen","62":"Kloten","63":"Lufingen","64":"Nürensdorf","65":"Oberembrach",
+        "66":"Rafz","67":"Rorbas","68":"Winkel","70":"Wasterkingen",
+        "71":"Wil (ZH)","72":"Weiach","81":"Andelfingen","82":"Benken (ZH)",
+        "83":"Berg am Irchel","84":"Buch am Irchel","85":"Dachsen","86":"Dorf","87":"Ellikon am Rhein",
+        "88":"Flaach","89":"Flurlingen","90":"Henggart","91":"Humlikon","92":"Kleinandelfingen",
+        "93":"Laufen-Uhwiesen","95":"Ossingen","96":"Rheinau","98":"Thalheim an der Thur",
+        "99":"Truttikon","100":"Volken","101":"Waltalingen",
+        "111":"Adlikon","112":"Bertschikon","113":"Brütten","114":"Dättlikon","115":"Dinhard",
+        "117":"Elsau","119":"Hagenbuch","121":"Illnau-Effretikon","126":"Seuzach","129":"Winterthur",
+        "131":"Zell (ZH)","135":"Bauma","136":"Bäretswil","137":"Fischenthal","138":"Hinwil",
+        "141":"Grüningen","146":"Rüti (ZH)","147":"Seegräben","148":"Wald (ZH)","149":"Wetzikon (ZH)",
+        "153":"Adlikon","157":"Andelfingen","160":"Zürich","173":"Embrach","178":"Glattfelden",
+        "180":"Hinwil","181":"Hombrechtikon","182":"Horgen","192":"Kilchberg (ZH)","194":"Küsnacht (ZH)",
+        "195":"Langnau am Albis","196":"Männedorf","197":"Maur","199":"Neftenbach","200":"Obfelden",
+        "211":"Opfikon","213":"Rafz","214":"Regensdorf","215":"Richterswil","216":"Rorbas",
+        "218":"Rüschlikon","219":"Schlieren","220":"Schönenberg (ZH)","221":"Seegräben",
+        "223":"Stadel","224":"Staefa","225":"Thalwil","226":"Uetikon am See","227":"Uitikon",
+        "228":"Uster","231":"Volketswil","241":"Wädenswil","242":"Wangen-Brüttisellen",
+        "243":"Wasterkingen","244":"Weiach","245":"Wettswil am Albis","246":"Wil (ZH)",
+        "247":"Wiesendangen","248":"Winkel","249":"Winterthur","250":"Zollikon","251":"Zumikon",
+        "291":"Pfäffikon","292":"Pfäffikon","293":"Pfäffikon","294":"Pfäffikon","295":"Pfäffikon",
+        "296":"Pfäffikon","297":"Pfäffikon","298":"Pfäffikon","1301":"Einsiedeln","1704":"Zürich",
+        # Canton Berna (BE)
+        "2422":"Aarberg","2471":"Arlesheim","2472":"Birsfelden","2473":"Bottmingen","2474":"Bettlach",
+        "2475":"Dornach","2476":"Ettingen","2477":"Gempen","2478":"Hochwald","2479":"Hofstetten-Flüh",
+        "2480":"Inzlingen","2481":"Metzerlen-Mariastein","2491":"Aefligen","2493":"Bätterkinden",
+        "2495":"Burgdorf","2497":"Ersigen","2499":"Hindelbank","2500":"Jegenstorf","2501":"Kirchberg (BE)",
+        "2502":"Koppigen","2572":"Bätterkinden","2573":"Burgdorf","2576":"Gretzenbach",
+        "2582":"Aefligen","2583":"Alchenstorf","2584":"Bätterkinden","2585":"Burgdorf","2586":"Ersigen",
+        "2611":"Allschwil","2612":"Arlesheim","2613":"Bettlach","2614":"Binningen",
+        "2615":"Birsfelden","2616":"Bottmingen","2617":"Dornach","2618":"Ettingen","2619":"Gempen",
+        "2620":"Hochwald","2621":"Hofstetten-Flüh","2622":"Metzerlen-Mariastein",
+        "2761":"Aetigkofen","2762":"Aetingen","2763":"Bätterkinden","2764":"Biberist","2765":"Bolken",
+        "2766":"Burgdorf","2767":"Derendingen","2768":"Etziken","2769":"Fehren","2770":"Gerlafingen",
+        "2771":"Gunzgen","2772":"Härkingen","2773":"Hersiwil","2774":"Horriwil","2775":"Hüniken",
+        "2782":"Balm bei Messen","2783":"Bibern (SO)","2785":"Messen","2786":"Niederwil (SO)",
+        "2787":"Nennigkofen","2788":"Oberdorf (SO)","2830":"Lüterkofen-Ichertswil",
+        "2831":"Lüterswil-Gächliwil","2883":"Rüttenen","2889":"Selzach",
+        # Canton Lucerna (LU)
+        "1001":"Adligenswil","1002":"Buchrain","1004":"Dierikon","1005":"Ebikon","1007":"Eschenbach (LU)",
+        "1008":"Gisikon","1009":"Greppen","1010":"Honau","1021":"Horw","1023":"Inwil","1024":"Littau",
+        "1025":"Luzern","1026":"Malters","1030":"Meggen","1032":"Meierskappel","1033":"Neuenkirch",
+        "1037":"Rain","1039":"Root","1040":"Rothenburg","1041":"Ruswil","1051":"Schwarzenberg",
+        "1052":"Sempach","1053":"Sursee","1054":"Triengen","1055":"Ufhusen","1058":"Vitznau",
+        "1059":"Weggis","1061":"Wolhusen","1063":"Udligenswil","1064":"Wauwil","1065":"Wikon",
+        "1067":"Willisau","1081":"Ballwil","1082":"Beromünster","1083":"Büron","1084":"Dierikon",
+        "1085":"Ermensee","1086":"Eschenbach (LU)","1088":"Geuensee","1089":"Grosswangen",
+        "1091":"Hellbühl","1093":"Hildisrieden","1094":"Hochdorf","1095":"Hohenrain",
+        "1097":"Hüswil","1098":"Inwil","1099":"Knutwil","1100":"Luzern","1102":"Luthern",
+        "1103":"Meierskappel","1104":"Menznau","1107":"Muri bei Bern","1121":"Nottwil",
+        "1122":"Oberkirch (LU)","1123":"Pfaffnau","1125":"Rain","1127":"Rickenbach (LU)",
+        "1128":"Römerswil","1129":"Ruswil","1131":"Schlierbach","1136":"Sempach","1137":"Sursee",
+        "1139":"Triengen","1140":"Ufhusen","1142":"Wauwil","1143":"Wikon","1146":"Willisau",
+        "1147":"Winikon","1150":"Wolhusen","1151":"Zell (LU)",
+        # Canton Ticino (TI)
+        "5009":"Massagno","5141":"Agno","5143":"Aranno","5144":"Arogno","5148":"Balerna",
+        "5151":"Bedano","5154":"Besazio","5160":"Brusino Arsizio","5161":"Cadenazzo",
+        "5162":"Camorino","5167":"Carona","5171":"Castel San Pietro","5176":"Caslano",
+        "5180":"Chiasso","5186":"Coldrerio","5187":"Collina d'Oro","5189":"Comano",
+        "5192":"Croglio","5193":"Cugnasco-Gerra","5194":"Cureglia","5196":"Lugano",
+        "5198":"Lumino","5199":"Magliaso","5203":"Maroggia","5205":"Massagno",
+        "5206":"Melide","5208":"Mendrisio","5210":"Mezzovico-Vira","5212":"Minusio",
+        "5214":"Montagnola","5216":"Monteceneri","5221":"Morcote","5225":"Muzzano",
+        "5226":"Breganzona","5227":"Neggio","5230":"Novazzano","5231":"Novazzano",
+        "5233":"Origlio","5236":"Paradiso","5237":"Porza","5238":"Pura","5239":"Riva San Vitale",
+        "5240":"Rovio","5249":"Savosa","5251":"Sessa","5260":"Sorengo","5263":"Stabio",
+        "5269":"Vernate",
+        # Canton Argovia (AG)
+        "4239":"Aarau",
+        # Canton Friburgo (FR)
+        "669":"Gryon","2008":"Attalens","2011":"Broc","2022":"Châtel-Saint-Denis","2025":"Charmey",
+        "2029":"Corpataux-Magnedens","2035":"Courgevaux","2041":"Düdingen","2043":"Ecuvillens",
+        "2044":"Ependes (FR)","2045":"Estavayer","2050":"Fribourg","2051":"Giffers",
+        "2053":"Givisiez","2054":"Grolley","2055":"Gruyères","2063":"Hauteville","2067":"Jaun",
+        "2068":"La Brillaz","2079":"Le Mouret","2086":"Liebistorf","2087":"Lossy",
+        "2096":"Marly","2097":"Marsens","2099":"Matran","2102":"Ménières","2113":"Morlon",
+        "2114":"Murist","2115":"Nuvilly","2117":"Orsonnens","2121":"Pont-la-Ville",
+        "2122":"Portalban-Dessous","2124":"Posieux","2125":"Prez","2134":"Romont (FR)",
+        "2135":"Rossens (FR)","2137":"Saint-Aubin (FR)","2138":"Sâles","2140":"Salvagny",
+        "2145":"Siviriez","2147":"Sorens","2149":"Surpierre","2152":"Treyvaux","2153":"Ursy",
+        "2155":"Villars-sur-Glâne","2160":"Vuadens","2162":"Vuisternens-devant-Romont",
+        "2173":"Bussy (FR)","2174":"Cressier (FR)","2175":"Bas-Vully","2177":"Estavayer",
+        "2183":"Fribourg","2186":"Givisiez","2194":"Murten","2196":"Ried bei Kerzers",
+        "2197":"Murten","2198":"Meyriez","2206":"Muntelier","2208":"Muntelier",
+        "2211":"Münchenwiler","2216":"Nant","2220":"Praz","2226":"Haut-Vully",
+        "2228":"Bas-Vully","2230":"Bas-Vully","2233":"Staufen","2234":"Sugiez",
+        "2235":"Ulmiz","2236":"Vallon","2238":"Murten","2239":"Murten",
+        "2250":"Bottens","2254":"Autigny","2257":"Belfaux","2258":"Corserey",
+        "2261":"Courtepin","2262":"Cressier (FR)","2265":"Formangueires","2266":"Fribourg",
+        "2272":"Givisiez","2275":"Granges-Paccot","2276":"Grolley","2284":"Hauterive (FR)",
+        "2292":"Corminboeuf","2293":"Moncor","2294":"Fribourg","2295":"Noréaz","2296":"Onnens (FR)",
+        "2299":"Pierrafortscha","2300":"Praroman","2301":"Rechthalten","2303":"Romont (FR)",
+        "2304":"Rossens (FR)","2305":"Rueyres-les-Prés","2306":"Saint-Aubin (FR)","2307":"Sâles",
+        "2308":"Salvagny","2309":"Seedorf (FR)","2321":"Barberêche","2323":"Bussy (FR)",
+        "2325":"Courtepin","2328":"Cressier (FR)","2333":"Fribourg","2335":"Fribourg",
+        "2336":"Grolley","2337":"Hauterive (FR)","2338":"Murten",
+        # Canton Svitto (SZ)
+        "5451":"Gersau","5456":"Illgau","5458":"Ingenbohl","5464":"Lauerz",
+        "5790":"Sattel","5813":"Schwyz","5816":"Seewen","5817":"Ingenbohl",
+        "5821":"Steinen","5822":"Steinerberg","5827":"Unteriberg","5841":"Vorderthal",
+        "5842":"Wald (SZ)","5843":"Wollerau",
+        # Canton Glarona (GL)
+        "6413":"Betschwanden","6416":"Braunwald","6417":"Elm","6423":"Glarus","6432":"Luchsingen",
+        "6433":"Mitlödi","6434":"Mollis","6435":"Mühlehorn","6437":"Näfels","6451":"Niederurnen",
+        "6452":"Netstal","6456":"Oberurnen","6458":"Riedern","6487":"Schwanden","6504":"Sool",
+        "6511":"Ennenda","6512":"Glarus","6513":"Riedern",
+    }
+    return JSONResponse(content=bfs_names)
+
+
 @app.get("/api/v1/health")
 def health():
     try:
@@ -1075,6 +1283,28 @@ def dashboard():
       border-radius:8px;padding:8px 12px;font-size:12px;pointer-events:none;
       display:none;z-index:20;max-width:240px;line-height:1.5;box-shadow:0 2px 8px rgba(0,0,0,.08)}}
     #map-legend{{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:14px;padding:0 2px}}
+    #map-price-panel{{display:none;background:white;border:0.5px solid #e5e5e5;border-radius:12px;
+      padding:1rem 1.25rem;margin-top:14px;box-shadow:0 2px 12px rgba(0,0,0,.06);position:relative}}
+    #map-price-panel .mpp-header{{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}}
+    #map-price-panel .mpp-title{{font-size:14px;font-weight:600;color:#1a1a2e;line-height:1.3}}
+    #map-price-panel .mpp-sub{{font-size:11px;color:#888;margin-top:2px}}
+    #map-price-panel .mpp-close{{background:none;border:none;font-size:18px;color:#aaa;
+      cursor:pointer;padding:0;line-height:1;flex-shrink:0;margin-left:8px}}
+    #map-price-panel .mpp-close:hover{{color:#555}}
+    #map-price-panel .mpp-stats{{display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap}}
+    #map-price-panel .mpp-stat{{text-align:center}}
+    #map-price-panel .mpp-stat-val{{font-size:16px;font-weight:700;color:#1a1a2e}}
+    #map-price-panel .mpp-stat-val.now{{color:#185fa5}}
+    #map-price-panel .mpp-stat-lbl{{font-size:10px;color:#aaa;margin-top:1px}}
+    #map-price-panel .mpp-chart{{width:100%;height:80px;display:block;margin-bottom:10px}}
+    #map-price-panel .mpp-actions{{display:flex;gap:8px;flex-wrap:wrap}}
+    #map-price-panel .mpp-btn{{font-size:11px;padding:4px 12px;border-radius:6px;
+      border:0.5px solid #ddd;background:white;color:#555;cursor:pointer;transition:all .15s}}
+    #map-price-panel .mpp-btn:hover{{background:#185fa5;color:white;border-color:#185fa5}}
+    #map-price-panel .mpp-btn.copied{{background:#1d9e75;color:white;border-color:#1d9e75}}
+    #map-price-panel .mpp-loading{{font-size:12px;color:#aaa;padding:20px 0;text-align:center}}
+    #map-price-panel .mpp-error{{font-size:12px;color:#e74c3c;padding:12px 0}}
+    #map-price-panel .mpp-current-slot{{font-size:11px;color:#185fa5;font-weight:600;margin-bottom:6px}}
     .map-legend-item{{display:flex;align-items:center;gap:7px;font-size:11px;color:#555}}
     .map-legend-dot{{width:11px;height:11px;border-radius:50%;flex-shrink:0}}
     #map-filter-row{{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}}
@@ -1356,6 +1586,24 @@ def dashboard():
     </div>
 
     <div id="map-legend"></div>
+
+    <!-- ── Pannello prezzi comune ──────────────────────────────────────── -->
+    <div id="map-price-panel">
+      <div class="mpp-header">
+        <div>
+          <div class="mpp-title" id="mpp-title">—</div>
+          <div class="mpp-sub" id="mpp-sub">—</div>
+        </div>
+        <button class="mpp-close" onclick="closePricePanel()">✕</button>
+      </div>
+      <div id="mpp-current-slot" class="mpp-current-slot"></div>
+      <div class="mpp-stats" id="mpp-stats"></div>
+      <svg class="mpp-chart" id="mpp-chart" viewBox="0 0 960 80" preserveAspectRatio="none"></svg>
+      <div class="mpp-actions">
+        <button class="mpp-btn" onclick="copyMppJson()">Copy JSON</button>
+        <button class="mpp-btn" onclick="copyMppCsv()">Copy CSV</button>
+      </div>
+    </div>
 
     <div style="margin-top:12px;font-size:11px;color:#aaa;line-height:1.6" data-i18n="map_note">
       Grey municipalities have no dynamic tariff available in 2026.
@@ -2070,6 +2318,10 @@ function renderMonthGrid(months) {{
 
 // ── Map view ──────────────────────────────────────────────────────────────────
 let mapLoaded = false, activeFilter = 'all';
+// Variabili globali mappa — popolate da loadMap(), usate da openPricePanel()
+let BFS_NAMES = {{}};
+let ZIP_BY_PROVIDER = {{}};
+let TARIFF_TO_PROVIDER_MAP = {{}};
 
 const MAP_BFS = {{"5009":{{"id":"aem","label":"AEM – Tariffa dinamica","color":"#3498db"}},"5196":{{"id":"aem","label":"AEM – Tariffa dinamica","color":"#3498db"}},"5226":{{"id":"aem","label":"AEM – Tariffa dinamica","color":"#3498db"}},"2422":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2491":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2493":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2495":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2497":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2499":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2500":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2501":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2502":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2572":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2573":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2582":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2583":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2584":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2585":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"2586":{{"id":"avag","label":"AVAG – Primeo NetzDynamisch","color":"#e74c3c"}},"5141":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5143":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5144":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5148":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5151":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5154":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5160":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5161":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5162":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5167":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5171":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5176":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5180":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5186":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5187":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5189":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5192":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5193":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5194":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5198":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5199":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5203":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5205":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5206":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5208":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5210":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5212":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5214":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5216":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5221":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5225":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5227":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5230":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5231":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5233":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5236":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5237":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5238":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5239":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5240":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5249":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5251":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5260":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5263":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"5269":{{"id":"ail","label":"AIL – Tariffa Dinamica","color":"#9b59b6"}},"1001":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1002":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1004":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1005":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1007":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1008":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1009":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1010":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1021":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1023":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1024":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1025":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1026":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1030":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1032":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1033":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1037":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1039":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1040":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1041":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1051":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1052":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1053":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1054":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1055":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1058":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1059":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1061":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1063":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1064":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1065":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1067":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1081":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1082":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1083":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1084":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1085":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1086":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1088":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1089":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1091":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1093":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1094":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1095":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1097":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1098":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1099":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1100":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1102":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1103":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1104":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1107":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1121":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1122":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1123":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1125":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1127":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1128":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1129":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1131":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1136":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1137":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1139":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1140":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1142":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1143":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1146":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1147":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1150":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1151":{{"id":"ckw","label":"CKW – Home/Business dynamic","color":"#e67e22"}},"1301":{{"id":"ekze","label":"EKZ Einsiedeln – Dynamisch","color":"#1abc9c"}},"2576":{{"id":"elag","label":"ELAG – Primeo NetzDynamisch","color":"#d35400"}},"4239":{{"id":"ega","label":"EGA – Netz dynamisch","color":"#f39c12"}},"1":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"2":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"3":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"4":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"5":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"6":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"7":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"8":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"9":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"10":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"11":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"12":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"13":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"14":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"23":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"24":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"25":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"26":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"27":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"28":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"29":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"31":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"33":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"34":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"37":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"38":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"39":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"40":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"41":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"43":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"51":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"52":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"53":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"55":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"56":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"57":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"58":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"59":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"60":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"61":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"63":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"64":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"65":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"67":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"68":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"70":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"71":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"72":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"81":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"82":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"83":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"84":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"85":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"86":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"87":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"88":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"89":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"90":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"91":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"92":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"93":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"95":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"96":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"98":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"99":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"100":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"101":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"111":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"112":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"113":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"114":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"115":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"117":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"119":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"131":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"135":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"136":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"137":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"138":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"139":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"141":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"153":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"157":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"160":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"173":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"178":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"180":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"181":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"182":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"192":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"194":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"195":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"196":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"197":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"199":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"200":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"211":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"213":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"214":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"215":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"216":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"218":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"219":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"220":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"221":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"223":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"224":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"225":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"226":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"227":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"228":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"231":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"241":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"242":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"243":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"244":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"245":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"246":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"247":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"248":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"249":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"250":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"251":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"291":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"292":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"293":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"294":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"295":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"296":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"297":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"298":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"1704":{{"id":"ekz","label":"EKZ – Energie Dynamisch+400D","color":"#27ae60"}},"669":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2008":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2011":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2022":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2025":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2029":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2035":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2041":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2043":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2044":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2045":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2050":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2051":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2053":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2054":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2055":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2063":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2067":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2068":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2079":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2086":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2087":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2096":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2097":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2099":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2102":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2113":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2114":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2115":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2117":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2121":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2122":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2124":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2125":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2134":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2135":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2137":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2138":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2140":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2145":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2147":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2149":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2152":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2153":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2155":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2160":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2162":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2173":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2174":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2175":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2177":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2183":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2186":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2194":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2196":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2197":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2198":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2206":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2208":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2211":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2216":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2220":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2226":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2228":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2230":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2233":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2234":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2235":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2236":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2237":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2238":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2239":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2250":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2254":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2257":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2258":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2261":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2262":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2265":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2266":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2272":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2275":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2276":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2284":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2292":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2293":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2294":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2295":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2296":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2299":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2300":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2301":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2303":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2304":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2305":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2306":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2307":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2308":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2309":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2321":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2323":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2325":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2328":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2333":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2335":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2336":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2337":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2338":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5451":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5456":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5458":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5464":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5790":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5813":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5816":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5817":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5821":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5822":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5827":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5841":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5842":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"5843":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6413":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6416":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6417":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6423":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6432":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6433":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6434":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6435":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6437":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6451":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6452":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6456":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6458":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6487":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6504":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6511":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6512":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"6513":{{"id":"groupe","label":"Groupe E – VARIO","color":"#2980b9"}},"2471":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2472":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2473":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2474":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2475":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2476":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2477":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2478":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2479":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2480":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2481":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2611":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2612":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2613":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2614":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2615":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2616":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2617":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2618":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2619":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2620":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2621":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2622":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2761":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2762":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2763":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2764":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2765":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2766":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2767":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2768":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2769":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2770":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2771":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2772":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2773":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2774":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2775":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2782":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2783":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2785":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2786":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2787":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2788":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2830":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2831":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2883":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}},"2889":{{"id":"primeo","label":"Primeo – NetzDynamisch","color":"#8e44ad"}}}};
 
@@ -2136,9 +2388,73 @@ async function loadMap() {{
   try {{
     await loadScript('https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js');
     await loadScript('https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js');
-    const topo = await fetch('https://unpkg.com/swiss-maps@4/2021/ch-combined.json').then(r => r.json());
+    const [topo, zipMapResp] = await Promise.all([
+      fetch('https://unpkg.com/swiss-maps@4/2021/ch-combined.json').then(r => r.json()),
+      fetch('/api/v1/zip-map').then(r => r.json()).catch(() => ({{}}))
+    ]);
+    // ZIP_MAP: tariff_id -> {{ zip_display, zip_count }}
+    // MAP_BFS usa id come provider key (es. "ckw", "ekz") — costruiamo lookup provider_id -> zip_display
+    const ZIP_DISPLAY = {{}};
+    Object.entries(zipMapResp).forEach(([tid, v]) => {{
+      // tid es. "ckw_home_dynamic" -> provider key "ckw"
+      // usiamo MAP_BFS per trovare l'id del provider corrispondente al tid
+      // Semplificazione: costruiamo direttamente tariff_id -> zip_display
+      ZIP_DISPLAY[tid] = v.zip_display || '';
+    }});
+    // Provider key -> zip_display (per lookup da MAP_BFS[bfsId].id)
+    // Mapping esplicito tariff_id → provider key usato in MAP_BFS
+    // Evita il parsing fragile con replace() a catena
+    const TARIFF_TO_PROVIDER = {{
+      'aem_tariffa_dinamica':                       'aem',
+      'ail_tariffa_dinamica':                       'ail',
+      'ckw_home_dynamic':                           'ckw',
+      'ckw_business_dynamic':                       'ckw',
+      'ekz_energie_dynamisch_netz_400d':            'ekz',
+      'ekz_einsiedeln_energie_dynamisch_netz_400d': 'ekze',
+      'groupe_e_vario':                             'groupe',
+      'primeo_netzdynamisch':                       'primeo',
+      'avag_primeo_netzdynamisch':                  'avag',
+      'elag_primeo_netzdynamisch':                  'elag',
+      'ega_einheitstarif_netz_dynamisch':           'ega',
+    }};
+    ZIP_BY_PROVIDER = {{}};  // popola la variabile globale
+    Object.entries(zipMapResp).forEach(([tid, v]) => {{
+      const pkey = TARIFF_TO_PROVIDER[tid];
+      if (pkey && v.zip_display && !ZIP_BY_PROVIDER[pkey]) {{
+        ZIP_BY_PROVIDER[pkey] = v.zip_display;
+      }}
+    }});
     loadingEl.style.display = 'none';
     const muni = topojson.feature(topo, topo.objects.municipalities);
+    // Costruisce lookup BFS_ID → nome comune dalla topologia stessa
+    // swiss-maps@4 usa 'name' come chiave principale nelle properties
+    BFS_NAMES = {{}};  // popola la variabile globale
+    muni.features.forEach(f => {{
+      const bfsId = String(f.id || f.properties?.id || f.properties?.BFS_NUMMER || '');
+      if (!bfsId) return;
+      // Prova tutte le varianti di chiave nome usate nelle diverse versioni della topologia
+      const n = f.properties?.name || f.properties?.NAME || f.properties?.GEM_NAME
+             || f.properties?.GMDNAME || f.properties?.gemeindename
+             || f.properties?.Gemeindename || f.properties?.GEMNAME || '';
+      BFS_NAMES[bfsId] = n;
+    }});
+    // Debug: mostra quanti comuni hanno nome (console, non visibile all'utente)
+    const namedCount = Object.values(BFS_NAMES).filter(n => n).length;
+    const sampleFeature = muni.features[0];
+    console.log('[Map] Sample feature id:', sampleFeature?.id, 'properties:', JSON.stringify(sampleFeature?.properties));
+    console.log('[Map] BFS_NAMES: ' + Object.keys(BFS_NAMES).length + ' comuni, ' + namedCount + ' con nome');
+    // Se la topologia non ha nomi, carica da /api/v1/municipalities
+    if (namedCount === 0) {{
+      console.warn('[Map] Nomi assenti nelle properties — carico da /api/v1/municipalities');
+      try {{
+        const muniResp = await fetch('/api/v1/municipalities');
+        if (muniResp.ok) {{
+          const muniData = await muniResp.json();
+          Object.assign(BFS_NAMES, muniData);
+          console.log('[Map] Caricati ' + Object.keys(muniData).length + ' nomi da API');
+        }}
+      }} catch(e) {{ console.warn('[Map] Fallback API fallita:', e); }}
+    }}
     const W = container.clientWidth || 800;
     const H = Math.round(W * 0.56);
     svgEl.setAttribute('height', H);
@@ -2146,7 +2462,28 @@ async function loadMap() {{
     const proj = d3.geoIdentity().reflectY(true).fitSize([W, H], muni);
     const path = d3.geoPath().projection(proj);
     const svg  = d3.select('#map-svg');
-    svg.selectAll('path')
+
+    // ── Zoom & Pan con d3.zoom ───────────────────────────────────────────
+    const zoomG = svg.append('g').attr('class', 'zoom-layer');
+    const zoom  = d3.zoom()
+      .scaleExtent([1, 12])
+      .on('zoom', (ev) => {{
+        zoomG.attr('transform', ev.transform);
+      }});
+    svg.call(zoom);
+
+    // Bottone reset zoom
+    const resetBtn = document.createElement('button');
+    resetBtn.textContent = '⊙';
+    resetBtn.title = 'Reset zoom';
+    resetBtn.style.cssText = 'position:absolute;top:10px;right:10px;z-index:10;'
+      + 'background:white;border:0.5px solid #ddd;border-radius:6px;'
+      + 'padding:4px 8px;font-size:14px;cursor:pointer;color:#555;'
+      + 'box-shadow:0 1px 4px rgba(0,0,0,.08);';
+    resetBtn.onclick = () => svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity);
+    container.appendChild(resetBtn);
+
+    zoomG.selectAll('path')
       .data(muni.features)
       .enter().append('path')
       .attr('d', path)
@@ -2161,20 +2498,231 @@ async function loadMap() {{
       .on('mousemove', (ev, d) => {{
         const id   = String(d.id || d.properties?.id || '');
         const info = MAP_BFS[id];
-        const name = d.properties?.NAME || d.properties?.name || d.properties?.GEM_NAME || id;
+        // Nome comune: priorità BFS_NAMES (da topologia), poi properties dirette
+        const name = BFS_NAMES[id]
+          || d.properties?.name || d.properties?.NAME || d.properties?.GEM_NAME
+          || d.properties?.GMDNAME || d.properties?.gemeindename
+          || d.properties?.Gemeindename || d.properties?.GEMNAME || '';
+        // Fallback localizzato se nome non disponibile
+        const muniWord = lang==='de'?'Gemeinde':lang==='fr'?'Commune':lang==='it'?'Comune':'Municipality';
+        const displayName = name || (muniWord + ' ' + id);
+        const bfsLabel = id ? ('<span style="color:#bbb;font-size:10px">BFS ' + id + '</span>') : '';
+        // Localizzazione label "no tariff"
+        const noTariffLabel = lang==='de'?'Kein dynamischer Tarif':lang==='fr'?'Pas de tarif dynamique':lang==='it'?'Nessuna tariffa dinamica':'No dynamic tariff';
+        const zipLabel = lang==='de'?'PLZ':lang==='fr'?'NPA':lang==='it'?'CAP':'ZIP';
+        // Recupera ZIP display per questo provider
+        const providerZip = info ? (ZIP_BY_PROVIDER[info.id] || '') : '';
+        const zipLine = providerZip ? ('<br><span style="color:#888;font-size:11px">' + zipLabel + ': ' + providerZip + '</span>') : '';
         tooltip.style.display = 'block';
         tooltip.style.left    = (ev.offsetX + 14) + 'px';
         tooltip.style.top     = (ev.offsetY - 10) + 'px';
         tooltip.innerHTML = info
-          ? `<strong style="color:#1a1a2e">${{name}}</strong><br><span style="color:${{info.color}}">&#9679;</span> <span style="color:#555">${{info.label}}</span>`
-          : `<strong style="color:#1a1a2e">${{name}}</strong><br><span style="color:#aaa;font-size:11px">${{t('map_no_tariff')}}</span>`;
+          ? '<strong style="color:#1a1a2e">' + displayName + '</strong><br><span style="color:' + info.color + '">&#9679;</span> <span style="color:#555">' + info.label + '</span>' + zipLine
+          : '<strong style="color:#1a1a2e">' + displayName + '</strong><br><span style="color:#aaa;font-size:11px">' + noTariffLabel + '</span>';
       }})
-      .on('mouseleave', () => {{ tooltip.style.display = 'none'; }});
-    mapPaths = Array.from(svgEl.querySelectorAll('path'));
+      .on('mouseleave', () => {{ tooltip.style.display = 'none'; }})
+      .on('click', (ev, d) => {{
+        ev.stopPropagation();
+        const id   = String(d.id || d.properties?.id || '');
+        const info = MAP_BFS[id];
+        if (!info) return;  // comune senza provider — ignora click
+        const name = BFS_NAMES[id]
+          || d.properties?.name || d.properties?.NAME || d.properties?.GEM_NAME || '';
+        const displayName = name || (lang==='de'?'Gemeinde':lang==='fr'?'Commune':lang==='it'?'Comune':'Municipality') + ' ' + id;
+        openPricePanel(info, displayName, id);
+      }});
+    mapPaths = Array.from(svgEl.querySelectorAll('.zoom-layer path'));
   }} catch(e) {{
     loadingEl.textContent = 'Could not load map — check network connection.';
     console.error('Map load error:', e);
   }}
+}}
+
+// \u2500\u2500 Map price panel \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// Mapping provider key \u2192 tariff_id (usa il primo tariff_id per quel provider)
+const PROVIDER_TO_TARIFF = {{
+  'aem':    'aem_tariffa_dinamica',
+  'ail':    'ail_tariffa_dinamica',
+  'ckw':    'ckw_home_dynamic',
+  'ekz':    'ekz_energie_dynamisch_netz_400d',
+  'ekze':   'ekz_einsiedeln_energie_dynamisch_netz_400d',
+  'groupe': 'groupe_e_vario',
+  'primeo': 'primeo_netzdynamisch',
+  'avag':   'avag_primeo_netzdynamisch',
+  'elag':   'elag_primeo_netzdynamisch',
+  'ega':    'ega_einheitstarif_netz_dynamisch',
+}};
+
+let _mppData = null;  // cache ultima risposta API
+
+async function openPricePanel(info, comuneName, bfsId) {{
+  const panel = document.getElementById('map-price-panel');
+  const titleEl  = document.getElementById('mpp-title');
+  const subEl    = document.getElementById('mpp-sub');
+  const statsEl  = document.getElementById('mpp-stats');
+  const chartEl  = document.getElementById('mpp-chart');
+  const slotEl   = document.getElementById('mpp-current-slot');
+
+  // Localizzazioni
+  const loadingTxt = lang==='de'?'Lade Preisdaten\u2026':lang==='fr'?'Chargement\u2026':lang==='it'?'Caricamento prezzi\u2026':'Loading prices\u2026';
+    const noDataTxt  = lang==='de'?'Keine Daten f\u00fcr heute':lang==='fr'?'Pas de donn\u00e9es aujourd\u2019hui':lang==='it'?'Nessun dato disponibile oggi':'No data available for today';
+  const avgTxt     = lang==='de'?'\u00d8 Heute':lang==='fr'?'Moy. auj.':lang==='it'?'Media oggi':'Avg today';
+  const minTxt     = lang==='de'?'Min':lang==='fr'?'Min':lang==='it'?'Min':'Min';
+  const maxTxt     = lang==='de'?'Max':lang==='fr'?'Max':lang==='it'?'Max':'Max';
+  const nowTxt     = lang==='de'?'Jetzt':lang==='fr'?'Maintenant':lang==='it'?'Adesso':'Now';
+  const zipLbl     = lang==='de'?'PLZ':lang==='fr'?'NPA':lang==='it'?'CAP':'ZIP';
+  const clickTxt   = lang==='de'?'Klicken zum Schlie\u00dfen':lang==='fr'?'Cliquez pour fermer':lang==='it'?'Clicca per chiudere':'Click to close';
+
+  // Mostra il pannello subito con loading state
+  titleEl.innerHTML = '<span style="color:' + info.color + '">&#9679;</span> ' + comuneName;
+  const zipDisplay = ZIP_BY_PROVIDER[info.id] || '';
+  subEl.textContent = info.label + (zipDisplay ? ' \u00b7 ' + zipLbl + ': ' + zipDisplay : '');
+  statsEl.innerHTML = '<div class="mpp-loading">' + loadingTxt + '</div>';
+  chartEl.innerHTML = '';
+  slotEl.textContent = '';
+  panel.style.display = 'block';
+  panel.scrollIntoView({{ behavior: 'smooth', block: 'nearest' }});
+
+  const tariffId = PROVIDER_TO_TARIFF[info.id];
+  if (!tariffId) {{
+    statsEl.innerHTML = '<div class="mpp-error">' + noDataTxt + '</div>';
+    return;
+  }}
+
+  try {{
+    const resp = await fetch('/api/v1/prices/today?tariff_id=' + encodeURIComponent(tariffId));
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    _mppData = data;
+
+    // Raccogli tutti i prezzi totali (energy+grid+residual o solo quelli disponibili)
+    // La risposta API ha struttura: [{{ts: price}}, {{ts: price}}, ...]
+    // Convertiamo in mappa ts->price per lookup rapido
+    const allSlots = [];
+    function parseSeriesList(lst) {{
+      const map = {{}};
+      if (!lst || !Array.isArray(lst)) return map;
+      lst.forEach(item => {{
+        const ts = Object.keys(item)[0];
+        map[ts] = Object.values(item)[0];
+      }});
+      return map;
+    }}
+    const eMap = parseSeriesList(data.energy_price_utc);
+    const gMap = parseSeriesList(data.grid_price_utc);
+    const rMap = parseSeriesList(data.residual_price_utc);
+    // Unione di tutti i timestamp disponibili
+    const allTs = [...new Set([...Object.keys(eMap), ...Object.keys(gMap), ...Object.keys(rMap)])].sort();
+    if (allTs.length === 0) throw new Error('empty');
+    allTs.forEach(ts => {{
+      const e = eMap[ts] || 0;
+      const g = gMap[ts] || 0;
+      const r = rMap[ts] || 0;
+      allSlots.push({{ ts, total: (e + g + r) * 100 }});  // in Rp/kWh
+    }});
+    allSlots.sort((a, b) => a.ts.localeCompare(b.ts));
+
+    const totals   = allSlots.map(s => s.total);
+    const avgPrice = totals.reduce((a, b) => a + b, 0) / totals.length;
+    const minPrice = Math.min(...totals);
+    const maxPrice = Math.max(...totals);
+
+    // Slot corrente
+    const nowUtc  = new Date().toISOString();
+    let currentSlot = null;
+    for (let i = allSlots.length - 1; i >= 0; i--) {{
+      if (allSlots[i].ts <= nowUtc) {{ currentSlot = allSlots[i]; break; }}
+    }}
+
+    // Stats
+    const fmt = v => v.toFixed(2) + ' Rp';
+    statsEl.innerHTML =
+      '<div class="mpp-stat"><div class="mpp-stat-val">' + fmt(avgPrice) + '</div><div class="mpp-stat-lbl">' + avgTxt + '</div></div>' +
+      '<div class="mpp-stat"><div class="mpp-stat-val" style="color:#1d9e75">' + fmt(minPrice) + '</div><div class="mpp-stat-lbl">' + minTxt + '</div></div>' +
+      '<div class="mpp-stat"><div class="mpp-stat-val" style="color:#e74c3c">' + fmt(maxPrice) + '</div><div class="mpp-stat-lbl">' + maxTxt + '</div></div>' +
+      (currentSlot ? '<div class="mpp-stat"><div class="mpp-stat-val now">' + fmt(currentSlot.total) + '</div><div class="mpp-stat-lbl">' + nowTxt + '</div></div>' : '');
+
+    if (currentSlot) {{
+      const t = new Date(currentSlot.ts);
+      slotEl.textContent = nowTxt + ': ' + t.toLocaleTimeString('en-GB', {{hour:'2-digit',minute:'2-digit'}}) + ' UTC \u00b7 ' + fmt(currentSlot.total) + '/kWh';
+    }}
+
+    // Mini grafico SVG a barre
+    const n    = allSlots.length;
+    const W    = 960, H = 80, pad = 4;
+    const bw   = Math.floor((W - pad) / n) - 1;
+    const mn   = Math.min(...totals, 0);
+    const mx   = Math.max(...totals);
+    const rng  = mx - mn || 1;
+    const scaleY = v => H - pad - ((v - mn) / rng) * (H - pad * 2);
+    const barH   = v => Math.max(1, ((v - mn) / rng) * (H - pad * 2));
+
+    let bars = '';
+    allSlots.forEach((s, i) => {{
+      const x    = i * (bw + 1) + pad / 2;
+      const y    = scaleY(s.total);
+      const h    = barH(s.total);
+      const isCurrent = currentSlot && s.ts === currentSlot.ts;
+      const color = isCurrent ? '#185fa5'
+                  : s.total <= avgPrice * 0.85 ? '#1d9e75'
+                  : s.total >= avgPrice * 1.15 ? '#e74c3c'
+                  : '#94a3b8';
+      bars += '<rect x="' + x + '" y="' + y + '" width="' + bw + '" height="' + h + '" fill="' + color + '" opacity="' + (isCurrent?'1':'0.75') + '"><title>' + new Date(s.ts).toLocaleTimeString('en-GB',{{hour:'2-digit',minute:'2-digit'}}) + ' UTC: ' + s.total.toFixed(2) + ' Rp</title></rect>';
+    }});
+    // Linea media
+    const avgY = scaleY(avgPrice);
+    bars += '<line x1="0" y1="' + avgY + '" x2="' + W + '" y2="' + avgY + '" stroke="#94a3b8" stroke-width="0.8" stroke-dasharray="3,3"/>';
+    chartEl.innerHTML = bars;
+
+  }} catch(e) {{
+    console.error('[mpp]', e);
+    statsEl.innerHTML = '<div class="mpp-error">' + noDataTxt + '</div>';
+    chartEl.innerHTML = '';
+    slotEl.textContent = '';
+  }}
+}}
+
+function closePricePanel() {{
+  document.getElementById('map-price-panel').style.display = 'none';
+  _mppData = null;
+}}
+
+function copyMppJson() {{
+  if (!_mppData) return;
+  navigator.clipboard.writeText(JSON.stringify(_mppData, null, 2)).then(() => {{
+    const btn = event.target;
+    btn.textContent = '\u2713 Copied';
+    btn.classList.add('copied');
+    setTimeout(() => {{ btn.textContent = 'Copy JSON'; btn.classList.remove('copied'); }}, 1800);
+  }});
+}}
+
+function copyMppCsv() {{
+  if (!_mppData) return;
+  const rows = [['timestamp_utc','energy_rp','grid_rp','residual_rp','total_rp']];
+  function _parseMap(lst) {{
+    const m = {{}};
+    if (!lst || !Array.isArray(lst)) return m;
+    lst.forEach(item => {{ const k = Object.keys(item)[0]; m[k] = Object.values(item)[0]; }});
+    return m;
+  }}
+  const _eM = _parseMap(_mppData.energy_price_utc);
+  const _gM = _parseMap(_mppData.grid_price_utc);
+  const _rM = _parseMap(_mppData.residual_price_utc);
+  const _ts = [...new Set([...Object.keys(_eM), ...Object.keys(_gM), ...Object.keys(_rM)])].sort();
+  _ts.forEach(t => {{
+    const e = (_eM[t] || 0) * 100;
+    const g = (_gM[t] || 0) * 100;
+    const r = (_rM[t] || 0) * 100;
+    rows.push([t, e.toFixed(4), g.toFixed(4), r.toFixed(4), (e+g+r).toFixed(4)]);
+  }});
+  const csv = rows.map(r => r.join(',')).join(String.fromCharCode(10));
+  navigator.clipboard.writeText(csv).then(() => {{
+    const btn = event.target;
+    btn.textContent = '\u2713 Copied';
+    btn.classList.add('copied');
+    setTimeout(() => {{ btn.textContent = 'Copy CSV'; btn.classList.remove('copied'); }}, 1800);
+  }});
 }}
 
 // ── View switching ────────────────────────────────────────────────────────────
