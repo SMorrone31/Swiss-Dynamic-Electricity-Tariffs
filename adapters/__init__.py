@@ -21,15 +21,17 @@ from adapters.base import (
 from adapters.ckw import CkwAdapter
 from adapters.primeo_energie import PrimeoEnergieAdapter
 from adapters.aem import AemAdapter
-from adapters.ekz import EkzAdapter          # ← aggiungi
+from adapters.ekz import EkzAdapter
 from adapters.groupe_e import GroupeEAdapter
+from adapters.ail import AilAdapter          # ← aggiungi questa riga
 
 _REGISTRY = {
     "CkwAdapter":           CkwAdapter,
     "PrimeoEnergieAdapter": PrimeoEnergieAdapter,
     "AemAdapter":           AemAdapter,
     "EkzAdapter":           EkzAdapter,
-    "GroupeEAdapter":       GroupeEAdapter,  # ← aggiungi
+    "GroupeEAdapter":       GroupeEAdapter,
+    "AilAdapter":           AilAdapter,      # ← aggiungi questa riga
 }
 
 def get_adapter(tariff_config: dict) -> BaseAdapter:

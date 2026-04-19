@@ -24,14 +24,18 @@
   },
   {
     "tariff_id": "ail_tariffa_dinamica",
+    "api_base_url": "https://www.ail.ch/privati/elettricita/prodotti/Tariffa-dinamica/tariffa-dinamica.html",
+    "response_format": "html",
+    "time_resolution_minutes": 15,
+    "api_params": {
+      "backfill_supported": false,
+      "scraping": true
+    },
     "tariff_name": "Tariffa Dinamica",
     "provider_name": "Aziende industriali di Lugano AIL SA",
     "adapter_class": "AilAdapter",
-    "api_base_url": "",
     "auth_type": "none",
     "auth_config": {},
-    "response_format": "json",
-    "time_resolution_minutes": 240,
     "daily_update_time_utc": "17:00",
     "datetime_available_from_utc": "2025-12-31T00:00:00Z",
     "valid_until_utc": null,

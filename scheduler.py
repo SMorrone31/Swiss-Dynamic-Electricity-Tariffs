@@ -3,47 +3,59 @@ scheduler.py
 ============
 Scheduler giornaliero automatico per Swiss Tariff Hub.
 
-Flusso giornaliero (ora locale CET/CEST):
+Tutti gli orari sono in ora locale svizzera (Europe/Zurich).
+APScheduler usa timezone="Europe/Zurich" — il DST (CET↔CEST) è gestito
+automaticamente: "18:15" significa sempre 18:15 ora svizzera, estate o inverno.
+
+PERCHÉ ORA SVIZZERA?
+  Per legge, ogni EVU deve pubblicare i prezzi del giorno successivo
+  ENTRO le 18:00 ora locale svizzera (SmartGridReady: "bis 18:00 Uhr am Vortag").
+  CKW è l'unica eccezione: pubblica entro le 12:00 ora locale.
+  → Il fetch va fatto DOPO quegli orari, espressi in ora locale.
+
+Flusso giornaliero (ora locale svizzera CET/CEST):
 
   STARTUP (ogni riavvio del server)
   ──────────────────────────────────
-  Avvio   → Startup recovery in background:
-              fetch immediato di TODAY e TOMORROW se mancanti
-              (copre "server era spento ieri sera")
+  Avvio → Startup recovery in background:
+            fetch immediato di TODAY e TOMORROW se mancanti
+            (copre "server era spento ieri sera")
 
   RECOVERY TODAY (fetch attivo per OGGI se mancante)
   ────────────────────────────────────────────────────
-  07:30 CET → Recovery mattutino TODAY: fetcha chi manca oggi [no-op se ok]
-  13:00 CET → Recovery pomeridiano TODAY: secondo tentativo    [no-op se ok]
+  07:30 CH → Recovery mattutino TODAY: fetcha chi manca oggi [no-op se ok]
+  13:30 CH → Recovery pomeridiano TODAY: secondo tentativo   [no-op se ok]
 
   FETCH PRIMARIO (dati per DOMANI)
   ─────────────────────────────────
-  12:05 CET → Fetch CKW (home + business) per DOMANI
-               Retry: 12:35, poi 13:35
-               Se tutti falliti: EMAIL ❌
+  12:15 CH → Fetch CKW (home + business) per DOMANI
+              [CKW pubblica entro le 12:00 locali]
+              Retry automatico: +30min, +60min
+              Se tutti falliti: EMAIL ❌
 
-  18:30 CET → Fetch tutti gli altri EVU per DOMANI
-               Retry: 19:00, poi 20:00
-               Se tutti falliti: EMAIL ❌
+  18:15 CH → Fetch TUTTI gli altri EVU per DOMANI
+              [Tutti gli altri EVU pubblicano entro le 18:00 locali]
+              Retry automatico: +30min, +60min
+              Se tutti falliti: EMAIL ❌
 
   RECOVERY TOMORROW (no-op se i dati ci sono già)
   ─────────────────────────────────────────────────
-  17:30 CET → Recovery CKW: rifetcha solo se dati di domani mancano
-  21:00 CET → Recovery TUTTI: rifetcha solo tariffe ancora mancanti
+  13:30 CH → Recovery CKW: rifetcha solo se dati di domani mancano
+  20:00 CH → Recovery TUTTI: rifetcha solo tariffe ancora mancanti
 
   LAST RESORT
   ───────────
-  23:30 CET → Ultima verifica: rifetcha mancanti + EMAIL se ancora vuoto ⚠️
+  23:15 CH → Ultima verifica: rifetcha mancanti + EMAIL se ancora vuoto ⚠️
 
   HEALTH CHECK
   ────────────
-  10:00 CET → Verifica che i dati di OGGI siano nel DB
-               Se mancano: EMAIL ⚠️
-               (cattura il caso "server era spento ieri sera")
+  10:00 CH → Verifica che i dati di OGGI siano nel DB
+              Se mancano: EMAIL ⚠️
+              (cattura il caso "server era spento ieri sera")
 
   MANUTENZIONE
   ────────────
-  02:00 CET → 1° di ogni mese: backfill manutenzione mensile
+  02:00 CH → 1° di ogni mese: backfill manutenzione mensile
 
 Validazione post-fetch (validate_result):
   - Slot count fuori range (< 90 o > 102)
@@ -155,10 +167,10 @@ Context:    {context}
 The following tariff(s) have NO data for {check_date}:
 {tariff_lines}
 
-Expected fetch schedule (CET):
-  CKW:       12:05 (retry 12:35, 13:35) + recovery 17:30
-  Other EVU: 18:30 (retry 19:00, 20:00) + recovery 21:00
-  Last resort: 23:30
+Expected fetch schedule (Switzerland local time):
+  CKW:       12:15 (retry +30min, +60min) + recovery 13:30
+  Other EVU: 18:15 (retry +30min, +60min) + recovery 20:00
+  Last resort: 23:15
 
 What to do:
   1. Check the system logs
@@ -195,18 +207,18 @@ Swiss Tariff Hub — Email Test
 If you receive this email, your alert configuration is working correctly.
 
 Alerts will be sent automatically when:
-  ❌  A fetch fails after all retries (~13:35 CET for CKW, ~20:30 CET for others)
-  ⚠️   Data is missing during the morning health check (10:00 CET)
-  ⚠️   Data is still missing at the last resort check (23:30 CET)
+  ❌  A fetch fails after all retries
+  ⚠️   Data is missing during the morning health check (10:00 CH)
+  ⚠️   Data is still missing at the last resort check (23:15 CH)
   ⚠️   Fetched data has REAL anomalies (wrong slot count, gaps, zero prices)
        NOTE: uniform prices are NOT flagged if expect_uniform_prices=true (e.g. EKZ)
 
-Current schedule (CET):
-  12:05 → Fetch CKW        (retry 12:35, 13:35)
-  17:30 → Recovery CKW     (only if data missing)
-  18:30 → Fetch other EVU  (retry 19:00, 20:00)
-  21:00 → Recovery all     (only if data missing)
-  23:30 → Last resort all  (final check + alert if still missing)
+Current schedule (Switzerland local time — DST handled automatically):
+  12:15 → Fetch CKW        [CKW publishes by 12:00 CH]
+  13:30 → Recovery CKW     (only if data missing)
+  18:15 → Fetch other EVU  [law: all EVU publish by 18:00 CH]
+  20:00 → Recovery all     (only if data missing)
+  23:15 → Last resort all  (final check + alert if still missing)
   10:00 → Morning health check
 """,
     },
@@ -242,10 +254,10 @@ Kontext:    {context}
 Folgende Tarife haben KEINE Daten für {check_date}:
 {tariff_lines}
 
-Erwarteter Abrufplan (CET):
-  CKW:        12:05 (Retry 12:35, 13:35) + Recovery 17:30
-  Andere EVU: 18:30 (Retry 19:00, 20:00) + Recovery 21:00
-  Last Resort: 23:30
+Erwarteter Abrufplan (Schweizer Ortszeit):
+  CKW:        12:15 (Retry +30min, +60min) + Recovery 13:30
+  Andere EVU: 18:15 (Retry +30min, +60min) + Recovery 20:00
+  Last Resort: 23:15
 
 Was tun:
   1. Systemprotokolle prüfen
@@ -283,17 +295,17 @@ Wenn Sie diese E-Mail erhalten, funktioniert die Alarmkonfiguration korrekt.
 
 Alarme werden automatisch gesendet bei:
   ❌  Fehlgeschlagenem Abruf nach allen Versuchen
-  ⚠️   Fehlenden Daten beim Gesundheitscheck (10:00 CET)
-  ⚠️   Noch fehlenden Daten beim Last-Resort-Check (23:30 CET)
+  ⚠️   Fehlenden Daten beim Gesundheitscheck (10:00 CH)
+  ⚠️   Noch fehlenden Daten beim Last-Resort-Check (23:15 CH)
   ⚠️   ECHTEN Anomalien in Daten (falsche Slot-Anzahl, Lücken, Nullpreise)
        HINWEIS: einheitliche Preise werden NICHT gemeldet wenn expect_uniform_prices=true (z.B. EKZ)
 
-Aktueller Zeitplan (CET):
-  12:05 → CKW abrufen       (Retry 12:35, 13:35)
-  17:30 → CKW Recovery      (nur bei fehlenden Daten)
-  18:30 → Andere EVU        (Retry 19:00, 20:00)
-  21:00 → Recovery alle     (nur bei fehlenden Daten)
-  23:30 → Last Resort alle  (finale Prüfung + Alert)
+Aktueller Zeitplan (Schweizer Ortszeit — Sommerzeit automatisch):
+  12:15 → CKW abrufen       [CKW veröffentlicht bis 12:00 CH]
+  13:30 → CKW Recovery      (nur bei fehlenden Daten)
+  18:15 → Andere EVU        [Gesetz: alle EVU bis 18:00 CH]
+  20:00 → Recovery alle     (nur bei fehlenden Daten)
+  23:15 → Last Resort alle  (finale Prüfung + Alert)
   10:00 → Morgen-Gesundheitscheck
 """,
     },
@@ -329,10 +341,10 @@ Contexte:       {context}
 Les tarifs suivants n'ont PAS de données pour {check_date}:
 {tariff_lines}
 
-Planning de collecte prévu (CET):
-  CKW:         12h05 (retry 12h35, 13h35) + recovery 17h30
-  Autres EVU:  18h30 (retry 19h00, 20h00) + recovery 21h00
-  Last resort: 23h30
+Planning de collecte prévu (heure locale suisse):
+  CKW:         12h15 (retry +30min, +60min) + recovery 13h30
+  Autres EVU:  18h15 (retry +30min, +60min) + recovery 20h00
+  Last resort: 23h15
 
 Que faire:
   1. Consulter les journaux système
@@ -368,12 +380,12 @@ Swiss Tariff Hub — Test Email
 
 Si vous recevez cet email, la configuration des alertes fonctionne correctement.
 
-Planning actuel (CET):
-  12h05 → Collecte CKW       (retry 12h35, 13h35)
-  17h30 → Recovery CKW       (seulement si données manquantes)
-  18h30 → Collecte autres EVU (retry 19h00, 20h00)
-  21h00 → Recovery tous      (seulement si données manquantes)
-  23h30 → Last resort tous   (vérification finale + alerte)
+Planning actuel (heure locale suisse — heure d'été automatique):
+  12h15 → Collecte CKW       [CKW publie avant 12h00 CH]
+  13h30 → Recovery CKW       (seulement si données manquantes)
+  18h15 → Collecte autres EVU [loi: tous les EVU avant 18h00 CH]
+  20h00 → Recovery tous      (seulement si données manquantes)
+  23h15 → Last resort tous   (vérification finale + alerte)
   10h00 → Contrôle de santé matinal
 """,
     },
@@ -409,10 +421,10 @@ Contesto:       {context}
 Le seguenti tariffe NON hanno dati per {check_date}:
 {tariff_lines}
 
-Orari fetch previsti (CET):
-  CKW:        12:05 (retry 12:35, 13:35) + recovery 17:30
-  Altri EVU:  18:30 (retry 19:00, 20:00) + recovery 21:00
-  Last resort: 23:30
+Orari fetch previsti (ora locale svizzera):
+  CKW:        12:15 (retry +30min, +60min) + recovery 13:30
+  Altri EVU:  18:15 (retry +30min, +60min) + recovery 20:00
+  Last resort: 23:15
 
 Cosa fare:
   1. Controlla i log del sistema
@@ -450,17 +462,17 @@ Se ricevi questa email, la configurazione degli alert è corretta.
 
 Gli alert arriveranno automaticamente quando:
   ❌  Un fetch fallisce dopo tutti i retry
-  ⚠️   Mancano dati all'health check delle 10:00 CET
-  ⚠️   Mancano dati al last resort delle 23:30 CET
+  ⚠️   Mancano dati all'health check delle 10:00 CH
+  ⚠️   Mancano dati al last resort delle 23:15 CH
   ⚠️   I dati hanno ANOMALIE REALI (slot errati, gap temporali, prezzi zero)
        NOTA: prezzi uniformi NON vengono segnalati se expect_uniform_prices=true (es. EKZ)
 
-Orari correnti (CET):
-  12:05 → Fetch CKW        (retry 12:35, 13:35)
-  17:30 → Recovery CKW     (solo se dati mancano)
-  18:30 → Fetch altri EVU  (retry 19:00, 20:00)
-  21:00 → Recovery tutti   (solo se dati mancano)
-  23:30 → Last resort tutti (verifica finale + alert)
+Orari correnti (ora locale svizzera — ora legale gestita in automatico):
+  12:15 → Fetch CKW        [CKW pubblica entro le 12:00 CH]
+  13:30 → Recovery CKW     (solo se dati mancano)
+  18:15 → Fetch altri EVU  [per legge: tutti entro le 18:00 CH]
+  20:00 → Recovery tutti   (solo se dati mancano)
+  23:15 → Last resort tutti (verifica finale + alert)
   10:00 → Health check mattutino
 """,
     },
@@ -1040,9 +1052,9 @@ def start_scheduler() -> None:
 
     scheduler = AsyncIOScheduler(timezone="UTC")
 
-    # ── JOB 1: Fetch primario CKW (12:05 CET = 11:05 UTC) ────────────────────
+    # ── JOB 1: Fetch primario CKW (12:15 CH — CKW pubblica entro le 12:00) ──────
     async def job_ckw():
-        log.info("=== JOB CKW PRIMARIO (11:05 UTC = 12:05 CET) ===")
+        log.info("=== JOB CKW PRIMARIO (12:15 ora svizzera) ===")
         from database import init_db, get_active_tariffs
         from schemas import tomorrow_ch
         target = tomorrow_ch()
@@ -1056,17 +1068,16 @@ def start_scheduler() -> None:
         for config in ckw_configs:
             await fetch_with_retry(config, target, None)
 
-    # ── JOB 2: Recovery CKW (17:30 CET = 16:30 UTC) ──────────────────────────
+    # ── JOB 2: Recovery CKW (13:30 CH — 1h15 dopo la deadline CKW) ──────────────
     async def job_ckw_recovery():
-        log.info("=== JOB CKW RECOVERY (16:30 UTC = 17:30 CET) ===")
+        log.info("=== JOB CKW RECOVERY (13:30 ora svizzera) ===")
         from schemas import tomorrow_ch
         target = tomorrow_ch()
         await fetch_missing_for_date(target, adapter_class_filter="CkwAdapter", label="ckw_recovery")
 
-    # ── JOB 3: Fetch primario altri EVU (18:30 CET = 17:30 UTC) ──────────────
+    # ── JOB 3: Fetch primario altri EVU (18:15 CH = dopo deadline legale 18:00) ─
     async def job_others():
-        log.info("=== JOB ALTRI EVU PRIMARIO (17:30 UTC = 18:30 CET) ===")
-        asyncio.sleep(random.uniform(0, 30))
+        log.info("=== JOB ALTRI EVU PRIMARIO (18:15 ora svizzera) ===")
         from database import init_db, get_active_tariffs
         from schemas import tomorrow_ch
         target = tomorrow_ch()
@@ -1080,65 +1091,68 @@ def start_scheduler() -> None:
         semaphore = asyncio.Semaphore(3)
 
         async def bounded(config):
-            await asyncio.sleep(random.uniform(0, 30))
+            await asyncio.sleep(random.uniform(0, 30))  # jitter 0-30s
             async with semaphore:
                 await fetch_with_retry(config, target, None)
 
         await asyncio.gather(*[bounded(c) for c in other_configs])
 
-    # ── JOB 4: Recovery tutti (21:00 CET = 20:00 UTC) ────────────────────────
+    # ── JOB 4: Recovery tutti (20:00 CH) ─────────────────────────────────────────
     async def job_all_recovery():
-        log.info("=== JOB ALL RECOVERY (20:00 UTC = 21:00 CET) ===")
+        log.info("=== JOB ALL RECOVERY (20:00 ora svizzera) ===")
         from schemas import tomorrow_ch
         target = tomorrow_ch()
         await fetch_missing_for_date(target, label="all_recovery")
 
-    # ── JOB 5: Last resort (23:30 CET = 22:30 UTC) ───────────────────────────
+    # ── JOB 5: Last resort (23:15 CH) ────────────────────────────────────────────
     async def job_last_resort():
-        log.info("=== LAST RESORT (22:30 UTC = 23:30 CET) ===")
+        log.info("=== LAST RESORT (23:15 ora svizzera) ===")
         from schemas import tomorrow_ch
         target = tomorrow_ch()
         still_missing = await fetch_missing_for_date(target, label="last_resort")
         if still_missing:
             log.error(
                 f"LAST RESORT: {len(still_missing)} tariffe ANCORA senza dati per {target} "
-                f"alle 23:30 CET — invio alert email"
+                f"alle 23:15 ora svizzera — invio alert email"
             )
             await send_missing_alert(
                 still_missing,
                 target,
-                context="last resort check (23:30 CET) — all recovery attempts exhausted",
+                context="last resort check (23:15 ora svizzera) — all recovery attempts exhausted",
             )
 
-    # ── JOB 6: Health check mattutino (10:00 CET = 09:00 UTC) ────────────────
+    # ── JOB 6: Health check mattutino (10:00 ora svizzera) ───────────────────────
     async def job_health_check():
         await run_health_check()
 
-    # ── JOB 7: Manutenzione mensile (2:00 CET = 1:00 UTC, 1° del mese) ───────
+    # ── JOB 7: Manutenzione mensile (02:00 ora svizzera, 1° del mese) ────────────
     async def job_monthly():
         from backfill import monthly_maintenance
         await monthly_maintenance()
 
-    # ── Registrazione job ─────────────────────────────────────────────────────
-    scheduler.add_job(job_ckw,           CronTrigger(hour=11, minute=5),       id="ckw_fetch")
-    scheduler.add_job(job_ckw_recovery,  CronTrigger(hour=16, minute=30),      id="ckw_recovery")
-    scheduler.add_job(job_others,        CronTrigger(hour=17, minute=30),      id="others_fetch")
-    scheduler.add_job(job_all_recovery,  CronTrigger(hour=20, minute=0),       id="all_recovery")
-    scheduler.add_job(job_last_resort,   CronTrigger(hour=22, minute=30),      id="last_resort")
-    scheduler.add_job(job_health_check,  CronTrigger(hour=9,  minute=0),       id="health_check")
-    scheduler.add_job(job_monthly,       CronTrigger(day=1, hour=1, minute=0), id="monthly")
+    # ── Registrazione job ─────────────────────────────────────────────────────────
+    # timezone="Europe/Zurich" → orari in ora locale svizzera, DST gestito in auto.
+    # "18:15" = sempre 18:15 CH, sia in CET (inverno) che in CEST (estate).
+    tz_jobs = "Europe/Zurich"
+    scheduler.add_job(job_ckw,          CronTrigger(hour=12, minute=15, timezone=tz_jobs), id="ckw_fetch")
+    scheduler.add_job(job_ckw_recovery, CronTrigger(hour=13, minute=30, timezone=tz_jobs), id="ckw_recovery")
+    scheduler.add_job(job_others,       CronTrigger(hour=18, minute=15, timezone=tz_jobs), id="others_fetch")
+    scheduler.add_job(job_all_recovery, CronTrigger(hour=20, minute=0,  timezone=tz_jobs), id="all_recovery")
+    scheduler.add_job(job_last_resort,  CronTrigger(hour=23, minute=15, timezone=tz_jobs), id="last_resort")
+    scheduler.add_job(job_health_check, CronTrigger(hour=10, minute=0,  timezone=tz_jobs), id="health_check")
+    scheduler.add_job(job_monthly,      CronTrigger(day=1, hour=2, minute=0, timezone=tz_jobs), id="monthly")
 
-    log.info("╔══════════════════════════════════════════════════════════╗")
-    log.info("║           Swiss Tariff Hub — Scheduler                   ║")
-    log.info("╠══════════════════════════════════════════════════════════╣")
-    log.info("║  11:05 UTC (12:05 CET) → fetch CKW primario             ║")
-    log.info("║  16:30 UTC (17:30 CET) → recovery CKW  [no-op se ok]   ║")
-    log.info("║  17:30 UTC (18:30 CET) → fetch altri EVU primario       ║")
-    log.info("║  20:00 UTC (21:00 CET) → recovery tutti [no-op se ok]   ║")
-    log.info("║  22:30 UTC (23:30 CET) → last resort   [alert se vuoto] ║")
-    log.info("║  09:00 UTC (10:00 CET) → health check mattutino         ║")
-    log.info("║  1° mese   01:00 UTC   → manutenzione mensile           ║")
-    log.info("╚══════════════════════════════════════════════════════════╝")
+    log.info("╔══════════════════════════════════════════════════════════════╗")
+    log.info("║      Swiss Tariff Hub — Scheduler (ora locale svizzera)      ║")
+    log.info("╠══════════════════════════════════════════════════════════════╣")
+    log.info("║  12:15 CH → fetch CKW primario  [pubblica entro 12:00 CH]   ║")
+    log.info("║  13:30 CH → recovery CKW        [no-op se ok]               ║")
+    log.info("║  18:15 CH → fetch altri EVU     [legge: entro 18:00 CH]     ║")
+    log.info("║  20:00 CH → recovery tutti      [no-op se ok]               ║")
+    log.info("║  23:15 CH → last resort         [alert se ancora vuoto]     ║")
+    log.info("║  10:00 CH → health check TODAY                              ║")
+    log.info("║  1° mese  02:00 CH → manutenzione mensile                   ║")
+    log.info("╚══════════════════════════════════════════════════════════════╝")
 
     email = os.getenv("ALERT_EMAIL", "")
     lang  = _lang()

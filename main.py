@@ -1169,6 +1169,7 @@ def dashboard():
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 168 168'><rect width='168' height='168' rx='28' fill='%23c8102e'/><rect x='30' y='66' width='108' height='36' rx='4' fill='white'/><rect x='66' y='30' width='36' height='108' rx='4' fill='white'/><polygon points='114,88 98,122 111,122 107,140 126,106 113,106 120,88' fill='white' opacity='.92'/></svg>">
   <title>Swiss Dynamic Tariffs</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
@@ -1182,31 +1183,52 @@ def dashboard():
                background:transparent;color:rgba(255,255,255,0.7);cursor:pointer}}
     .lang-btn.active{{background:rgba(255,255,255,0.2);color:white;border-color:rgba(255,255,255,0.6)}}
     main{{max-width:1280px;margin:0 auto;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem}}
-    .info-bar{{background:white;border:0.5px solid #e5e5e5;border-radius:10px;padding:10px 16px;
-               display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-size:12px;color:#555}}
-    .unit-pill{{display:inline-flex;align-items:center;gap:6px;background:#f0f6ff;border-radius:6px;padding:4px 10px;font-size:11px}}
-    .unit-pill b{{color:#185fa5}}
-    .metrics{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}}
-    .metric{{background:white;border-radius:10px;padding:1rem 1.25rem;border:0.5px solid #e5e5e5}}
-    .metric .label{{font-size:11px;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}}
-    .metric .value{{font-size:24px;font-weight:600;line-height:1.1}}
-    .metric .sub{{font-size:11px;color:#aaa;margin-top:3px}}
-    .row{{display:grid;grid-template-columns:1fr 340px;gap:1.25rem}}
-    .card{{background:white;border-radius:12px;border:0.5px solid #e5e5e5;padding:1.25rem}}
-    .card-header{{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}}
-    .card-title{{font-size:13px;font-weight:600;color:#333}}
-    .tariff-row{{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}}
-    #tariff-select{{font-size:12px;padding:5px 8px;border:0.5px solid #ddd;border-radius:6px;flex:1;min-width:180px}}
-    .day-btns{{display:flex;gap:4px;flex-wrap:wrap}}
-    .day-btn{{font-size:11px;padding:4px 10px;border-radius:6px;border:0.5px solid #ddd;
-              background:white;color:#555;cursor:pointer;transition:all .15s;white-space:nowrap}}
-    .day-btn:hover{{border-color:#185fa5;color:#185fa5;background:#eef4fc}}
-    .day-btn.active{{background:#185fa5;color:white;border-color:#185fa5;font-weight:500}}
-    .chart-wrap{{position:relative;height:240px;width:100%;overflow:hidden}}
+    /* ── Data view ── */
+    .dv-toolbar{{display:flex;align-items:center;gap:10px;padding:0 0 14px;border-bottom:0.5px solid #e5e5e5;margin-bottom:16px;flex-wrap:wrap}}
+    .dv-select-wrap{{flex:1;min-width:200px}}
+    #tariff-select{{width:100%;font-size:13px;padding:7px 10px;border:0.5px solid #ddd;border-radius:8px;background:white;color:#1a1a2e;cursor:pointer}}
+    .dv-daypills{{display:flex;gap:5px;flex-wrap:wrap}}
+    .day-btn{{font-size:11px;font-weight:500;padding:5px 12px;border-radius:20px;border:0.5px solid #ddd;background:white;color:#666;cursor:pointer;transition:all .15s;white-space:nowrap}}
+    .day-btn:hover{{border-color:#185fa5;color:#185fa5}}
+    .day-btn.active{{background:#185fa5;border-color:#185fa5;color:white}}
+    .day-btn.today-pill{{border-color:#1d9e75;color:#1d9e75}}
+    .day-btn.today-pill.active{{background:#1d9e75;border-color:#1d9e75;color:white}}
+    .metrics{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}}
+    .metric{{background:#f8f9fa;border-radius:8px;padding:10px 14px;border:none}}
+    .metric .label{{font-size:10px;color:#999;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}}
+    .metric .value{{font-size:22px;font-weight:500;line-height:1;color:#1a1a2e}}
+    .metric .sub{{font-size:10px;color:#aaa;margin-top:3px}}
+    .dv-body{{display:grid;grid-template-columns:1fr 270px;gap:14px;align-items:start}}
+    .card{{background:white;border-radius:12px;border:0.5px solid #e5e5e5;padding:14px 16px}}
+    .card-header{{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}}
+    .card-title{{font-size:12px;font-weight:500;color:#333}}
+    .chart-wrap{{position:relative;height:220px;width:100%;margin-bottom:10px}}
     .chart-wrap canvas{{position:absolute;inset:0;width:100%!important;height:100%!important}}
-    .chart-placeholder{{height:240px;display:flex;align-items:center;justify-content:center;
-                         color:#aaa;font-size:13px;text-align:center;line-height:1.6}}
-    .month-grid{{display:flex;flex-direction:column;gap:10px}}
+    .chart-placeholder{{height:220px;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:13px;text-align:center;line-height:1.6}}
+    .series-pills-row{{display:flex;gap:6px;flex-wrap:wrap}}
+    .series-pill{{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:500;padding:3px 9px;border-radius:12px;border:0.5px solid;cursor:pointer;transition:opacity .15s;user-select:none}}
+    .series-pill.off{{opacity:.3}}
+    .slot-panel-card{{display:flex;flex-direction:column;gap:10px}}
+    .sc-time-label{{font-size:11px;color:#999}}
+    .sc-time{{font-size:13px;font-weight:500;color:#1a1a2e;margin-top:1px}}
+    .sc-total{{font-size:28px;font-weight:500;line-height:1;margin:4px 0 2px}}
+    .sc-total-unit{{font-size:12px;font-weight:400;color:#aaa}}
+    .sc-bar-bg{{height:4px;background:#eee;border-radius:2px;margin:6px 0}}
+    .sc-bar-fill{{height:100%;border-radius:2px;transition:width .25s,background .25s}}
+    .sc-vs{{font-size:11px;margin-top:2px}}
+    .sc-breakdown{{display:flex;flex-direction:column;gap:6px;border-top:0.5px solid #e5e5e5;padding-top:10px;margin-top:2px}}
+    .sc-row{{display:flex;align-items:center;justify-content:space-between}}
+    .sc-row-left{{display:flex;align-items:center;gap:6px;font-size:11px;color:#666}}
+    .sc-dot{{width:7px;height:7px;border-radius:2px;flex-shrink:0}}
+    .sc-row-val{{font-size:11px;font-weight:500;color:#1a1a2e}}
+    .sc-empty{{font-size:12px;color:#bbb;text-align:center;padding:24px 0;line-height:1.6}}
+    .month-grid{{display:flex;flex-direction:column;gap:8px}}
+    .mc-month-row{{display:flex;align-items:center;gap:10px}}
+    .mc-month-name{{font-size:11px;color:#888;width:36px;flex-shrink:0}}
+    .mc-bar-bg{{flex:1;height:4px;background:#eee;border-radius:2px;overflow:hidden}}
+    .mc-bar-fill{{height:100%;border-radius:2px;background:#185fa5;transition:width .4s}}
+    .mc-month-val{{font-size:11px;font-weight:500;color:#1a1a2e;min-width:56px;text-align:right;flex-shrink:0}}
+    .mc-live-badge{{font-size:9px;padding:1px 5px;border-radius:5px;background:#e6f1fb;color:#185fa5;margin-left:3px}}
     .month-card{{border:0.5px solid #e5e5e5;border-radius:10px;padding:12px 14px}}
     .month-card.current{{border-color:#185fa5;background:#f0f6ff}}
     .month-label{{font-size:12px;font-weight:600;color:#333;margin-bottom:8px;display:flex;align-items:center;gap:6px}}
@@ -1220,26 +1242,16 @@ def dashboard():
     .mstat .mt{{font-size:10px;color:#aaa}}
     .mv.avg{{color:#185fa5}}.mv.min{{color:#1d9e75}}.mv.max{{color:#e24b4a}}
     .month-meta{{font-size:10px;color:#bbb;margin-top:6px}}
-    .slot-detail{{margin-top:auto;padding-top:12px;border-top:0.5px solid #e5e5e5}}
     .status-list{{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto}}
-    .status-row{{display:flex;align-items:center;justify-content:space-between;
-                 padding:7px 10px;background:#f8f9fa;border-radius:6px}}
+    .status-row{{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#f8f9fa;border-radius:6px}}
     .status-name{{font-size:12px;font-weight:500}}
     .status-meta{{font-size:10px;color:#888;margin-top:1px}}
     .s-ok{{font-size:10px;padding:2px 8px;border-radius:999px;background:#d1fae5;color:#065f46;font-weight:500}}
     .s-warn{{font-size:10px;padding:2px 8px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:500}}
     .s-miss{{font-size:10px;padding:2px 8px;border-radius:999px;background:#fee2e2;color:#991b1b;font-weight:500}}
-    .bottom-row{{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}}
     .tooltip-def{{position:relative;display:inline-block;cursor:help;border-bottom:1px dashed #aaa}}
-    .tooltip-def:hover::after{{content:attr(data-tip);position:absolute;bottom:120%;left:50%;transform:translateX(-50%);
-      background:#1a1a2e;color:white;padding:6px 10px;border-radius:6px;font-size:11px;white-space:nowrap;z-index:99;pointer-events:none}}
-    @media(max-width:900px){{.metrics{{grid-template-columns:1fr 1fr}}.row,.bottom-row{{grid-template-columns:1fr}}}}
-    .series-toggle{{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;
-      border-radius:6px;border:1.5px solid;cursor:pointer;font-size:11px;font-weight:500;
-      user-select:none;transition:opacity .15s,background .15s}}
-    .series-toggle.off{{opacity:.4;background:white!important}}
-    .series-toggle .chk{{width:14px;height:14px;border-radius:3px;border:1.5px solid currentColor;
-      display:inline-flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}}
+    .tooltip-def:hover::after{{content:attr(data-tip);position:absolute;bottom:120%;left:50%;transform:translateX(-50%);background:#1a1a2e;color:white;padding:6px 10px;border-radius:6px;font-size:11px;white-space:nowrap;z-index:99;pointer-events:none}}
+    @media(max-width:900px){{.metrics{{grid-template-columns:1fr 1fr}}.dv-body{{grid-template-columns:1fr}}}}
     .view-tabs{{display:flex;gap:0;background:#f1efe8;border-radius:8px;padding:3px;margin-left:12px}}
     .view-tab{{font-size:11px;font-weight:500;padding:4px 12px;border-radius:6px;border:none;
       background:transparent;color:#888;cursor:pointer;transition:all .15s}}
@@ -1338,7 +1350,30 @@ def dashboard():
 </head>
 <body>
 <header>
-  <h1>Swiss Dynamic Electricity Tariffs</h1>
+  <h1>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 72" height="40" aria-label="Swiss Dynamic Electricity Tariffs">
+      <!-- Croce svizzera -->
+      <rect x="0" y="0" width="72" height="72" rx="6" fill="#c8102e"/>
+      <rect x="13" y="28" width="46" height="16" rx="2" fill="white"/>
+      <rect x="28" y="13" width="16" height="46" rx="2" fill="white"/>
+      <!-- Fulmine -->
+      <g transform="translate(86, 8)">
+        <polygon points="22,0 8,32 18,32 14,56 34,22 22,22 30,0" fill="none" stroke="#c8102e" stroke-width="1.5" stroke-linejoin="round"/>
+      </g>
+      <!-- Barre segnale -->
+      <g transform="translate(132, 20)">
+        <rect x="0"  y="20" width="5" height="20" rx="2" fill="white" opacity="0.4"/>
+        <rect x="9"  y="10" width="5" height="30" rx="2" fill="white" opacity="0.5"/>
+        <rect x="18" y="4"  width="5" height="36" rx="2" fill="white" opacity="0.65"/>
+        <rect x="27" y="14" width="5" height="26" rx="2" fill="white" opacity="0.5"/>
+        <rect x="36" y="22" width="5" height="18" rx="2" fill="white" opacity="0.4"/>
+        <rect x="45" y="8"  width="5" height="32" rx="2" fill="white" opacity="0.6"/>
+        <rect x="54" y="16" width="5" height="24" rx="2" fill="white" opacity="0.45"/>
+      </g>
+      <!-- Wordmark -->
+      <text x="210" y="44" font-family="system-ui,sans-serif" font-size="20" font-weight="500" fill="white">Swiss Dynamic Electricity Tariffs</text>
+    </svg>
+  </h1>
   <span class="badge" id="header-badge" style="background:#ba7517">...</span>
   <div class="view-tabs">
     <button class="view-tab" id="tab-smart" onclick="switchView('smart')">Smart</button>
@@ -1400,159 +1435,87 @@ def dashboard():
 
   <!-- ── Developer view ────────────────────────────────────────────────── -->
   <div id="developer-view">
-    <div class="info-bar">
-      <span data-i18n="unit_explanation" style="color:#555;font-size:12px"></span>
-      <span class="unit-pill"><b>Rp/kWh</b> = Rappen per kilowatt-hour = 1/100 CHF/kWh</span>
-      <span class="unit-pill">0.10 CHF/kWh = <b>10 Rp/kWh</b></span>
-      <span class="unit-pill" style="background:#f0faf5">
-        Grid + Energy + Residual = <b data-i18n="total_price"></b>
-      </span>
-      <span style="display:inline-flex;align-items:center;gap:10px;margin-left:4px;padding:4px 10px;background:#fafafa;border:0.5px solid #e5e5e5;border-radius:6px;font-size:11px">
-        <span style="display:flex;align-items:center;gap:4px">
-          <span style="width:8px;height:8px;border-radius:2px;background:#185fa5;flex-shrink:0"></span>
-          <span style="color:#555"><span class="tooltip-def" data-component="grid" data-tip="">Grid</span></span>
-        </span>
-        <span style="display:flex;align-items:center;gap:4px">
-          <span style="width:8px;height:8px;border-radius:2px;background:#1d9e75;flex-shrink:0"></span>
-          <span style="color:#555"><span class="tooltip-def" data-component="energy" data-tip="">Energy</span></span>
-        </span>
-        <span style="display:flex;align-items:center;gap:4px">
-          <span style="width:8px;height:8px;border-radius:2px;background:#ba7517;flex-shrink:0"></span>
-          <span style="color:#555"><span class="tooltip-def" data-component="residual" data-tip="">Residual</span></span>
-        </span>
-      </span>
-    </div>
 
-  <div class="metrics">
-    <div class="metric">
-      <div class="label" data-i18n="active_tariffs"></div>
-      <div class="value" id="m-total">—</div>
-      <div class="sub" id="m-total-sub">loading...</div>
-    </div>
-    <div class="metric">
-      <div class="label" id="m-min-label" data-i18n="cheapest_hour"></div>
-      <div class="value" style="color:#1d9e75" id="m-min">—</div>
-      <div class="sub" id="m-min-sub"></div>
-    </div>
-    <div class="metric">
-      <div class="label" id="m-max-label" data-i18n="most_expensive_hour"></div>
-      <div class="value" style="color:#e24b4a" id="m-max">—</div>
-      <div class="sub" id="m-max-sub"></div>
-    </div>
-    <div class="metric">
-      <div class="label" data-i18n="viewing_day"></div>
-      <div class="value" style="font-size:16px;padding-top:4px" id="m-date">—</div>
-      <div class="sub" id="m-slots"></div>
-    </div>
-  </div>
-
-  <div class="row">
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title" id="chart-title" data-i18n="daily_profile"></span>
-      </div>
-      <div class="tariff-row">
+    <!-- ── Toolbar: selettore tariffa + day pills ── -->
+    <div class="dv-toolbar">
+      <div class="dv-select-wrap">
         <select id="tariff-select" onchange="onTariffChange()"></select>
       </div>
-      <div class="day-btns" id="day-btns"></div>
-      <div style="height:12px"></div>
-      <div class="chart-wrap">
-        <div class="chart-placeholder" id="chart-placeholder">
-          <div data-i18n="select_tariff"></div>
-        </div>
-        <canvas id="priceChart" style="display:none"></canvas>
+      <div class="dv-daypills" id="day-btns"></div>
+    </div>
+
+    <!-- ── KPI cards ── -->
+    <div class="metrics">
+      <div class="metric">
+        <div class="label" data-i18n="active_tariffs"></div>
+        <div class="value" id="m-total">—</div>
+        <div class="sub" id="m-total-sub">loading...</div>
       </div>
-      <div id="series-toggles" style="display:none;gap:8px;margin-top:10px;flex-wrap:wrap"></div>
-      <div style="margin-top:10px;min-height:80px">
-        <div id="slot-panel" style="display:none;background:#f8f9fa;border-radius:8px;padding:10px 12px">
-          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
-            <div style="display:flex;align-items:baseline;gap:6px">
-              <span style="font-size:22px;font-weight:700" id="sp-total">—</span>
-              <span style="font-size:11px;color:#888">Rp/kWh</span>
-            </div>
-            <span style="font-size:11px;color:#888" id="sp-time">—</span>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:8px">
-            <div style="background:white;border-radius:6px;padding:5px 8px;text-align:center;border:0.5px solid #e0eeff">
-              <div style="font-size:12px;font-weight:600;color:#185fa5" id="sp-grid">—</div>
-              <div style="font-size:9px;color:#888;margin-top:1px">
-                <span class="tooltip-def" data-tip="Network usage fee charged by grid operator">Grid</span>
-              </div>
-            </div>
-            <div style="background:white;border-radius:6px;padding:5px 8px;text-align:center;border:0.5px solid #d0f0e0">
-              <div style="font-size:12px;font-weight:600;color:#1d9e75" id="sp-energy">—</div>
-              <div style="font-size:9px;color:#888;margin-top:1px">
-                <span class="tooltip-def" data-tip="Electricity commodity price (spot market)">Energy</span>
-              </div>
-            </div>
-            <div style="background:white;border-radius:6px;padding:5px 8px;text-align:center;border:0.5px solid #ffe8c0">
-              <div style="font-size:12px;font-weight:600;color:#ba7517" id="sp-residual">—</div>
-              <div style="font-size:9px;color:#888;margin-top:1px">
-                <span class="tooltip-def" data-tip="Residual: SDL, Stromreserve, Netzzuschlag, levies">Residual</span>
-              </div>
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="flex:1;height:5px;background:#e5e5e5;border-radius:3px;overflow:hidden">
-              <div id="sp-bar" style="height:100%;border-radius:3px;transition:width .15s,background .15s"></div>
-            </div>
-            <span style="font-size:11px;font-weight:600;min-width:54px;text-align:right" id="sp-vs">—</span>
-          </div>
-          <div style="font-size:10px;color:#aaa;margin-top:3px" id="sp-avg-ref"></div>
-        </div>
-        <div id="slot-panel-empty" style="font-size:12px;color:#bbb;text-align:center;padding:12px 0" data-i18n="hover_chart"></div>
+      <div class="metric">
+        <div class="label" id="m-min-label" data-i18n="cheapest_hour"></div>
+        <div class="value" style="color:#1d9e75" id="m-min">—</div>
+        <div class="sub" id="m-min-sub"></div>
+      </div>
+      <div class="metric">
+        <div class="label" id="m-max-label" data-i18n="most_expensive_hour"></div>
+        <div class="value" style="color:#e24b4a" id="m-max">—</div>
+        <div class="sub" id="m-max-sub"></div>
+      </div>
+      <div class="metric">
+        <div class="label" data-i18n="viewing_day"></div>
+        <div class="value" style="font-size:16px;padding-top:4px" id="m-date">—</div>
+        <div class="sub" id="m-slots"></div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header"><span class="card-title" data-i18n="monthly_summary"></span></div>
-      <div class="month-grid" id="month-grid">
-        <div style="color:#aaa;font-size:12px" data-i18n="select_tariff"></div>
+    <!-- ── Body: grafico + slot inspector ── -->
+    <div class="dv-body">
+
+      <!-- Colonna sinistra: grafico + monthly -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title" id="chart-title" data-i18n="daily_profile"></span>
+            <div class="series-pills-row" id="series-toggles"></div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-placeholder" id="chart-placeholder">
+              <div data-i18n="select_tariff"></div>
+            </div>
+            <canvas id="priceChart" style="display:none"></canvas>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px">
+          <div class="card-header"><span class="card-title" data-i18n="monthly_summary"></span></div>
+          <div class="month-grid" id="month-grid">
+            <div style="color:#bbb;font-size:12px" data-i18n="select_tariff"></div>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
 
-  <!-- Fetch status moved to API tab only — keep hidden element so JS doesn't throw -->
-  <div style="display:none" id="status-list"></div>
+      <!-- Colonna destra: slot inspector fisso -->
+      <div class="card slot-panel-card" id="slot-panel-outer">
+        <div class="sc-time-label" data-i18n="selected_slot"></div>
+        <div id="slot-panel-content">
+          <div class="sc-empty" data-i18n="hover_chart"></div>
+        </div>
+      </div>
 
-  <!-- REMOVED API card – moved to dedicated API tab -->
-  <div style="display:none" id="api-endpoint-list-legacy">
-        <div class="api-row">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-            <div><span class="api-method">GET</span><span class="api-path">/api/v1/tariffs</span></div>
-            <button class="copy-btn" onclick="copyEndpoint(this,'/api/v1/tariffs')">Copy</button>
-          </div>
-          <div style="font-size:11px;color:#666" data-i18n="api_tariffs_desc"></div>
-        </div>
-        <div class="api-row">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-            <div><span class="api-method">GET</span><span class="api-path">/api/v1/prices</span></div>
-            <button class="copy-btn" id="copy-prices-btn" onclick="copyPricesEndpoint(this)">Copy</button>
-          </div>
-          <div style="font-size:10px;color:#666" data-i18n="api_prices_desc"></div>
-          <div style="margin-top:6px;background:#f0f4fa;border-radius:5px;padding:7px 10px;font-family:monospace;font-size:10px;color:#185fa5;line-height:1.7" id="prices-example-url">
-            /api/v1/prices?tariff_id=ckw_home_dynamic&amp;start_time={today}T00:00:00Z
-          </div>
-          <div style="font-size:10px;color:#aaa;margin-top:3px">↑ updates with selected tariff &amp; today's date</div>
-        </div>
-        <div class="api-row">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-            <div><span class="api-method">GET</span><span class="api-path">/api/v1/prices/all</span></div>
-            <button class="copy-btn" onclick="copyEndpoint(this,'/api/v1/prices/all?start_time={today}T00:00:00Z')">Copy</button>
-          </div>
-          <div style="font-size:10px;color:#666">All tariffs at once — single JSON with tariff_id as key</div>
-          <div style="margin-top:6px;background:#f0f4fa;border-radius:5px;padding:7px 10px;font-family:monospace;font-size:10px;color:#185fa5">
-            /api/v1/prices/all?start_time={{today}}T00:00:00Z
-          </div>
-        </div>
-        <div class="api-row">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-            <div><span class="api-method">GET</span><span class="api-path">/api/v1/health</span></div>
-            <button class="copy-btn" onclick="copyEndpoint(this,'/api/v1/health')">Copy</button>
-          </div>
-          <div style="font-size:11px;color:#666" data-i18n="api_health_desc"></div>
-        </div>
-  </div><!-- end api-endpoint-list-legacy -->
+    </div><!-- end dv-body -->
+
+    <!-- Hidden compat elements so JS doesn't throw -->
+    <div style="display:none" id="status-list"></div>
+    <div style="display:none" id="slot-panel"></div>
+    <div style="display:none" id="slot-panel-empty"></div>
+    <div style="display:none" id="sp-total"></div>
+    <div style="display:none" id="sp-time"></div>
+    <div style="display:none" id="sp-grid"></div>
+    <div style="display:none" id="sp-energy"></div>
+    <div style="display:none" id="sp-residual"></div>
+    <div style="display:none" id="sp-bar"></div>
+    <div style="display:none" id="sp-vs"></div>
+    <div style="display:none" id="sp-avg-ref"></div>
 
   </div><!-- end developer-view -->
 
@@ -1796,6 +1759,7 @@ const T = {{
     map_loading: 'Loading municipality boundaries…',
     map_no_tariff: 'No dynamic tariff',
     map_note: 'Grey municipalities have no dynamic tariff available in 2026. 457 out of 2,148 Swiss municipalities covered. Source: ElCom open data.',
+    with_prices_today: 'with prices today',
   }},
   de: {{
     unit_explanation: 'Preise in Rp/kWh (Rappen pro Kilowattstunde). 100 Rp = 1 CHF.',
@@ -1853,6 +1817,7 @@ const T = {{
     api_avail_title: 'Datenverfügbarkeit',
     api_avail_sub: 'Im Dropdown oben erscheinen nur aktive Tarife',
     chart_total: 'Total', chart_vs_avg: 'vs. Avg',
+    with_prices_today: 'mit Preisen heute',
   }},
   fr: {{
     unit_explanation: 'Prix en Rp/kWh (Rappen par kilowattheure). 100 Rp = 1 CHF.',
@@ -1911,6 +1876,7 @@ const T = {{
     api_avail_title: 'Disponibilit\u00e9 des donn\u00e9es',
     api_avail_sub: 'Seuls les tarifs actifs apparaissent dans la liste d\u00e9roulante',
     chart_total: 'Total', chart_vs_avg: 'vs moy',
+    with_prices_today: 'avec prix aujourd\u2019hui',
   }},
   it: {{
     unit_explanation: 'Prezzi in Rp/kWh (Rappen per kilowattora). 100 Rp = 1 CHF.',
@@ -1968,6 +1934,7 @@ const T = {{
     api_avail_title: 'Disponibilit\u00e0 dati',
     api_avail_sub: 'Solo le tariffe attive appaiono nel men\u00f9 a tendina',
     chart_total: 'Totale', chart_vs_avg: 'vs media',
+    with_prices_today: 'con prezzi oggi',
   }}
 }};
 
@@ -1983,17 +1950,50 @@ function setLang(l) {{
   document.querySelectorAll('[data-component]').forEach(el => {{
     el.setAttribute('data-tip', t(el.getAttribute('data-component') + '_tip'));
   }});
-  if (activeTariff) {{ renderMonthGrid(lastMonthData); renderStatusList(lastHealthData); }}
+
+  // ── Re-render tutto il contenuto dinamico ────────────────────────────────
+  // Health / status
+  if (lastHealthData.length) {{
+    const okCount = lastHealthData.filter(tariff => tariff.has_today_data).length;
+    document.getElementById('m-total-sub').textContent = okCount + ' ' + t('with_prices_today');
+    renderStatusList(lastHealthData);
+    renderApiStatusList(lastHealthData);
+    populateApiTariffSelect();
+  }}
+
+  // Chart e slot inspector
   updateSlotPanel(lastSlotIdx);
   updateChartLocale();
-  renderApiStatusList(lastHealthData);
-  // update "no live data" placeholder if select is empty
-  const sel = document.getElementById('api-tariff-select');
-  if (sel && sel.options.length === 1 && !sel.options[0].value) {{
-    sel.options[0].textContent = t('api_no_live_data');
+
+  // Monthly summary
+  if (lastMonthData.length) renderMonthGrid(lastMonthData);
+
+  // Smart view (se aperta)
+  if (smartData) {{
+    renderSmartCompare(smartData.tariffs);
+    if (activeSmartTariff) {{
+      const td = smartData.tariffs.find(tariff => tariff.tariff_id === activeSmartTariff);
+      if (td) renderSmartTariff(td);
+    }}
   }}
+
+  // Mappa — re-costruisce leggenda e tooltip non è possibile senza riaprire,
+  // ma ricostruiamo almeno la legenda
+  if (mapLoaded) buildMapLegend();
+
+  // Badge tooltip
   const badge = document.getElementById('header-badge');
   if (badge) badge.title = t('unit_explanation');
+
+  // Tariff select placeholder
+  const tarSel = document.getElementById('tariff-select');
+  if (tarSel && tarSel.options.length && !tarSel.options[0].value) {{
+    tarSel.options[0].textContent = t('select_tariff_placeholder');
+  }}
+  const apiSel = document.getElementById('api-tariff-select');
+  if (apiSel && apiSel.options.length === 1 && !apiSel.options[0].value) {{
+    apiSel.options[0].textContent = t('api_no_live_data');
+  }}
 }}
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -2023,13 +2023,13 @@ async function loadHealth() {{
   if (!r.ok) return;
   const data = await r.json();
   lastHealthData = data.tariffs || [];
-  const okCount = lastHealthData.filter(t => t.has_today_data).length;
+  const okCount = lastHealthData.filter(tariff => tariff.has_today_data).length;
   const badge = document.getElementById('header-badge');
   badge.textContent = okCount + '/' + lastHealthData.length + ' with data';
   badge.style.background = okCount === (data.adapters_ready||0) && okCount > 0 ? '#1d9e75' : okCount > 0 ? '#ba7517' : '#555';
   document.getElementById('header-time').textContent = new Date().toLocaleTimeString('en-GB') + ' UTC';
   document.getElementById('m-total').textContent = lastHealthData.length;
-  document.getElementById('m-total-sub').textContent = okCount + ' with prices today';
+  document.getElementById('m-total-sub').textContent = okCount + ' ' + t('with_prices_today');
   renderStatusList(lastHealthData);
   populateApiTariffSelect();
 }}
@@ -2077,9 +2077,9 @@ async function onTariffChange() {{
   canvas.style.display = 'none';
   placeholder.style.display = 'flex';
   placeholder.innerHTML = `<div style="color:#bbb;font-size:13px">${{t('loading_data')}}</div>`;
-  document.getElementById('series-toggles').style.display = 'none';
-  document.getElementById('slot-panel').style.display = 'none';
-  document.getElementById('slot-panel-empty').style.display = 'block';
+  document.getElementById('series-toggles').innerHTML = '';
+  const slotContent = document.getElementById('slot-panel-content');
+  if (slotContent) slotContent.innerHTML = `<div class="sc-empty">${{t('hover_chart')}}</div>`;
   document.getElementById('day-btns').innerHTML = '';
   ['m-min','m-max','m-date'].forEach(id => document.getElementById(id).textContent = '\u2014');
   ['m-min-sub','m-max-sub','m-slots'].forEach(id => document.getElementById(id).textContent = '');
@@ -2107,7 +2107,9 @@ async function loadDaySummary(tariffId) {{
   document.getElementById('day-btns').innerHTML = dailySummary.map((d, i) => {{
     const isToday = d.date === '{today}';
     const label = isToday ? t('today') : new Date(d.date+'T12:00:00Z').toLocaleDateString(locale(),{{weekday:'short',day:'numeric',month:'short'}});
-    return `<button class="day-btn${{i===dailySummary.length-1?' active':''}}" onclick="selectDay('${{d.date}}',this)">${{label}}</button>`;
+    const todayCls = isToday ? ' today-pill' : '';
+    const activeCls = i === dailySummary.length - 1 ? ' active' : '';
+    return `<button class="day-btn${{todayCls}}${{activeCls}}" onclick="selectDay('${{d.date}}',this)">${{label}}</button>`;
   }}).join('');
   if (dailySummary.length) await loadDayChart(tariffId, dailySummary[dailySummary.length-1].date);
 }}
@@ -2118,38 +2120,50 @@ async function selectDay(dateStr, btn) {{
   await loadDayChart(activeTariff, dateStr);
 }}
 
-// ── Slot panel ────────────────────────────────────────────────────────────────
+// ── Slot inspector (new layout) ───────────────────────────────────────────────
 function updateSlotPanel(idx) {{
   lastSlotIdx = idx;
-  const panel = document.getElementById('slot-panel');
-  const empty = document.getElementById('slot-panel-empty');
+  const content = document.getElementById('slot-panel-content');
+  if (!content) return;
   if (idx === null || idx < 0 || idx >= chartData.totals.length) {{
-    panel.style.display = 'none'; empty.style.display = 'block'; empty.textContent = t('hover_chart'); return;
+    content.innerHTML = `<div class="sc-empty">${{t('hover_chart')}}</div>`; return;
   }}
-  panel.style.display = 'block'; empty.style.display = 'none';
-  const total = chartData.totals[idx], g = chartData.grid[idx]||0, e = chartData.energy[idx]||0;
-  const res = chartData.residual[idx]||0, avg = chartData.avg, label = chartData.labels[idx]||'';
+  const total = chartData.totals[idx] || 0;
+  const g     = chartData.grid[idx]     || 0;
+  const e     = chartData.energy[idx]   || 0;
+  const res   = chartData.residual[idx] || 0;
+  const avg   = chartData.avg || 0;
+  const label = chartData.labels[idx]   || '';
   const ratio = avg > 0 ? total / avg : 1;
-  const totalColor = ratio < 0.85 ? '#1d9e75' : ratio > 1.15 ? '#e24b4a' : '#185fa5';
-  document.getElementById('sp-total').textContent = fmt(total);
-  document.getElementById('sp-total').style.color = totalColor;
-  document.getElementById('sp-time').textContent = label + '  \u00b7  15 min';
-  document.getElementById('sp-grid').textContent = g > 0 ? fmt(g) : '\u2014';
-  document.getElementById('sp-energy').textContent = e > 0 ? fmt(e) : '\u2014';
-  document.getElementById('sp-residual').textContent = res > 0 ? fmt(res) : '\u2014';
+  const totColor = ratio < 0.85 ? '#1d9e75' : ratio > 1.15 ? '#e24b4a' : '#185fa5';
   const allPos = chartData.totals.filter(v => v > 0);
-  const pct = Math.max(...chartData.totals) > Math.min(...allPos||[0])
-    ? Math.round((total - Math.min(...allPos)) / (Math.max(...chartData.totals) - Math.min(...allPos)) * 100) : 50;
+  const mn = Math.min(...allPos), mx = Math.max(...allPos);
+  const pct = mx > mn ? Math.round((total - mn) / (mx - mn) * 100) : 50;
   const barClr = ratio < 0.85 ? '#1d9e75' : ratio > 1.15 ? '#e24b4a' : '#378add';
-  document.getElementById('sp-bar').style.width = pct + '%';
-  document.getElementById('sp-bar').style.background = barClr;
   const diff = total - avg;
-  const vsEl = document.getElementById('sp-vs');
-  vsEl.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(2) + ' Rp';
-  vsEl.style.color = diff <= 0 ? '#1d9e75' : '#e24b4a';
-  document.getElementById('sp-avg-ref').textContent =
-    t('daily_avg') + ': ' + avg.toFixed(2) + ' Rp/kWh  \u00b7  ' +
-    (diff <= 0 ? diff.toFixed(2) + ' Rp ' + t('below_avg') : '+' + diff.toFixed(2) + ' Rp ' + t('above_avg'));
+  const diffStr = (diff >= 0 ? '+' : '') + diff.toFixed(2) + ' Rp';
+  const diffColor = diff <= 0 ? '#1d9e75' : '#e24b4a';
+  const SMETA = [
+    {{ key:'grid',     label:'Grid',     color:'#185fa5', val:g   }},
+    {{ key:'energy',   label:'Energy',   color:'#1d9e75', val:e   }},
+    {{ key:'residual', label:'Residual', color:'#ba7517', val:res }},
+  ];
+  const rows = SMETA.filter(s => s.val > 0).map(s =>
+    `<div class="sc-row">
+       <div class="sc-row-left">
+         <div class="sc-dot" style="background:${{s.color}}"></div>
+         ${{s.label}}
+       </div>
+       <div class="sc-row-val">${{fmt(s.val)}}</div>
+     </div>`
+  ).join('');
+  content.innerHTML = `
+    <div class="sc-time">${{label}} \u00b7 15 min</div>
+    <div class="sc-total" style="color:${{totColor}}">${{fmt(total)}} <span class="sc-total-unit">Rp/kWh</span></div>
+    <div class="sc-bar-bg"><div class="sc-bar-fill" style="width:${{pct}}%;background:${{barClr}}"></div></div>
+    <div class="sc-vs" style="color:${{diffColor}}">${{diffStr}} ${{t(diff <= 0 ? 'below_avg' : 'above_avg')}}</div>
+    <div class="sc-breakdown">${{rows}}</div>
+  `;
 }}
 
 // ── Series toggles ───────────────────────────────────────────────────────────
@@ -2162,14 +2176,15 @@ let seriesVisible = {{ grid:true, energy:true, residual:true }};
 
 function buildSeriesToggles(availableSeries) {{
   const wrap = document.getElementById('series-toggles');
-  if (!availableSeries.length) {{ wrap.style.display = 'none'; return; }}
-  wrap.style.display = 'flex';
+  if (!availableSeries.length) {{ wrap.innerHTML = ''; return; }}
   wrap.innerHTML = availableSeries.map(key => {{
     const m = SERIES_META.find(s => s.key === key); if (!m) return '';
     const on = seriesVisible[key];
-    return `<span class="series-toggle${{on?'':' off'}}" style="background:${{on?m.bg:'white'}};border-color:${{m.border}};color:${{m.color}}"
+    return `<span class="series-pill${{on?'':' off'}}"
+      style="border-color:${{m.border}};color:${{m.color}};background:${{on?m.bg:'transparent'}}"
       onclick="toggleSeries('${{key}}')" id="toggle-${{key}}">
-      <span class="chk">${{on?'\u2713':''}}</span> ${{m.label}}</span>`;
+      <span style="width:6px;height:6px;border-radius:1px;background:${{m.color}};display:inline-block;flex-shrink:0"></span>
+      ${{m.label}}</span>`;
   }}).join('');
 }}
 
@@ -2177,8 +2192,7 @@ function toggleSeries(key) {{
   seriesVisible[key] = !seriesVisible[key];
   const m = SERIES_META.find(s => s.key === key);
   const btn = document.getElementById('toggle-' + key); const on = seriesVisible[key];
-  btn.classList.toggle('off', !on); btn.style.background = on ? m.bg : 'white';
-  btn.querySelector('.chk').textContent = on ? '\u2713' : '';
+  btn.classList.toggle('off', !on); btn.style.background = on ? m.bg : 'transparent';
   if (!chart) return;
   chart.data.datasets.forEach((ds, i) => {{ if (ds._seriesKey === key) chart.setDatasetVisibility(i, on); }});
   chart.update(); rebuildTotals();
@@ -2300,20 +2314,18 @@ async function loadMonthly(tariffId) {{
 
 function renderMonthGrid(months) {{
   const grid = document.getElementById('month-grid');
-  if (!months?.length) {{ grid.innerHTML = `<div style="color:#aaa;font-size:12px">${{t('select_tariff')}}</div>`; return; }}
-  grid.innerHTML = [...months].reverse().map(m => `
-    <div class="month-card${{m.is_current?' current':''}}">
-      <div class="month-label">
-        ${{new Date(m.month+'-01').toLocaleDateString(locale(),{{month:'long',year:'numeric'}})}}
-        ${{m.is_current?`<span class="month-tag live">${{t('live')}}</span>`:`<span class="month-tag">${{t('completed')}}</span>`}}
-      </div>
-      <div class="month-stats">
-        <div class="mstat"><div class="mv avg">${{fmtShort(m.avg_rp)}}</div><div class="ml">${{t('avg')}}</div><div class="mt">\u2014</div></div>
-        <div class="mstat"><div class="mv min">${{fmtShort(m.min_rp)}}</div><div class="ml">${{t('min')}}</div><div class="mt">${{m.min_date}}</div></div>
-        <div class="mstat"><div class="mv max">${{fmtShort(m.max_rp)}}</div><div class="ml">${{t('max')}}</div><div class="mt">${{m.max_date}}</div></div>
-      </div>
-      <div class="month-meta">${{m.days_with_data}} ${{t('days')}} \u00b7 ${{m.slot_count}} ${{t('slots')}}</div>
-    </div>`).join('');
+  if (!months?.length) {{ grid.innerHTML = `<div style="color:#bbb;font-size:12px">${{t('select_tariff')}}</div>`; return; }}
+  const maxAvg = Math.max(...months.map(m => m.avg_rp || 0));
+  grid.innerHTML = [...months].reverse().map(m => {{
+    const pct = maxAvg > 0 ? Math.round((m.avg_rp || 0) / maxAvg * 100) : 0;
+    const monthLabel = new Date(m.month + '-01').toLocaleDateString(locale(), {{month:'short', year:'numeric'}});
+    const liveBadge = m.is_current ? `<span class="mc-live-badge">${{t('live')}}</span>` : '';
+    return `<div class="mc-month-row">
+      <div class="mc-month-name">${{monthLabel.split(' ')[0]}}</div>
+      <div class="mc-bar-bg"><div class="mc-bar-fill" style="width:${{pct}}%"></div></div>
+      <div class="mc-month-val">${{fmtShort(m.avg_rp || 0)}}${{liveBadge}}</div>
+    </div>`;
+  }}).join('');
 }}
 
 // ── Map view ──────────────────────────────────────────────────────────────────
@@ -2853,13 +2865,11 @@ function updatePricesExample(tariffId) {{
 // ── Chart locale update (in-place, no re-fetch) ───────────────────────────────
 function updateChartLocale() {{
   if (!activeTariff || !activeDate) return;
-  // Chart title
   const titleEl = document.getElementById('chart-title');
   if (titleEl) {{
     titleEl.textContent = t('daily_profile') + ' \u2014 ' +
       new Date(activeDate + 'T12:00:00Z').toLocaleDateString(locale(), {{weekday:'long', day:'numeric', month:'long'}});
   }}
-  // Day buttons
   if (dailySummary.length) {{
     document.getElementById('day-btns').innerHTML = dailySummary.map(d => {{
       const isToday = d.date === '{today}';
@@ -2867,9 +2877,12 @@ function updateChartLocale() {{
         ? t('today')
         : new Date(d.date + 'T12:00:00Z').toLocaleDateString(locale(), {{weekday:'short', day:'numeric', month:'short'}});
       const isActive = d.date === activeDate;
-      return `<button class="day-btn${{isActive ? ' active' : ''}}" onclick="selectDay('${{d.date}}', this)">${{label}}</button>`;
+      const todayCls = isToday ? ' today-pill' : '';
+      const activeCls = isActive ? ' active' : '';
+      return `<button class="day-btn${{todayCls}}${{activeCls}}" onclick="selectDay('${{d.date}}', this)">${{label}}</button>`;
     }}).join('');
   }}
+  // ... resto invariato
   // Metric labels
   const isToday = activeDate === '{today}';
   const todaySuffix = ' \u00b7 ' + t('today').toLowerCase();
