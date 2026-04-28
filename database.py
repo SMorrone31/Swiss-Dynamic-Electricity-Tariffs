@@ -257,6 +257,12 @@ def init_db(database_url: Optional[str] = None) -> sessionmaker:
 
     if _engine is None:
         _engine = get_engine(database_url)
+        # Importa ApiKey qui per registrare il model con Base.metadata
+        # Import lazy per evitare circular import
+        try:
+            from api_keys.registration import ApiKey  # noqa: F401
+        except ImportError:
+            pass
         Base.metadata.create_all(_engine)
         _SessionLocal = sessionmaker(bind=_engine, expire_on_commit=False)
 

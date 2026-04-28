@@ -45,6 +45,7 @@ from schemas import make_day_range_utc
 
 SessionLocal = None
 
+
 """
 SOSTITUZIONE DEL BLOCCO lifespan IN main.py
 ============================================
@@ -239,34 +240,30 @@ async def lifespan(app: FastAPI):
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
+import os as _os
+_env = _os.getenv("ENVIRONMENT", "development")
 app = FastAPI(
     title="Swiss Dynamic Tariffs API",
-    description="Unified API for Swiss dynamic electricity tariffs",
+    description="Unified API for Swiss Tariff Hub",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url="/docs" if _env == "development" else None,
+    redoc_url="/redoc" if _env == "development" else None,
+    openapi_url="/openapi.json" if _env == "development" else None,
 )
 
 # In main.py, dopo la creazione dell'app:
 from fastapi import Request
 import os
-
-VALID_API_KEYS: set[str] = set(
-    k.strip()
-    for k in os.getenv("API_KEYS", "").split(",")
-    if k.strip()
-)
-
-@app.middleware("http")
-async def api_key_middleware(request: Request, call_next):
-    # Escludi dashboard, health interno e docs
-    public_paths = {"/", "/docs", "/redoc", "/openapi.json", "/api/v1/health"}
-    if request.url.path in public_paths or not VALID_API_KEYS:
-        return await call_next(request)
-    key = request.headers.get("X-API-Key", "")
-    if key not in VALID_API_KEYS:
-        from fastapi.responses import JSONResponse
-        return JSONResponse({"error": "Invalid or missing API key"}, status_code=401)
-    return await call_next(request)
+ 
+# Registra routes admin e di registrazione
+from admin_routes import register_routes, api_key_middleware
+ 
+# Sostituisce il vecchio middleware VALID_API_KEYS statico
+app.middleware("http")(api_key_middleware)
+ 
+# Registra tutti gli endpoint admin + /api/v1/register + /api/v1/validate-key
+register_routes(app)
 
 
 # ── API 1: lista tariffe ──────────────────────────────────────────────────────
@@ -1346,12 +1343,91 @@ def dashboard():
     .api-view-title{{font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:3px}}
     .api-view-sub{{font-size:12px;color:#888}}
     code{{font-family:monospace;font-size:10.5px;background:#f0f4fa;color:#185fa5;padding:1px 5px;border-radius:3px}}
+    /* ── API Gate & Registration ── */
+    #api-gate{{display:flex;flex-direction:column;align-items:center;justify-content:center;
+               padding:48px 24px;text-align:center}}
+    .gate-icon{{font-size:40px;margin-bottom:16px}}
+    .gate-title{{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:6px}}
+    .gate-sub{{font-size:13px;color:#888;margin-bottom:28px;max-width:400px;line-height:1.6}}
+    .gate-input-wrap{{display:flex;gap:8px;width:100%;max-width:480px;margin-bottom:10px}}
+    .gate-input{{flex:1;padding:10px 14px;font-size:13px;border:0.5px solid #ddd;
+                 border-radius:8px;outline:none;font-family:monospace;color:#1a1a2e;
+                 transition:border .15s}}
+    .gate-input:focus{{border-color:#185fa5}}
+    .gate-input.error{{border-color:#e24b4a;animation:shake .3s}}
+    @keyframes shake{{0%,100%{{transform:translateX(0)}}25%{{transform:translateX(-6px)}}75%{{transform:translateX(6px)}}}}
+    .gate-btn{{padding:10px 20px;background:#185fa5;color:white;border:none;border-radius:8px;
+               font-size:13px;font-weight:600;cursor:pointer;transition:background .15s;white-space:nowrap}}
+    .gate-btn:hover{{background:#1470c0}}
+    .gate-btn:disabled{{background:#aaa;cursor:not-allowed}}
+    .gate-err{{font-size:12px;color:#e24b4a;margin-top:4px;height:16px}}
+    .gate-divider{{display:flex;align-items:center;gap:12px;width:100%;max-width:480px;
+                   margin:20px 0;color:#ccc;font-size:11px}}
+    .gate-divider::before,.gate-divider::after{{content:'';flex:1;height:0.5px;background:#e5e5e5}}
+    .gate-reg-link{{font-size:12px;color:#888}}
+    .gate-reg-link a{{color:#185fa5;cursor:pointer;text-decoration:none;font-weight:500}}
+    .gate-reg-link a:hover{{text-decoration:underline}}
+    #api-user-bar{{display:none;background:#f0f6ff;border:0.5px solid #c5d8f0;border-radius:10px;
+                   padding:10px 16px;margin-bottom:16px;
+                   align-items:center;gap:12px;flex-wrap:wrap}}
+    .aub-name{{font-size:13px;font-weight:600;color:#1a1a2e;flex:1}}
+    .aub-key{{font-family:monospace;font-size:11px;color:#185fa5;background:#e0ecfb;
+              padding:2px 8px;border-radius:4px}}
+    .aub-usage{{font-size:11px;color:#888}}
+    .aub-bar-bg{{width:110px;height:10px;background:#b8d4ef;border:1px solid #8ab0d8;border-radius:5px;display:inline-block;
+                 vertical-align:middle;margin:0 6px;overflow:hidden}}
+    .aub-bar-fill{{display:block;height:100%;border-radius:5px;background:#22c55e;transition:width .4s}}
+    .aub-bar-fill.warn{{background:#f59e0b}} .aub-bar-fill.full{{background:#e24b4a}}
+    .aub-logout{{font-size:11px;padding:3px 10px;border-radius:5px;border:0.5px solid #c5d8f0;
+                 background:white;color:#888;cursor:pointer;transition:all .15s}}
+    .aub-logout:hover{{border-color:#e24b4a;color:#e24b4a}}
+    #api-content{{display:none}}
+    #reg-form-wrap{{display:none;width:100%;max-width:520px;text-align:left;margin-top:8px}}
+    .reg-form-title{{font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:4px}}
+    .reg-form-sub{{font-size:12px;color:#888;margin-bottom:20px;line-height:1.5}}
+    .reg-row{{display:grid;grid-template-columns:1fr 1fr;gap:10px}}
+    .reg-field{{margin-bottom:14px}}
+    .reg-label{{font-size:11px;color:#888;font-weight:500;text-transform:uppercase;
+                letter-spacing:.04em;margin-bottom:5px;display:block}}
+    .reg-input,.reg-select{{width:100%;padding:9px 12px;font-size:13px;border:0.5px solid #ddd;
+                border-radius:8px;outline:none;color:#1a1a2e;transition:border .15s;
+                font-family:inherit;background:white}}
+    .reg-input:focus,.reg-select:focus{{border-color:#185fa5}}
+    .reg-optional{{font-size:10px;color:#bbb;margin-left:4px;font-weight:400}}
+    .reg-submit{{width:100%;padding:11px;background:#185fa5;color:white;border:none;
+                 border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;
+                 transition:background .15s;margin-top:6px}}
+    .reg-submit:hover{{background:#1470c0}}
+    .reg-submit:disabled{{background:#aaa;cursor:not-allowed}}
+    .reg-back{{font-size:12px;color:#888;cursor:pointer;text-align:center;
+               margin-top:10px;display:block}}
+    .reg-back:hover{{color:#185fa5}}
+    .reg-success{{text-align:center;padding:20px 0}}
+    .reg-success-icon{{font-size:48px;margin-bottom:12px}}
+    .reg-success-title{{font-size:16px;font-weight:600;color:#1d9e75;margin-bottom:8px}}
+    .reg-success-sub{{font-size:13px;color:#888;line-height:1.6}}
+    .try-section{{background:#f8f9fa;border-radius:10px;padding:16px;margin-top:12px}}
+    .try-row{{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px}}
+    .try-field{{display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px}}
+    .try-label{{font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.04em}}
+    .try-input,.try-select{{padding:7px 10px;font-size:12px;border:0.5px solid #ddd;
+                border-radius:7px;outline:none;background:white;color:#1a1a2e;font-family:monospace}}
+    .try-input:focus,.try-select:focus{{border-color:#185fa5}}
+    .try-btn{{padding:8px 18px;background:#1a1a2e;color:white;border:none;border-radius:7px;
+              font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;white-space:nowrap}}
+    .try-btn:hover{{background:#185fa5}}
+    .try-btn:disabled{{background:#aaa;cursor:not-allowed}}
+    .try-result{{background:#1a1a2e;border-radius:8px;padding:14px;font-family:monospace;
+                 font-size:11px;color:#a0cfff;max-height:260px;overflow-y:auto;
+                 white-space:pre-wrap;word-break:break-all;display:none}}
+    .try-result.error{{color:#e24b4a}}
+    .try-meta{{font-size:10px;color:#aaa;margin-bottom:6px;display:none}}
   </style>
 </head>
 <body>
 <header>
   <h1>
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 72" height="40" aria-label="Swiss Dynamic Electricity Tariffs">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 72" height="40" aria-label="Swiss Tariff Hub">
       <!-- Croce svizzera -->
       <rect x="0" y="0" width="72" height="72" rx="6" fill="#c8102e"/>
       <rect x="13" y="28" width="46" height="16" rx="2" fill="white"/>
@@ -1371,7 +1447,7 @@ def dashboard():
         <rect x="54" y="16" width="5" height="24" rx="2" fill="white" opacity="0.45"/>
       </g>
       <!-- Wordmark -->
-      <text x="210" y="44" font-family="system-ui,sans-serif" font-size="20" font-weight="500" fill="white">Swiss Dynamic Electricity Tariffs</text>
+      <text x="210" y="44" font-family="system-ui,sans-serif" font-size="20" font-weight="500" fill="white">Swiss Tariff Hub</text>
     </svg>
   </h1>
   <span class="badge" id="header-badge" style="background:#ba7517">...</span>
@@ -1386,6 +1462,10 @@ def dashboard():
     <button class="lang-btn" onclick="setLang('de')">DE</button>
     <button class="lang-btn" onclick="setLang('fr')">FR</button>
     <button class="lang-btn" onclick="setLang('it')">IT</button>
+  </div>
+  <div id="header-auth-pill" style="display:none;align-items:center;background:rgba(29,158,117,0.15);
+       border:0.5px solid rgba(29,158,117,0.4);border-radius:20px;padding:4px 12px;
+       font-size:11px;color:#1d9e75;font-weight:500">
   </div>
   <span style="margin-left:auto;font-size:11px;opacity:.6" id="header-time"></span>
 </header>
@@ -1562,10 +1642,6 @@ def dashboard():
       <div id="mpp-current-slot" class="mpp-current-slot"></div>
       <div class="mpp-stats" id="mpp-stats"></div>
       <svg class="mpp-chart" id="mpp-chart" viewBox="0 0 960 80" preserveAspectRatio="none"></svg>
-      <div class="mpp-actions">
-        <button class="mpp-btn" onclick="copyMppJson()">Copy JSON</button>
-        <button class="mpp-btn" onclick="copyMppCsv()">Copy CSV</button>
-      </div>
     </div>
 
     <div style="margin-top:12px;font-size:11px;color:#aaa;line-height:1.6" data-i18n="map_note">
@@ -1575,127 +1651,246 @@ def dashboard():
 
   </div><!-- end map-view -->
 
-  <!-- ── API view ──────────────────────────────────────────────────────────── -->
+<!-- ── API view ──────────────────────────────────────────────────────────── -->
   <div id="api-view">
 
-    <div class="api-view-header">
-      <div class="api-view-title">API Reference</div>
-      <div class="api-view-sub" data-i18n="api_view_subtitle"></div>
+    <!-- GATE: mostrato se non autenticato -->
+    <div id="api-gate" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;text-align:center">
+      <div class="gate-icon">🔑</div>
+      <div class="gate-title" data-i18n="gate_title">API Access</div>
+      <div class="gate-sub" data-i18n="gate_sub">Enter your API key to access the documentation and live playground.</div>
+
+      <div id="gate-key-wrap" style="width:100%;max-width:480px">
+        <div class="gate-input-wrap">
+          <input class="gate-input" id="gate-key-input" type="password"
+                 placeholder="stk_xxxxxxxxxxxxxxxx" autocomplete="off"
+                 onkeydown="if(event.key==='Enter') gateSubmit()">
+          <button class="gate-btn" id="gate-btn" onclick="gateSubmit()" data-i18n="gate_btn">Unlock</button>
+        </div>
+        <div class="gate-err" id="gate-err"></div>
+        <div class="gate-divider" data-i18n="gate_or">or</div>
+        <div class="gate-reg-link">
+          <span data-i18n="gate_no_key">Don't have a key?</span>
+          <a onclick="showRegForm()" data-i18n="gate_register"> Request access</a>
+        </div>
+      </div>
+
+      <!-- Form registrazione -->
+      <div id="reg-form-wrap">
+        <div class="reg-form-title" data-i18n="reg_form_title">Request API Access</div>
+        <div class="reg-form-sub" data-i18n="reg_form_sub">Free tier: 500 requests/day.</div>
+        <div class="reg-row">
+          <div class="reg-field">
+            <label class="reg-label" data-i18n="reg_full_name">Full name</label>
+            <input class="reg-input" id="reg-name" type="text">
+          </div>
+          <div class="reg-field">
+            <label class="reg-label" data-i18n="reg_email">Email</label>
+            <input class="reg-input" id="reg-email" type="email">
+          </div>
+        </div>
+        <div class="reg-row">
+          <div class="reg-field">
+            <label class="reg-label"><span data-i18n="reg_company">Company</span> <span class="reg-optional" data-i18n="reg_optional">(optional)</span></label>
+            <input class="reg-input" id="reg-company" type="text">
+          </div>
+          <div class="reg-field">
+            <label class="reg-label"><span data-i18n="reg_vat">VAT</span> <span class="reg-optional" data-i18n="reg_optional">(optional)</span></label>
+            <input class="reg-input" id="reg-vat" type="text">
+          </div>
+        </div>
+        <div class="reg-field">
+          <label class="reg-label" data-i18n="reg_country">Country</label>
+          <select class="reg-select" id="reg-country">
+            <option value="">— Select —</option>
+            <option value="CH">🇨🇭 Switzerland</option>
+            <option value="DE">🇩🇪 Germany</option>
+            <option value="AT">🇦🇹 Austria</option>
+            <option value="FR">🇫🇷 France</option>
+            <option value="IT">🇮🇹 Italy</option>
+            <option value="LI">🇱🇮 Liechtenstein</option>
+            <option value="LU">🇱🇺 Luxembourg</option>
+            <option value="BE">🇧🇪 Belgium</option>
+            <option value="NL">🇳🇱 Netherlands</option>
+            <option value="GB">🇬🇧 United Kingdom</option>
+            <option value="ES">🇪🇸 Spain</option>
+            <option value="PT">🇵🇹 Portugal</option>
+            <option value="PL">🇵🇱 Poland</option>
+            <option value="SE">🇸🇪 Sweden</option>
+            <option value="NO">🇳🇴 Norway</option>
+            <option value="DK">🇩🇰 Denmark</option>
+            <option value="US">🇺🇸 United States</option>
+            <option value="CA">🇨🇦 Canada</option>
+            <option value="OTHER">🌍 Other</option>
+          </select>
+        </div>
+        <div class="gate-err" id="reg-err" style="margin-bottom:10px"></div>
+        <button class="reg-submit" id="reg-submit-btn" onclick="submitRegistration(false)" data-i18n="reg_submit">Request API Key</button>
+        <span class="reg-back" onclick="hideRegForm()" data-i18n="reg_back">← Back</span>
+        <div id="reg-success" style="display:none" class="reg-success">
+          <div class="reg-success-icon">📬</div>
+          <div class="reg-success-title" data-i18n="reg_success_title">Request sent!</div>
+          <div class="reg-success-sub" data-i18n="reg_success_sub">We'll review your request and send your API key by email within 24 hours.</div>
+          <div style="margin-top:18px;display:flex;flex-direction:column;align-items:center;gap:10px">
+            <button class="reg-submit" style="max-width:280px" onclick="showRegFormAgain()" data-i18n="reg_resend">Resend request</button>
+            <span class="reg-back" onclick="hideRegForm()" data-i18n="reg_back">← Back to login</span>
+          </div>
+        </div>
+      </div>
+    </div><!-- end api-gate -->
+
+    <!-- User bar (dopo login) -->
+    <div id="api-user-bar">
+      <div class="aub-name" id="aub-name">—</div>
+      <span class="aub-key" id="aub-key-prefix">stk_...</span>
+      <span class="aub-usage">
+        <span id="aub-used">0</span>/<span id="aub-limit">500</span> req/day
+        <span class="aub-bar-bg"><span class="aub-bar-fill" id="aub-bar" style="width:0%"></span></span>
+      </span>
+      <button class="aub-logout" onclick="apiLogout()" data-i18n="gate_logout">Logout</button>
     </div>
 
-    <!-- ── Availability status ────────────────────────────────────────────── -->
-    <div class="api-section" style="padding:1rem 1.25rem">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <span style="font-size:12px;font-weight:600;color:#333" data-i18n="api_avail_title"></span>
-        <span style="font-size:10px;color:#aaa" data-i18n="api_avail_sub"></span>
-      </div>
-      <div id="api-status-list" style="display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto">
-        <div style="font-size:12px;color:#bbb">loading...</div>
-      </div>
-    </div>
+    <!-- Contenuto API (dopo login) -->
+    <div id="api-content">
 
-    <!-- ── API 1: /tariffs ─────────────────────────────────────────────────── -->
-    <div class="api-section">
-      <div class="api-section-header">
-        <div class="api-section-title">
-          <span class="api-method">GET</span>
-          <span class="api-path">/api/v1/tariffs</span>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <button class="copy-btn" onclick="copyEndpoint(this,'/api/v1/tariffs')">Copy</button>
-          <a href="/api/v1/tariffs" target="_blank" class="api-open-link">Open ↗</a>
-        </div>
+      <div class="api-view-header">
+        <div class="api-view-title">API Reference</div>
+        <div class="api-view-sub" data-i18n="api_view_subtitle"></div>
       </div>
-      <div class="api-desc" data-i18n="api_tariffs_section_desc"></div>
-      <div class="api-params-wrap">
-        <div class="api-params-head" data-i18n="api_returns"></div>
-        <table class="api-params-table">
-          <tr><td>tariff_id</td><td>Unique identifier, e.g. <code>ckw_home_dynamic</code></td></tr>
-          <tr><td>tariff_name</td><td>Human-readable tariff name</td></tr>
-          <tr><td>provider_name</td><td>Energy utility company</td></tr>
-          <tr><td>daily_update_time_utc</td><td>Time prices are refreshed each day (UTC)</td></tr>
-          <tr><td>datetime_available_from_utc</td><td>First date with available data</td></tr>
-          <tr><td>valid_until_utc</td><td><code>null</code> if the tariff is ongoing</td></tr>
-        </table>
-      </div>
-      <div class="api-url-box">
-        <span>/api/v1/tariffs</span>
-      </div>
-    </div>
 
-    <!-- ── API 2: /prices ──────────────────────────────────────────────────── -->
-    <div class="api-section">
-      <div class="api-section-header">
-        <div class="api-section-title">
-          <span class="api-method">GET</span>
-          <span class="api-path">/api/v1/prices</span>
+      <div class="api-section" style="padding:1rem 1.25rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <span style="font-size:12px;font-weight:600;color:#333" data-i18n="api_avail_title"></span>
+          <span style="font-size:10px;color:#aaa" data-i18n="api_avail_sub"></span>
         </div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <button class="copy-btn" id="api-copy-prices-btn" onclick="copyApiPricesEndpoint(this)">Copy</button>
-          <a id="api-prices-open" href="/api/v1/prices" target="_blank" class="api-open-link">Open ↗</a>
+        <div id="api-status-list" style="display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto">
+          <div style="font-size:12px;color:#bbb" data-i18n="loading_data"></div>
         </div>
       </div>
-      <div class="api-desc" data-i18n="api_prices_section_desc"></div>
-      <div class="api-params-wrap">
-        <div class="api-params-head" data-i18n="api_parameters"></div>
-        <table class="api-params-table">
-          <tr>
-            <td>tariff_id <span class="api-badge-req">required</span></td>
-            <td>Tariff identifier — choose a live tariff below</td>
-          </tr>
-          <tr>
-            <td>start_time <span class="api-badge-req">required</span></td>
-            <td>UTC datetime, e.g. <code>{today}T00:00:00Z</code></td>
-          </tr>
-          <tr>
-            <td>end_time <span class="api-badge-opt">optional</span></td>
-            <td>UTC datetime — defaults to <code>start_time + 24h</code></td>
-          </tr>
-        </table>
-        <div class="api-params-head" style="margin-top:8px" data-i18n="api_returns"></div>
-        <table class="api-params-table">
-          <tr><td>energy_price_utc</td><td>list of <code>&#123;start_timestamp: price_chf&#125;</code></td></tr>
-          <tr><td>grid_price_utc</td><td>list of <code>&#123;start_timestamp: price_chf&#125;</code></td></tr>
-          <tr><td>residual_price_utc</td><td>list of <code>&#123;start_timestamp: price_chf&#125;</code></td></tr>
-          <tr><td>slot_count</td><td>Number of 15-min slots (96 = full day)</td></tr>
-        </table>
-      </div>
-      <div style="margin:12px 0 4px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span id="api-live-tariff-label" style="font-size:11px;color:#555;font-weight:500" data-i18n="api_live_tariff"></span>
-        <select id="api-tariff-select" class="api-tariff-select" onchange="updateApiPricesUrl()">
-          <option value="" data-i18n-opt="api_no_live_data">— no live data yet —</option>
-        </select>
-      </div>
-      <div class="api-url-box">
-        <span id="api-prices-url" style="word-break:break-all">/api/v1/prices?tariff_id=...&amp;start_time={today}T00:00:00Z</span>
-      </div>
-    </div>
 
-    <!-- ── /prices/all ─────────────────────────────────────────────────────── -->
-    <div class="api-section">
-      <div class="api-section-header">
-        <div class="api-section-title">
-          <span class="api-method">GET</span>
-          <span class="api-path">/api/v1/prices/all</span>
-          <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#fef3c7;color:#92400e;font-weight:500">all live tariffs</span>
+      <!-- /tariffs -->
+      <div class="api-section">
+        <div class="api-section-header">
+          <div class="api-section-title">
+            <span class="api-method">GET</span><span class="api-path">/api/v1/tariffs</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="copy-btn" onclick="copyEndpoint(this,'/api/v1/tariffs')">Copy</button>
+            <a href="/api/v1/tariffs" target="_blank" class="api-open-link">Open ↗</a>
+          </div>
         </div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <button class="copy-btn" onclick="copyEndpoint(this,'/api/v1/prices/all?start_time={today}T00:00:00Z')">Copy</button>
-          <a href="/api/v1/prices/all?start_time={today}T00:00:00Z" target="_blank" class="api-open-link">Open ↗</a>
+        <div class="api-desc" data-i18n="api_tariffs_section_desc"></div>
+        <div class="api-params-wrap">
+          <div class="api-params-head" data-i18n="api_returns"></div>
+          <table class="api-params-table">
+            <tr><td>tariff_id</td><td>Unique identifier, e.g. <code>ckw_home_dynamic</code></td></tr>
+            <tr><td>tariff_name</td><td>Human-readable tariff name</td></tr>
+            <tr><td>provider_name</td><td>Energy utility company</td></tr>
+            <tr><td>daily_update_time_utc</td><td>Time prices are refreshed each day (UTC)</td></tr>
+            <tr><td>datetime_available_from_utc</td><td>First date with available data</td></tr>
+            <tr><td>valid_until_utc</td><td><code>null</code> if ongoing</td></tr>
+          </table>
+        </div>
+        <div class="api-url-box"><span>/api/v1/tariffs</span></div>
+        <div class="try-section">
+          <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:10px" data-i18n="try_now">Try it now</div>
+          <button class="try-btn" onclick="tryEndpoint('tariffs')">Run →</button>
+          <div class="try-meta" id="try-meta-tariffs"></div>
+          <pre class="try-result" id="try-result-tariffs"></pre>
         </div>
       </div>
-      <div class="api-desc" data-i18n="api_all_section_desc"></div>
-      <div class="api-url-box">
-        <span>/api/v1/prices/all?start_time={today}T00:00:00Z</span>
-      </div>
-    </div>
 
-    <!-- ── Links ──────────────────────────────────────────────────────────── -->
-    <div class="api-links-row">
-      <a href="/docs"  target="_blank" class="api-open-link" style="border-color:#185fa5;color:#185fa5">Swagger UI ↗</a>
-      <a href="/redoc" target="_blank" class="api-open-link" style="border-color:#185fa5;color:#185fa5">ReDoc ↗</a>
-      <a href="/api/v1/health" target="_blank" class="api-open-link">Health ↗</a>
-    </div>
+      <!-- /prices -->
+      <div class="api-section">
+        <div class="api-section-header">
+          <div class="api-section-title">
+            <span class="api-method">GET</span><span class="api-path">/api/v1/prices</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="copy-btn" id="api-copy-prices-btn" onclick="copyApiPricesEndpoint(this)">Copy</button>
+            <a id="api-prices-open" href="/api/v1/prices" target="_blank" class="api-open-link">Open ↗</a>
+          </div>
+        </div>
+        <div class="api-desc" data-i18n="api_prices_section_desc"></div>
+        <div class="api-params-wrap">
+          <div class="api-params-head" data-i18n="api_parameters"></div>
+          <table class="api-params-table">
+            <tr><td>tariff_id <span class="api-badge-req">required</span></td><td>Tariff identifier</td></tr>
+            <tr><td>start_time <span class="api-badge-req">required</span></td><td>UTC datetime, e.g. <code>{today}T00:00:00Z</code></td></tr>
+            <tr><td>end_time <span class="api-badge-opt">optional</span></td><td>UTC datetime — defaults to <code>start_time + 24h</code></td></tr>
+          </table>
+          <div class="api-params-head" style="margin-top:8px" data-i18n="api_returns"></div>
+          <table class="api-params-table">
+            <tr><td>energy_price_utc</td><td>list of <code>&#123;start_timestamp: price_chf&#125;</code></td></tr>
+            <tr><td>grid_price_utc</td><td>list of <code>&#123;start_timestamp: price_chf&#125;</code></td></tr>
+            <tr><td>residual_price_utc</td><td>list of <code>&#123;start_timestamp: price_chf&#125;</code></td></tr>
+            <tr><td>slot_count</td><td>Number of 15-min slots (96 = full day)</td></tr>
+          </table>
+        </div>
+        <div style="margin:12px 0 4px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span id="api-live-tariff-label" style="font-size:11px;color:#555;font-weight:500" data-i18n="api_live_tariff"></span>
+          <select id="api-tariff-select" class="api-tariff-select" onchange="updateApiPricesUrl()">
+            <option value="">— no live data yet —</option>
+          </select>
+        </div>
+        <div class="api-url-box">
+          <span id="api-prices-url" style="word-break:break-all">/api/v1/prices?tariff_id=...&amp;start_time={today}T00:00:00Z</span>
+          <button class="copy-btn" onclick="copyApiPricesEndpoint(this)">Copy</button>
+        </div>
+        <div class="try-section">
+          <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:10px" data-i18n="try_now">Try it now</div>
+          <div class="try-row">
+            <div class="try-field">
+              <span class="try-label">tariff_id</span>
+              <select class="try-select" id="try-tariff-select"></select>
+            </div>
+            <div class="try-field">
+              <span class="try-label">date</span>
+              <input class="try-input" id="try-date" type="date" value="{today}">
+            </div>
+            <button class="try-btn" onclick="tryEndpoint('prices')">Run →</button>
+          </div>
+          <div class="try-meta" id="try-meta-prices"></div>
+          <pre class="try-result" id="try-result-prices"></pre>
+        </div>
+      </div>
+
+      <!-- /prices/all -->
+      <div class="api-section">
+        <div class="api-section-header">
+          <div class="api-section-title">
+            <span class="api-method">GET</span>
+            <span class="api-path">/api/v1/prices/all</span>
+            <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#fef3c7;color:#92400e;font-weight:500">all live tariffs</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="copy-btn" onclick="copyEndpoint(this,'/api/v1/prices/all?start_time={today}T00:00:00Z')">Copy</button>
+            <a href="/api/v1/prices/all?start_time={today}T00:00:00Z" target="_blank" class="api-open-link">Open ↗</a>
+          </div>
+        </div>
+        <div class="api-desc" data-i18n="api_all_section_desc"></div>
+        <div class="api-url-box"><span>/api/v1/prices/all?start_time={today}T00:00:00Z</span></div>
+        <div class="try-section">
+          <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:10px" data-i18n="try_now">Try it now</div>
+          <div class="try-row">
+            <div class="try-field">
+              <span class="try-label">date</span>
+              <input class="try-input" id="try-date-all" type="date" value="{today}">
+            </div>
+            <button class="try-btn" onclick="tryEndpoint('all')">Run →</button>
+          </div>
+          <div class="try-meta" id="try-meta-all"></div>
+          <pre class="try-result" id="try-result-all"></pre>
+        </div>
+      </div>
+
+      <div class="api-links-row">
+        <a href="/docs"  target="_blank" class="api-open-link" style="border-color:#185fa5;color:#185fa5">Swagger UI ↗</a>
+        <a href="/redoc" target="_blank" class="api-open-link" style="border-color:#185fa5;color:#185fa5">ReDoc ↗</a>
+        <a href="/api/v1/health" target="_blank" class="api-open-link">Health ↗</a>
+      </div>
+
+    </div><!-- end api-content -->
 
   </div><!-- end api-view -->
 
@@ -1760,6 +1955,45 @@ const T = {{
     map_no_tariff: 'No dynamic tariff',
     map_note: 'Grey municipalities have no dynamic tariff available in 2026. 457 out of 2,148 Swiss municipalities covered. Source: ElCom open data.',
     with_prices_today: 'with prices today',
+    gate_title: 'API Access',
+    gate_sub: 'Enter your API key to access the documentation and live playground.',
+    gate_btn: 'Unlock',
+    gate_or: 'or',
+    gate_no_key: "Don't have a key?",
+    gate_register: 'Request access',
+    gate_logout: 'Logout',
+    gate_invalid: 'Invalid or inactive API key',
+    gate_error: 'Connection error — try again',
+    reg_form_title: 'Request API Access',
+    reg_form_sub: 'Free tier: 500 requests/day. You will receive your key by email once approved.',
+    reg_full_name: 'Full name',
+    reg_email: 'Email',
+    reg_company: 'Company',
+    reg_vat: 'VAT number',
+    reg_country: 'Country',
+    reg_optional: '(optional)',
+    reg_submit: 'Request API Key',
+    reg_back: '← Back to login',
+    reg_success_title: 'Request sent!',
+    reg_success_sub: "We'll review your request and send your API key by email within 24 hours. If you don't see it, please check your spam folder.",
+    reg_resend: '↺ Resend request',
+    reg_err_name: 'Full name is required',
+    reg_err_email: 'Valid email is required',
+    reg_err_country: 'Country is required',
+    reg_pending: 'You already have a pending request.',
+    try_now: 'Try it now',
+    try_running: 'Running...',
+    try_slots: 'slots',
+    try_ms: 'ms',
+    gate_suspended_msg: 'Your API key has been suspended. Contact support.',
+    gate_revoked_msg: 'Your API key has been revoked.',
+    gate_ratelimit_msg: 'Daily rate limit reached. Resets at midnight CET.',
+    ratelimit_popup_title: 'Daily limit reached',
+    ratelimit_popup_sub: 'You have used {{used}} of {{limit}} requests today. Your quota resets at midnight Swiss time. An email has been sent to you.',
+    reg_replace_title: 'You already have an active key',
+    reg_replace_sub: 'Requesting a new key will immediately revoke your current one. Your existing key will stop working instantly. Are you sure?',
+    reg_replace_cancel: 'Keep my current key',
+    reg_replace_confirm: 'Replace key',
   }},
   de: {{
     unit_explanation: 'Preise in Rp/kWh (Rappen pro Kilowattstunde). 100 Rp = 1 CHF.',
@@ -1818,6 +2052,45 @@ const T = {{
     api_avail_sub: 'Im Dropdown oben erscheinen nur aktive Tarife',
     chart_total: 'Total', chart_vs_avg: 'vs. Avg',
     with_prices_today: 'mit Preisen heute',
+    gate_title: 'API-Zugang',
+    gate_sub: 'Geben Sie Ihren API-Key ein.',
+    gate_btn: 'Entsperren',
+    gate_or: 'oder',
+    gate_no_key: 'Keinen Key?',
+    gate_register: 'Zugang beantragen',
+    gate_logout: 'Abmelden',
+    gate_invalid: 'Ungültiger oder inaktiver API-Key',
+    gate_error: 'Verbindungsfehler — erneut versuchen',
+    reg_form_title: 'API-Zugang beantragen',
+    reg_form_sub: 'Kostenloses Kontingent: 500 Anfragen/Tag.',
+    reg_full_name: 'Vollständiger Name',
+    reg_email: 'E-Mail',
+    reg_company: 'Unternehmen',
+    reg_vat: 'MwSt-Nummer',
+    reg_country: 'Land',
+    reg_optional: '(optional)',
+    reg_submit: 'API-Key beantragen',
+    reg_back: '← Zurück zum Login',
+    reg_success_title: 'Anfrage gesendet!',
+    reg_success_sub: 'Wir prüfen Ihre Anfrage und senden Ihnen den Key per E-Mail. Falls Sie keine E-Mail erhalten, prüfen Sie bitte Ihren Spam-Ordner.',
+    reg_resend: '↺ Erneut senden',
+    reg_err_name: 'Name erforderlich',
+    reg_err_email: 'Gültige E-Mail erforderlich',
+    reg_err_country: 'Land erforderlich',
+    reg_pending: 'Sie haben bereits eine ausstehende Anfrage.',
+    try_now: 'Jetzt ausprobieren',
+    try_running: 'Läuft...',
+    try_slots: 'Slots',
+    try_ms: 'ms',
+    gate_suspended_msg: 'Ihr API-Key wurde gesperrt. Kontaktieren Sie den Support.',
+    gate_revoked_msg: 'Ihr API-Key wurde widerrufen.',
+    gate_ratelimit_msg: 'Tägliches Limit erreicht. Reset um Mitternacht CET.',
+    ratelimit_popup_title: 'Tageslimit erreicht',
+    ratelimit_popup_sub: 'Sie haben {{used}} von {{limit}} Anfragen heute verwendet. Ihr Kontingent wird um Mitternacht zurückgesetzt.',
+    reg_replace_title: 'Sie haben bereits einen aktiven Key',
+    reg_replace_sub: 'Ein neuer Key wird Ihren aktuellen sofort widerrufen. Sind Sie sicher?',
+    reg_replace_cancel: 'Meinen Key behalten',
+    reg_replace_confirm: 'Key ersetzen',
   }},
   fr: {{
     unit_explanation: 'Prix en Rp/kWh (Rappen par kilowattheure). 100 Rp = 1 CHF.',
@@ -1877,6 +2150,45 @@ const T = {{
     api_avail_sub: 'Seuls les tarifs actifs apparaissent dans la liste d\u00e9roulante',
     chart_total: 'Total', chart_vs_avg: 'vs moy',
     with_prices_today: 'avec prix aujourd\u2019hui',
+    gate_title: 'Accès API',
+    gate_sub: 'Entrez votre clé API.',
+    gate_btn: 'Déverrouiller',
+    gate_or: 'ou',
+    gate_no_key: 'Pas de clé\u00a0?',
+    gate_register: 'Demander un accès',
+    gate_logout: 'Déconnexion',
+    gate_invalid: 'Clé API invalide ou inactive',
+    gate_error: 'Erreur de connexion',
+    reg_form_title: 'Demander un accès API',
+    reg_form_sub: 'Offre gratuite\u00a0: 500 requêtes/jour.',
+    reg_full_name: 'Nom complet',
+    reg_email: 'E-mail',
+    reg_company: 'Entreprise',
+    reg_vat: 'N° TVA',
+    reg_country: 'Pays',
+    reg_optional: '(optionnel)',
+    reg_submit: 'Demander une clé API',
+    reg_back: '← Retour à la connexion',
+    reg_success_title: 'Demande envoyée\u00a0!',
+    reg_success_sub: 'Nous vous enverrons votre clé par e-mail sous 24h. Si vous ne la recevez pas, vérifiez vos spams.',
+    reg_resend: '↺ Renvoyer la demande',
+    reg_err_name: 'Nom requis',
+    reg_err_email: 'E-mail valide requis',
+    reg_err_country: 'Pays requis',
+    reg_pending: 'Vous avez déjà une demande en attente.',
+    try_now: 'Essayer maintenant',
+    try_running: 'En cours...',
+    try_slots: 'créneaux',
+    try_ms: 'ms',
+    gate_suspended_msg: 'Votre clé API a été suspendue. Contactez le support.',
+    gate_revoked_msg: 'Votre clé API a été révoquée.',
+    gate_ratelimit_msg: 'Limite quotidienne atteinte. Réinitialisation à minuit CET.',
+    ratelimit_popup_title: 'Limite quotidienne atteinte',
+    ratelimit_popup_sub: "Vous avez utilis\u00e9 {{used}} des {{limit}} requ\u00eates aujourd\u2019hui. Votre quota est r\u00e9initialis\u00e9 \u00e0 minuit.",
+    reg_replace_title: 'Vous avez déjà une clé active',
+    reg_replace_sub: 'Demander une nouvelle clé révoquera immédiatement votre clé actuelle. Êtes-vous sûr(e) ?',
+    reg_replace_cancel: 'Garder ma clé',
+    reg_replace_confirm: 'Remplacer la clé',
   }},
   it: {{
     unit_explanation: 'Prezzi in Rp/kWh (Rappen per kilowattora). 100 Rp = 1 CHF.',
@@ -1935,6 +2247,45 @@ const T = {{
     api_avail_sub: 'Solo le tariffe attive appaiono nel men\u00f9 a tendina',
     chart_total: 'Totale', chart_vs_avg: 'vs media',
     with_prices_today: 'con prezzi oggi',
+    gate_title: 'Accesso API',
+    gate_sub: 'Inserisci la tua chiave API.',
+    gate_btn: 'Sblocca',
+    gate_or: 'oppure',
+    gate_no_key: 'Non hai una chiave?',
+    gate_register: 'Richiedi accesso',
+    gate_logout: 'Esci',
+    gate_invalid: 'Chiave API non valida o inattiva',
+    gate_error: 'Errore di connessione',
+    reg_form_title: 'Richiedi accesso API',
+    reg_form_sub: 'Piano gratuito: 500 richieste/giorno.',
+    reg_full_name: 'Nome completo',
+    reg_email: 'Email',
+    reg_company: 'Azienda',
+    reg_vat: 'Partita IVA',
+    reg_country: 'Paese',
+    reg_optional: '(opzionale)',
+    reg_submit: 'Richiedi chiave API',
+    reg_back: '← Torna al login',
+    reg_success_title: 'Richiesta inviata!',
+    reg_success_sub: 'Riceverai la chiave API via email entro 24 ore. Se non la trovi, controlla la cartella spam.',
+    reg_resend: '↺ Invia di nuovo',
+    reg_err_name: 'Nome obbligatorio',
+    reg_err_email: 'Email valida obbligatoria',
+    reg_err_country: 'Paese obbligatorio',
+    reg_pending: 'Hai già una richiesta in attesa.',
+    try_now: 'Prova ora',
+    try_running: 'In esecuzione...',
+    try_slots: 'slot',
+    try_ms: 'ms',
+    gate_suspended_msg: 'La tua chiave API è stata sospesa. Contatta il supporto.',
+    gate_revoked_msg: 'La tua chiave API è stata revocata.',
+    gate_ratelimit_msg: 'Limite giornaliero raggiunto. Reset a mezzanotte CET.',
+    ratelimit_popup_title: 'Limite giornaliero raggiunto',
+    ratelimit_popup_sub: 'Hai usato {{used}} di {{limit}} richieste oggi. Il tuo limite si azzera a mezzanotte ora svizzera. Ti è stata inviata una email.',
+    reg_replace_title: 'Hai già una chiave attiva',
+    reg_replace_sub: 'Richiedere una nuova chiave revocherà immediatamente quella attuale. La tua chiave esistente smetterà di funzionare istantaneamente. Sei sicuro?',
+    reg_replace_cancel: 'Tieni la mia chiave',
+    reg_replace_confirm: 'Sostituisci chiave',
   }}
 }};
 
@@ -2752,6 +3103,36 @@ function switchView(view) {{
   document.getElementById('tab-api').classList.toggle('active',   view==='api');
   if (view==='smart' && !smartData) loadSmart();
   if (view==='map'   && !mapLoaded) loadMap();
+  if (view==='api') {{
+    if (_apiSessionToken) {{
+      document.getElementById('api-gate').style.display     = 'none';
+      document.getElementById('api-user-bar').style.display = 'flex';
+      document.getElementById('api-content').style.display  = 'block';
+      showApiContent();
+      // Aggiorna subito col valore reale dal DB
+      if (_apiKeyRaw) {{
+        fetch('/api/v1/check-key-status', {{
+          method: 'POST',
+          headers: {{'Content-Type': 'application/json'}},
+          body: JSON.stringify({{api_key: _apiKeyRaw}}),
+        }}).then(r=>r.json()).then(data=>{{
+          if (data.valid && _apiUserInfo) {{
+            _apiUserInfo.requests_today = data.requests_today;
+            _apiUserInfo.rate_limit_day = data.rate_limit_day;
+            _saveSession();
+            document.getElementById('aub-used').textContent  = data.requests_today;
+            document.getElementById('aub-limit').textContent = data.rate_limit_day;
+            _updateUsageBar(data.requests_today, data.rate_limit_day);
+          }}
+        }}).catch(()=>{{}});
+      }}
+      populateTryTariffSelect();
+    }} else {{
+      document.getElementById('api-gate').style.display     = 'flex';
+      document.getElementById('api-user-bar').style.display = 'none';
+      document.getElementById('api-content').style.display  = 'none';
+    }}
+  }}
 }}
 
 // ── Consumer view ─────────────────────────────────────────────────────────────
@@ -2979,6 +3360,425 @@ async function init() {{
     console.error('Init error:', e);
     document.getElementById('header-badge').textContent = 'Error: ' + e.message;
     document.getElementById('header-badge').style.background = '#e24b4a';
+  }}
+}}
+// ── API Gate ──────────────────────────────────────────────────────────────────
+// Sessione persistita in sessionStorage → sopravvive al reload, muore alla chiusura tab
+let _apiSessionToken = sessionStorage.getItem('_apiSessionToken') || null;
+let _apiUserInfo     = JSON.parse(sessionStorage.getItem('_apiUserInfo') || 'null');
+let _apiKeyRaw       = sessionStorage.getItem('_apiKeyRaw') || null;
+let _keyStatusTimer  = null;
+
+// Ripristina stato UI se sessione ancora valida al reload
+(function _restoreSession() {{
+  if (_apiSessionToken && _apiKeyRaw && _apiUserInfo) {{
+    fetch('/api/v1/check-key-status', {{
+      method: 'POST',
+      headers: {{'Content-Type': 'application/json'}},
+      body: JSON.stringify({{api_key: _apiKeyRaw}}),
+    }}).then(r => r.json()).then(data => {{
+      if (!data.valid) {{
+        _clearSession();
+      }} else {{
+        _apiUserInfo.requests_today = data.requests_today;
+        _apiUserInfo.rate_limit_day = data.rate_limit_day;
+        sessionStorage.setItem('_apiUserInfo', JSON.stringify(_apiUserInfo));
+        if (document.getElementById('api-view') &&
+            document.getElementById('api-view').style.display !== 'none') {{
+          showApiContent();
+        }}
+        _startKeyStatusPolling();
+      }}
+    }}).catch(() => {{}});
+  }}
+}})();
+
+function _saveSession() {{
+  sessionStorage.setItem('_apiSessionToken', _apiSessionToken || '');
+  sessionStorage.setItem('_apiUserInfo',     JSON.stringify(_apiUserInfo || {{}}));
+  sessionStorage.setItem('_apiKeyRaw',       _apiKeyRaw || '');
+}}
+
+function _clearSession() {{
+  _apiSessionToken = null;
+  _apiUserInfo     = null;
+  _apiKeyRaw       = null;
+  sessionStorage.removeItem('_apiSessionToken');
+  sessionStorage.removeItem('_apiUserInfo');
+  sessionStorage.removeItem('_apiKeyRaw');
+  if (_keyStatusTimer) {{ clearInterval(_keyStatusTimer); _keyStatusTimer = null; }}
+}}
+
+function _startKeyStatusPolling() {{
+  if (_keyStatusTimer) clearInterval(_keyStatusTimer);
+  _keyStatusTimer = setInterval(async () => {{
+    if (!_apiKeyRaw) return;
+    try {{
+      const r    = await fetch('/api/v1/check-key-status', {{
+        method: 'POST',
+        headers: {{'Content-Type': 'application/json'}},
+        body: JSON.stringify({{api_key: _apiKeyRaw}}),
+      }});
+      const data = await r.json();
+      if (!data.valid) {{
+        _clearSession();
+        _forceLogout(data.status);
+        return;
+      }}
+      if (_apiUserInfo) {{
+        _apiUserInfo.requests_today = data.requests_today;
+        _apiUserInfo.rate_limit_day = data.rate_limit_day;
+        _saveSession();
+        _updateUsageBar(data.requests_today, data.rate_limit_day);
+      }}
+      if (data.requests_today >= data.rate_limit_day) {{
+        _showRateLimitPopup(data.requests_today, data.rate_limit_day);
+      }}
+    }} catch(e) {{}}
+  }}, 60000);
+}}
+
+function _forceLogout(reason) {{
+  const apiGate    = document.getElementById('api-gate');
+  const userBar    = document.getElementById('api-user-bar');
+  const apiContent = document.getElementById('api-content');
+  if (apiGate)    apiGate.style.display    = 'flex';
+  if (userBar)    userBar.style.display    = 'none';
+  if (apiContent) apiContent.style.display = 'none';
+  hideRegForm();
+  const input = document.getElementById('gate-key-input');
+  if (input) input.value = '';
+  let msg = '';
+  if (reason === 'suspended')   msg = t('gate_suspended_msg');
+  else if (reason === 'revoked') msg = t('gate_revoked_msg');
+  else if (reason === 'rate_limit') msg = t('gate_ratelimit_msg');
+  else msg = t('gate_invalid');
+  _showInfoPopup(msg, reason === 'rate_limit' ? '#ba7517' : '#e24b4a');
+}}
+
+function _updateUsageBar(used, limit) {{
+  const usedEl = document.getElementById('aub-used');
+  const barEl  = document.getElementById('aub-bar');
+  if (usedEl) usedEl.textContent = used;
+  if (barEl) {{
+    const pct = limit > 0 ? used / limit : 0;
+    barEl.style.width = Math.min(100, Math.round(pct * 100)) + '%';
+    barEl.className   = 'aub-bar-fill' + (pct >= 1 ? ' full' : pct >= 0.8 ? ' warn' : '');
+  }}
+}}
+
+function _showRateLimitPopup(used, limit) {{
+  if (document.getElementById('_rate-limit-popup')) return;
+  const overlay = document.createElement('div');
+  overlay.id = '_rate-limit-popup';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:14px;padding:32px;max-width:420px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="font-size:40px;margin-bottom:12px">⚡</div>
+      <div style="font-size:16px;font-weight:600;color:#1a1a2e;margin-bottom:8px">${{t('ratelimit_popup_title')}}</div>
+      <div style="font-size:13px;color:#888;margin-bottom:20px;line-height:1.6" id="_rl-sub"></div>
+      <button onclick="document.getElementById('_rate-limit-popup').remove()"
+        style="padding:10px 28px;background:#185fa5;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
+        OK
+      </button>
+    </div>`;
+  overlay.querySelector('#_rl-sub').textContent = t('ratelimit_popup_sub').replace('{{used}}',used).replace('{{limit}}',limit);
+  document.body.appendChild(overlay);
+}}
+
+function _showInfoPopup(msg, color) {{
+  color = color || '#e24b4a';
+  if (document.getElementById('_info-popup')) document.getElementById('_info-popup').remove();
+  const overlay = document.createElement('div');
+  overlay.id = '_info-popup';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:14px;padding:32px;max-width:400px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="font-size:36px;margin-bottom:12px">🔒</div>
+      <div style="font-size:14px;color:${{color}};font-weight:600;margin-bottom:20px;line-height:1.6">${{msg}}</div>
+      <button onclick="document.getElementById('_info-popup').remove()"
+        style="padding:10px 28px;background:#185fa5;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
+        OK
+      </button>
+    </div>`;
+  document.body.appendChild(overlay);
+}}
+
+async function gateSubmit() {{
+  const input = document.getElementById('gate-key-input');
+  const btn   = document.getElementById('gate-btn');
+  const err   = document.getElementById('gate-err');
+  const key   = input.value.trim();
+  if (!key) {{ input.classList.add('error'); setTimeout(()=>input.classList.remove('error'),600); return; }}
+  btn.disabled = true; btn.textContent = '...'; err.textContent = '';
+  try {{
+    const r = await fetch('/api/v1/validate-key', {{
+      method: 'POST',
+      headers: {{'Content-Type': 'application/json'}},
+      body: JSON.stringify({{api_key: key}}),
+    }});
+    if (r.ok) {{
+      const data       = await r.json();
+      _apiSessionToken = data.session_token;
+      _apiUserInfo     = data.user;
+      _apiKeyRaw       = key;
+      _saveSession();
+      input.value = '';
+      showApiContent();
+      _startKeyStatusPolling();
+    }} else {{
+      const data = await r.json().catch(()=>({{}}));
+      input.classList.add('error');
+      if (r.status === 403 && data.detail === 'suspended') {{
+        err.textContent = t('gate_suspended_msg');
+      }} else if (r.status === 403 && data.detail === 'revoked') {{
+        err.textContent = t('gate_revoked_msg');
+      }} else {{
+        err.textContent = t('gate_invalid');
+      }}
+      setTimeout(()=>input.classList.remove('error'), 600);
+    }}
+  }} catch(e) {{
+    err.textContent = t('gate_error');
+  }} finally {{
+    btn.disabled    = false;
+    btn.textContent = t('gate_btn');
+  }}
+}}
+
+function showApiContent() {{
+  const info = _apiUserInfo;
+  if (!info) return;
+  document.getElementById('api-gate').style.display     = 'none';
+  document.getElementById('api-user-bar').style.display = 'flex';
+  document.getElementById('api-content').style.display  = 'block';
+  const company = info.company ? ` — ${{info.company}}` : '';
+  document.getElementById('aub-name').textContent       = info.full_name + company;
+  document.getElementById('aub-key-prefix').textContent = info.key_prefix + '...';
+  document.getElementById('aub-used').textContent       = info.requests_today;
+  document.getElementById('aub-limit').textContent      = info.rate_limit_day;
+  _updateUsageBar(info.requests_today, info.rate_limit_day);
+  populateTryTariffSelect();
+  // Aggiorna pill header
+  const pill = document.getElementById('header-auth-pill');
+  if (pill) {{
+    pill.innerHTML = `<span style="opacity:.7">${{info.full_name + company}}</span>
+      <button onclick="apiLogout()" style="margin-left:8px;font-size:10px;padding:2px 8px;
+        border-radius:4px;border:0.5px solid rgba(29,158,117,0.5);background:transparent;
+        color:#1d9e75;cursor:pointer">${{t('gate_logout')}}</button>`;
+    pill.style.display = 'flex';
+  }}
+}}
+
+function apiLogout() {{
+  _clearSession();
+  document.getElementById('api-gate').style.display     = 'flex';
+  document.getElementById('api-user-bar').style.display = 'none';
+  document.getElementById('api-content').style.display  = 'none';
+  hideRegForm();
+  document.getElementById('gate-key-input').value = '';
+  document.getElementById('gate-err').textContent = '';
+  const pill = document.getElementById('header-auth-pill');
+  if (pill) pill.style.display = 'none';
+}}
+
+function showRegForm() {{
+  document.getElementById('gate-key-wrap').style.display  = 'none';
+  document.getElementById('reg-form-wrap').style.display  = 'block';
+  document.getElementById('reg-success').style.display    = 'none';
+}}
+
+function showRegFormAgain() {{
+  document.getElementById('reg-success').style.display = 'none';
+  document.querySelectorAll('#reg-form-wrap > *:not(#reg-success)').forEach(el => el.style.display = '');
+  document.getElementById('reg-err').textContent = '';
+}}
+
+function hideRegForm() {{
+  document.getElementById('gate-key-wrap').style.display  = 'block';
+  document.getElementById('reg-form-wrap').style.display  = 'none';
+  document.getElementById('reg-success').style.display    = 'none';
+  document.getElementById('reg-err').textContent = '';
+  ['reg-name','reg-email','reg-company','reg-vat'].forEach(id => {{
+    const el = document.getElementById(id); if (el) el.value = '';
+  }});
+  const c = document.getElementById('reg-country'); if (c) c.value = '';
+}}
+
+async function submitRegistration(force) {{
+  const err = document.getElementById('reg-err');
+  const btn = document.getElementById('reg-submit-btn');
+  err.textContent = '';
+  const name    = document.getElementById('reg-name').value.trim();
+  const email   = document.getElementById('reg-email').value.trim();
+  const country = document.getElementById('reg-country').value;
+  const company = document.getElementById('reg-company').value.trim();
+  const vat     = document.getElementById('reg-vat').value.trim();
+  if (!name)    {{ err.textContent = t('reg_err_name');    return; }}
+  if (!email || !email.includes('@')) {{ err.textContent = t('reg_err_email'); return; }}
+  if (!country) {{ err.textContent = t('reg_err_country'); return; }}
+
+  if (!force) {{
+    try {{
+      const chk     = await fetch('/api/v1/check-email?email=' + encodeURIComponent(email));
+      const chkData = await chk.json();
+      if (chkData.status === 'active') {{
+        _showReplaceKeyPopup();
+        return;
+      }}
+      if (chkData.status === 'pending') {{
+        err.textContent = t('reg_pending');
+        return;
+      }}
+    }} catch(e) {{}}
+  }}
+
+  btn.disabled = true; btn.textContent = '...';
+  try {{
+    const r = await fetch('/api/v1/register', {{
+      method: 'POST',
+      headers: {{'Content-Type': 'application/json'}},
+      body: JSON.stringify({{
+        full_name: name, email, country, lang,
+        company: company || null,
+        vat_number: vat || null,
+        force_replace: force === true,
+      }}),
+    }});
+    if (r.ok) {{
+      document.getElementById('reg-success').style.display = 'block';
+      document.querySelectorAll('#reg-form-wrap > *:not(#reg-success)').forEach(el => el.style.display = 'none');
+    }} else {{
+      const data   = await r.json().catch(()=>({{}}));
+      const detail = data.detail || '';
+      if (detail === 'active_key_exists') {{
+        _showReplaceKeyPopup();
+      }} else if (detail.includes('pending')) {{
+        err.textContent = t('reg_pending');
+      }} else {{
+        err.textContent = detail || t('gate_error');
+      }}
+    }}
+  }} catch(e) {{
+    err.textContent = t('gate_error');
+  }} finally {{
+    btn.disabled = false; btn.textContent = t('reg_submit');
+  }}
+}}
+
+function _showReplaceKeyPopup() {{
+  if (document.getElementById('_replace-popup')) document.getElementById('_replace-popup').remove();
+  const overlay = document.createElement('div');
+  overlay.id = '_replace-popup';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:14px;padding:32px;max-width:440px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="font-size:36px;margin-bottom:12px">⚠️</div>
+      <div style="font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:8px">${{t('reg_replace_title')}}</div>
+      <div style="font-size:13px;color:#888;margin-bottom:24px;line-height:1.6">${{t('reg_replace_sub')}}</div>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button onclick="document.getElementById('_replace-popup').remove()"
+          style="padding:10px 22px;background:#f3f4f6;color:#333;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer">
+          ${{t('reg_replace_cancel')}}
+        </button>
+        <button onclick="document.getElementById('_replace-popup').remove(); submitRegistration(true)"
+          style="padding:10px 22px;background:#e24b4a;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
+          ${{t('reg_replace_confirm')}}
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}}
+
+function populateTryTariffSelect() {{
+  const sel = document.getElementById('try-tariff-select');
+  if (!sel || !lastHealthData.length) return;
+  sel.innerHTML = lastHealthData
+    .filter(tariff => tariff.has_today_data || tariff.status === 'ok')
+    .map(tariff => `<option value="${{tariff.tariff_id}}">${{tariff.provider_name}} — ${{tariff.tariff_name}}</option>`)
+    .join('');
+}}
+
+async function tryEndpoint(which) {{
+  if (!_apiKeyRaw) return;
+  const resultEl = document.getElementById('try-result-' + which);
+  const metaEl   = document.getElementById('try-meta-' + which);
+  resultEl.style.display = 'block'; metaEl.style.display = 'block';
+  resultEl.className = 'try-result'; resultEl.textContent = t('try_running');
+  metaEl.textContent = '';
+  const headers = {{'X-API-Key': _apiKeyRaw}};
+  const t0 = Date.now();
+  try {{
+    let url, r;
+    if (which === 'tariffs') {{
+      url = '/api/v1/tariffs'; r = await fetch(url, {{headers}});
+    }} else if (which === 'prices') {{
+      const tariffId = document.getElementById('try-tariff-select').value;
+      const d = document.getElementById('try-date').value || '{today}';
+      url = `/api/v1/prices?tariff_id=${{tariffId}}&start_time=${{d}}T00:00:00Z`;
+      r = await fetch(url, {{headers}});
+    }} else if (which === 'all') {{
+      const d = document.getElementById('try-date-all').value || '{today}';
+      url = `/api/v1/prices/all?start_time=${{d}}T00:00:00Z`;
+      r = await fetch(url, {{headers}});
+    }}
+    const elapsed = Date.now() - t0;
+    const data = await r.json();
+    if (!r.ok) {{
+      if (r.status === 403 || r.status === 429) {{
+        const detail = data.detail || data.error || '';
+        if (detail.includes('suspend') || detail === 'suspended') {{
+          _clearSession(); _forceLogout('suspended'); return;
+        }}
+        if (detail.includes('revok') || detail === 'revoked') {{
+          _clearSession(); _forceLogout('revoked'); return;
+        }}
+        if (r.status === 429) {{ _forceLogout('rate_limit'); return; }}
+      }}
+      resultEl.className = 'try-result error';
+      resultEl.textContent = JSON.stringify(data, null, 2);
+      metaEl.textContent = `HTTP ${{r.status}} · ${{elapsed}} ${{t('try_ms')}}`;
+      return;
+    }}
+    let preview = data;
+    if (Array.isArray(data) && data.length > 3) {{
+      preview = [...data.slice(0,3), `... (${{data.length}} items)`];
+    }} else if (data.slot_count) {{
+      const truncated = {{}};
+      for (const [k,v] of Object.entries(data)) {{
+        if (Array.isArray(v)) truncated[k] = [...v.slice(0,2), `... (${{v.length}} slots)`];
+        else truncated[k] = v;
+      }}
+      preview = truncated;
+    }} else if (data.tariffs && typeof data.tariffs === 'object') {{
+      const keys = Object.keys(data.tariffs);
+      preview = {{ ...data, tariffs: Object.fromEntries(keys.slice(0,2).map(k=>[k,{{slot_count:data.tariffs[k].slot_count,'...':'(truncated)'}}])), _note: `${{keys.length}} tariffs — showing 2` }};
+    }}
+    const slots = data.slot_count || (Array.isArray(data) ? data.length : Object.keys(data.tariffs||{{}}).length);
+    metaEl.textContent = `HTTP ${{r.status}} · ${{elapsed}} ${{t('try_ms')}} · ${{slots}} ${{t('try_slots')}}`;
+    resultEl.textContent = JSON.stringify(preview, null, 2);
+    // Aggiorna counter dal DB (valore reale, no drift)
+    if (_apiKeyRaw) {{
+      fetch('/api/v1/check-key-status', {{
+        method: 'POST',
+        headers: {{'Content-Type': 'application/json'}},
+        body: JSON.stringify({{api_key: _apiKeyRaw}}),
+      }}).then(r=>r.json()).then(data=>{{
+        if (!data.valid) {{ _clearSession(); _forceLogout(data.status); return; }}
+        if (_apiUserInfo) {{
+          _apiUserInfo.requests_today = data.requests_today;
+          _apiUserInfo.rate_limit_day = data.rate_limit_day;
+          _saveSession();
+          _updateUsageBar(data.requests_today, data.rate_limit_day);
+          if (data.requests_today >= data.rate_limit_day) {{
+            _showRateLimitPopup(data.requests_today, data.rate_limit_day);
+          }}
+        }}
+      }}).catch(()=>{{}});
+    }}
+  }} catch(e) {{
+    resultEl.className = 'try-result error';
+    resultEl.textContent = 'Network error: ' + e.message;
   }}
 }}
 
