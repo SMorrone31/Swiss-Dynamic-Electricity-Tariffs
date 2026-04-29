@@ -7,21 +7,41 @@ di API key management.
 Lingua scelta in base al campo preferred_lang dell'utente per le email
 all'utente, e in base a EMAIL_LANG nel .env per le email admin.
 
-Usa Resend (HTTP API) invece di SMTP — compatibile con Render free tier.
-Variabile d'ambiente richiesta: RESEND_API_KEY
-Variabile mittente:             EMAIL_FROM  (default: onboarding@resend.dev)
+Usa Brevo SMTP relay — funziona su Render free tier (porta 587).
+
+Variabili d'ambiente richieste:
+  SMTP_HOST      smtp-relay.brevo.com
+  SMTP_PORT      587
+  SMTP_USER      a9b617001@smtp-brevo.com   (login Brevo)
+  SMTP_PASSWORD  la password/API key Brevo
+  SMTP_FROM      Swiss Tariff Hub <tuamail@gmail.com>
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import smtplib
+from email import encoders
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from typing import Optional
 
 log = logging.getLogger("email_templates")
 
 
-# ── Resend send ───────────────────────────────────────────────────────────────
+# ── SMTP config ───────────────────────────────────────────────────────────────
+
+def _smtp_config() -> dict:
+    return {
+        "host":     os.getenv("SMTP_HOST", "smtp-relay.brevo.com"),
+        "port":     int(os.getenv("SMTP_PORT", "587")),
+        "user":     os.getenv("SMTP_USER", ""),
+        "password": os.getenv("SMTP_PASSWORD", ""),
+        "from":     os.getenv("SMTP_FROM", os.getenv("SMTP_USER", "")),
+    }
+
 
 def _send(
     to: str,
@@ -32,49 +52,46 @@ def _send(
     attachment_filename: str = "subscription.pdf",
 ) -> bool:
     """
-    Invia una email tramite Resend HTTP API.
+    Invia una email via Brevo SMTP relay.
     Ritorna True se ok, False se fallisce.
-
-    Variabili d'ambiente:
-      RESEND_API_KEY  — chiave API Resend (obbligatoria)
-      EMAIL_FROM      — indirizzo mittente verificato su Resend
-                        (default: onboarding@resend.dev, solo per test)
     """
-    import resend
-
-    api_key = os.getenv("RESEND_API_KEY", "")
-    if not api_key:
-        log.warning("[email] RESEND_API_KEY non configurata — email non inviata")
+    cfg = _smtp_config()
+    if not cfg["user"] or not cfg["password"]:
+        log.warning("[email] SMTP non configurato — email non inviata")
         return False
 
-    resend.api_key = api_key
-
-    from_addr = os.getenv(
-        "EMAIL_FROM",
-        "Swiss Tariff Hub <onboarding@resend.dev>",
-    )
-
     try:
-        params: dict = {
-            "from":    from_addr,
-            "to":      [to],
-            "subject": subject,
-            "html":    html_body,
-        }
-
-        if text_body:
-            params["text"] = text_body
-
         if attachment_bytes:
-            import base64
-            params["attachments"] = [
-                {
-                    "filename": attachment_filename,
-                    "content":  base64.b64encode(attachment_bytes).decode("utf-8"),
-                }
-            ]
+            msg = MIMEMultipart("mixed")
+            alt = MIMEMultipart("alternative")
+            if text_body:
+                alt.attach(MIMEText(text_body, "plain", "utf-8"))
+            alt.attach(MIMEText(html_body, "html", "utf-8"))
+            msg.attach(alt)
+            part = MIMEBase("application", "pdf")
+            part.set_payload(attachment_bytes)
+            encoders.encode_base64(part)
+            part.add_header(
+                "Content-Disposition",
+                f'attachment; filename="{attachment_filename}"',
+            )
+            msg.attach(part)
+        else:
+            msg = MIMEMultipart("alternative")
+            if text_body:
+                msg.attach(MIMEText(text_body, "plain", "utf-8"))
+            msg.attach(MIMEText(html_body, "html", "utf-8"))
 
-        resend.Emails.send(params)
+        msg["Subject"] = subject
+        msg["From"]    = cfg["from"]
+        msg["To"]      = to
+
+        with smtplib.SMTP(cfg["host"], cfg["port"], timeout=15) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(cfg["user"], cfg["password"])
+            server.sendmail(cfg["from"], [to], msg.as_string())
+
         log.info(f"[email] Inviata a {to}: {subject}")
         return True
 
