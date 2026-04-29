@@ -7,34 +7,21 @@ di API key management.
 Lingua scelta in base al campo preferred_lang dell'utente per le email
 all'utente, e in base a EMAIL_LANG nel .env per le email admin.
 
-Usa lo stesso SMTP già configurato per gli alert dello scheduler.
+Usa Resend (HTTP API) invece di SMTP — compatibile con Render free tier.
+Variabile d'ambiente richiesta: RESEND_API_KEY
+Variabile mittente:             EMAIL_FROM  (default: onboarding@resend.dev)
 """
 
 from __future__ import annotations
 
 import logging
 import os
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email import encoders
 from typing import Optional
-from email.mime.base import MIMEBase
 
 log = logging.getLogger("email_templates")
 
 
-# ── SMTP config (stesse variabili già usate nello scheduler) ─────────────────
-
-def _smtp_config() -> dict:
-    return {
-        "host":     os.getenv("SMTP_HOST", "smtp.gmail.com"),
-        "port":     int(os.getenv("SMTP_PORT", "587")),
-        "user":     os.getenv("SMTP_USER", ""),
-        "password": os.getenv("SMTP_PASSWORD", ""),
-        "from":     os.getenv("SMTP_FROM", os.getenv("SMTP_USER", "")),
-    }
-
+# ── Resend send ───────────────────────────────────────────────────────────────
 
 def _send(
     to: str,
@@ -44,44 +31,57 @@ def _send(
     attachment_bytes: Optional[bytes] = None,
     attachment_filename: str = "subscription.pdf",
 ) -> bool:
-    cfg = _smtp_config()
-    if not cfg["user"] or not cfg["password"]:
-        log.warning("[email] SMTP non configurato — email non inviata")
+    """
+    Invia una email tramite Resend HTTP API.
+    Ritorna True se ok, False se fallisce.
+
+    Variabili d'ambiente:
+      RESEND_API_KEY  — chiave API Resend (obbligatoria)
+      EMAIL_FROM      — indirizzo mittente verificato su Resend
+                        (default: onboarding@resend.dev, solo per test)
+    """
+    import resend
+
+    api_key = os.getenv("RESEND_API_KEY", "")
+    if not api_key:
+        log.warning("[email] RESEND_API_KEY non configurata — email non inviata")
         return False
+
+    resend.api_key = api_key
+
+    from_addr = os.getenv(
+        "EMAIL_FROM",
+        "Swiss Tariff Hub <onboarding@resend.dev>",
+    )
+
     try:
+        params: dict = {
+            "from":    from_addr,
+            "to":      [to],
+            "subject": subject,
+            "html":    html_body,
+        }
+
+        if text_body:
+            params["text"] = text_body
+
         if attachment_bytes:
-            msg = MIMEMultipart("mixed")
-            alt = MIMEMultipart("alternative")
-            if text_body:
-                alt.attach(MIMEText(text_body, "plain", "utf-8"))
-            alt.attach(MIMEText(html_body, "html", "utf-8"))
-            msg.attach(alt)
-            part = MIMEBase("application", "pdf")
-            part.set_payload(attachment_bytes)
-            encoders.encode_base64(part)
-            part.add_header("Content-Disposition", f'attachment; filename="{attachment_filename}"')
-            msg.attach(part)
-        else:
-            msg = MIMEMultipart("alternative")
-            if text_body:
-                msg.attach(MIMEText(text_body, "plain", "utf-8"))
-            msg.attach(MIMEText(html_body, "html", "utf-8"))
+            import base64
+            params["attachments"] = [
+                {
+                    "filename": attachment_filename,
+                    "content":  base64.b64encode(attachment_bytes).decode("utf-8"),
+                }
+            ]
 
-        msg["Subject"] = subject
-        msg["From"]    = cfg["from"]
-        msg["To"]      = to
-
-        with smtplib.SMTP(cfg["host"], cfg["port"], timeout=15) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(cfg["user"], cfg["password"])
-            server.sendmail(cfg["from"], [to], msg.as_string())
-
+        resend.Emails.send(params)
         log.info(f"[email] Inviata a {to}: {subject}")
         return True
+
     except Exception as e:
         log.error(f"[email] Errore invio a {to}: {e}")
         return False
+
 
 # ── Traduzioni soggetti e testi ───────────────────────────────────────────────
 
@@ -102,8 +102,7 @@ def _t(lang: str, key: str) -> str:
             "approved_limit_val": "{limit} requests/day (resets at midnight CET/CEST)",
             "approved_pdf_note":  "Your free subscription certificate is attached as a PDF.",
             "approved_footer":    "If you did not request this key, contact us immediately.",
-            "approved_pdf_note": "Your free subscription certificate is attached as a PDF.",   # EN
-            
+
             "rejected_subject":   "Your API key request — Swiss Tariff Hub",
             "rejected_heading":   "Request not approved",
             "rejected_body":      "We were unable to approve your API key request at this time.",
@@ -159,7 +158,6 @@ def _t(lang: str, key: str) -> str:
             "approved_limit_val": "{limit} Anfragen/Tag (Zurücksetzung um Mitternacht MEZ/MESZ)",
             "approved_pdf_note":  "Ihr kostenloser Abonnementnachweis ist als PDF beigefügt.",
             "approved_footer":    "Falls Sie diesen Key nicht beantragt haben, kontaktieren Sie uns sofort.",
-            "approved_pdf_note": "Ihr kostenloser Abonnementnachweis ist als PDF beigefügt.",   # DE
 
             "rejected_subject":   "Ihre API-Key-Anfrage — Swiss Tariff Hub",
             "rejected_heading":   "Anfrage nicht genehmigt",
@@ -216,7 +214,6 @@ def _t(lang: str, key: str) -> str:
             "approved_limit_val": "{limit} requêtes/jour (réinitialisation à minuit CET/CEST)",
             "approved_pdf_note":  "Votre certificat d'abonnement gratuit est joint en PDF.",
             "approved_footer":    "Si vous n'avez pas demandé cette clé, contactez-nous immédiatement.",
-            "approved_pdf_note": "Votre certificat d'abonnement gratuit est joint en PDF.",     # FR
 
             "rejected_subject":   "Votre demande de clé API — Swiss Tariff Hub",
             "rejected_heading":   "Demande non approuvée",
@@ -273,7 +270,6 @@ def _t(lang: str, key: str) -> str:
             "approved_limit_val": "{limit} richieste/giorno (reset a mezzanotte CET/CEST)",
             "approved_pdf_note":  "Il tuo attestato di abbonamento gratuito è allegato in PDF.",
             "approved_footer":    "Se non hai richiesto questa chiave, contattaci immediatamente.",
-            "approved_pdf_note": "Il tuo attestato di abbonamento gratuito è allegato in PDF.", # IT
 
             "rejected_subject":   "La tua richiesta di chiave API — Swiss Tariff Hub",
             "rejected_heading":   "Richiesta non approvata",
@@ -360,14 +356,8 @@ def _html_wrap(heading: str, body: str, footer: str = "") -> str:
 
 def send_registration_confirmation(email: str, full_name: str, lang: str = "en") -> bool:
     subject = _t(lang, "reg_subject")
-    body    = f"""
-    <p>{_t(lang, "reg_body")}</p>
-    """
-    html = _html_wrap(
-        _t(lang, "reg_heading"),
-        body,
-        _t(lang, "reg_footer"),
-    )
+    body    = f"<p>{_t(lang, 'reg_body')}</p>"
+    html    = _html_wrap(_t(lang, "reg_heading"), body, _t(lang, "reg_footer"))
     return _send(email, subject, html)
 
 
@@ -383,7 +373,7 @@ def send_key_approved(
     approved_at=None,
     key_prefix: str = "",
 ) -> bool:
-    subject = _t(lang, "approved_subject")
+    subject   = _t(lang, "approved_subject")
     limit_str = _t(lang, "approved_limit_val").format(limit=rate_limit)
     body = f"""
     <p>{_t(lang, "approved_body")}</p>
@@ -412,11 +402,18 @@ def send_key_approved(
     except Exception as e:
         log.error(f"[email] Errore generazione PDF per {email}: {e}")
 
-    filename_map = {"en": "subscription.pdf", "de": "abonnement.pdf",
-                    "fr": "abonnement.pdf",   "it": "abbonamento.pdf"}
-    return _send(email, subject, html,
-                 attachment_bytes=pdf_bytes,
-                 attachment_filename=filename_map.get(lang, "subscription.pdf"))
+    filename_map = {
+        "en": "subscription.pdf",
+        "de": "abonnement.pdf",
+        "fr": "abonnement.pdf",
+        "it": "abbonamento.pdf",
+    }
+    return _send(
+        email, subject, html,
+        attachment_bytes=pdf_bytes,
+        attachment_filename=filename_map.get(lang, "subscription.pdf"),
+    )
+
 
 # ── Email: registrazione rifiutata ────────────────────────────────────────────
 
@@ -426,17 +423,10 @@ def send_registration_rejected(
     reason: str = "",
     lang: str = "en",
 ) -> bool:
-    subject = _t(lang, "rejected_subject")
+    subject      = _t(lang, "rejected_subject")
     reason_block = f"<p><strong>{_t(lang, 'rejected_reason')}</strong> {reason}</p>" if reason else ""
-    body = f"""
-    <p>{_t(lang, "rejected_body")}</p>
-    {reason_block}
-    """
-    html = _html_wrap(
-        _t(lang, "rejected_heading"),
-        body,
-        _t(lang, "rejected_footer"),
-    )
+    body         = f"<p>{_t(lang, 'rejected_body')}</p>{reason_block}"
+    html         = _html_wrap(_t(lang, "rejected_heading"), body, _t(lang, "rejected_footer"))
     return _send(email, subject, html)
 
 
@@ -448,17 +438,10 @@ def send_key_suspended(
     reason: str = "",
     lang: str = "en",
 ) -> bool:
-    subject = _t(lang, "suspended_subject")
+    subject      = _t(lang, "suspended_subject")
     reason_block = f"<p><strong>{_t(lang, 'suspended_reason')}</strong> {reason}</p>" if reason else ""
-    body = f"""
-    <p>{_t(lang, "suspended_body")}</p>
-    {reason_block}
-    """
-    html = _html_wrap(
-        _t(lang, "suspended_heading"),
-        body,
-        _t(lang, "suspended_footer"),
-    )
+    body         = f"<p>{_t(lang, 'suspended_body')}</p>{reason_block}"
+    html         = _html_wrap(_t(lang, "suspended_heading"), body, _t(lang, "suspended_footer"))
     return _send(email, subject, html)
 
 
@@ -508,7 +491,7 @@ def send_rate_limit_warning(record, pct: int) -> bool:
 
 def send_admin_new_registration(record) -> bool:
     """Notifica admin di una nuova registrazione."""
-    admin_email = os.getenv("ADMIN_EMAIL", os.getenv("SMTP_USER", ""))
+    admin_email = os.getenv("ADMIN_EMAIL", "")
     if not admin_email:
         log.warning("[email] ADMIN_EMAIL non configurato")
         return False
@@ -541,7 +524,7 @@ def send_admin_new_registration(record) -> bool:
       <tr><td style="color:#888;padding:4px 8px">{_t(lang,'admin_field_country')}</td>
           <td style="padding:4px 8px">{record.country}</td></tr>
     </table>
-    <a href="{admin_url}/admin" class="btn">{_t(lang,'admin_approve_btn')} →</a>
+    <a href="{admin_url}/admin" class="btn">{_t(lang,'admin_approve_btn')} &rarr;</a>
     """
     html = _html_wrap(_t(lang, "admin_newreg_heading"), body)
     return _send(admin_email, subject, html)
