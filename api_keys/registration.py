@@ -35,10 +35,15 @@ log = logging.getLogger("registration")
 
 # ── Costanti ──────────────────────────────────────────────────────────────────
 
-DEFAULT_RATE_LIMIT_DAY = 500          # richieste gratuite al giorno
+DEFAULT_RATE_LIMIT_DAY = 100          # richieste free al giorno
+PRO_RATE_LIMIT_DAY     = 2000         # richieste pro al giorno
 KEY_PREFIX             = "stk_"      # prefisso visibile delle key
 WARNING_THRESHOLD_80   = 0.80        # notifica al 80% del rate limit
 WARNING_THRESHOLD_100  = 1.00        # notifica al 100%
+
+PLAN_FREE = "free"
+PLAN_PRO  = "pro"
+VALID_PLANS = {PLAN_FREE, PLAN_PRO}
 
 
 # ── Timezone helper ───────────────────────────────────────────────────────────
@@ -108,6 +113,13 @@ class ApiKey(Base):
 
     # Lingua preferita dell'utente (dalla lingua selezionata al momento della registrazione)
     preferred_lang  = Column(String(5), default="en")
+
+    # Piano: "free" (default) o "pro"
+    # Controlla accesso a endpoint avanzati e rate limit applicato
+    plan            = Column(String(10), nullable=False, default=PLAN_FREE)
+
+    # Rate limit per minuto (throttle aggressivo per free)
+    rate_limit_min  = Column(Integer, default=4)   # free: 4/min, pro: 30/min
 
     __table_args__ = (
         Index("ix_api_keys_email",      "email"),
@@ -205,7 +217,9 @@ def register_new_key(
         key_prefix     = "",            # popolato all'approvazione
         status         = "pending",
         preferred_lang = preferred_lang,
+        plan           = PLAN_FREE,
         rate_limit_day = DEFAULT_RATE_LIMIT_DAY,
+        rate_limit_min = 4,
     )
     session.add(new_record)
     session.commit()
@@ -333,8 +347,9 @@ def update_key(
     key_id: str,
     rate_limit_day: Optional[int] = None,
     notes: Optional[str] = None,
+    plan: Optional[str] = None,
 ) -> ApiKey:
-    """Aggiorna rate limit e/o note di una key."""
+    """Aggiorna rate limit, note e/o piano di una key."""
     record = session.get(ApiKey, key_id)
     if not record:
         raise ValueError("not_found")
@@ -343,6 +358,17 @@ def update_key(
         record.rate_limit_day = rate_limit_day
     if notes is not None:
         record.notes = notes
+    if plan is not None:
+        if plan not in VALID_PLANS:
+            raise ValueError(f"invalid_plan:{plan}")
+        record.plan = plan
+        # Aggiusta automaticamente rate limit e throttle al cambio piano
+        if plan == PLAN_PRO:
+            record.rate_limit_day = PRO_RATE_LIMIT_DAY
+            record.rate_limit_min = 30
+        else:
+            record.rate_limit_day = DEFAULT_RATE_LIMIT_DAY
+            record.rate_limit_min = 4
 
     session.add(record)
     session.commit()

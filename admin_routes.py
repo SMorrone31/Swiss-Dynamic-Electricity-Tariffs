@@ -375,10 +375,13 @@ def register_routes(app):
                     "full_name":        record.full_name,
                     "email":            record.email,
                     "company":          record.company,
+                    "country":          record.country,
                     "key_prefix":       record.key_prefix,
                     "requests_today":   record.requests_today,
                     "rate_limit_day":   record.rate_limit_day,
                     "requests_total":   record.requests_total,
+                    "plan":             getattr(record, "plan", "free"),
+                    "rate_limit_min":   getattr(record, "rate_limit_min", 4),
                 },
             }
 
@@ -444,6 +447,7 @@ def register_routes(app):
                 "requests_today": record.requests_today,
                 "rate_limit_day": record.rate_limit_day,
                 "requests_total": record.requests_total,
+                "plan":           getattr(record, "plan", "free"),
             }
 
     # ── GET /admin ────────────────────────────────────────────────────────────
@@ -556,7 +560,7 @@ def register_routes(app):
                 lang        = record.preferred_lang,
                 company     = record.company,
                 approved_at = record.approved_at,
-                key_prefix  = record.key_prefix,
+                key_prefix  = record.key_prefix,                
             )
             return {"status": "approved", "key_prefix": record.key_prefix}
 
@@ -940,6 +944,15 @@ def _admin_dashboard_html() -> str:
   .key-prefix{{font-family:monospace;font-size:11px;color:#185fa5;
                background:#0a1929;padding:2px 6px;border-radius:4px}}
   .empty{{text-align:center;padding:40px;color:#444;font-size:13px}}
+  /* Piano badges admin */
+  .plan-free{{font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;
+              background:#2a2a20;color:#888780}}
+  .plan-pro{{font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;
+             background:#0a1929;color:#185fa5}}
+  /* Plan toggle inline */
+  .plan-toggle{{font-size:11px;padding:3px 8px;border-radius:5px;border:0.5px solid #333;
+                background:#0f1117;color:#888;cursor:pointer;transition:all .15s}}
+  .plan-toggle:hover{{border-color:#185fa5;color:#185fa5}}
 
   /* Rate limit input */
   .rl-input{{width:70px;background:#0f1117;border:0.5px solid #2a2a45;border-radius:5px;
@@ -987,6 +1000,7 @@ def _admin_dashboard_html() -> str:
           <th>Country</th>
           <th>Key</th>
           <th>Status</th>
+          <th>Piano</th>
           <th>Usage today</th>
           <th>Total</th>
           <th>Last used</th>
@@ -1083,7 +1097,11 @@ function renderTable(keys) {{
       ? `<span class="key-prefix">${{k.key_prefix}}...</span>`
       : '<span style="color:#333;font-size:10px">—</span>';
 
-    const actions = _buildActions(k);
+    const actions  = _buildActions(k);
+    const plan     = k.plan || 'free';
+    const planCls  = plan === 'pro' ? 'plan-pro' : 'plan-free';
+    const planLbl  = plan === 'pro' ? 'Pro' : 'Free';
+    const planToggleLbl = plan === 'pro' ? 'Downgrade' : 'Upgrade';
 
     return `<tr id="row-${{k.id}}">
       <td><strong style="color:white">${{k.full_name}}</strong>${{company}}</td>
@@ -1091,6 +1109,10 @@ function renderTable(keys) {{
       <td style="color:#555">${{k.country}}</td>
       <td>${{keyDisp}}</td>
       <td><span class="${{sCls}}">${{k.status}}</span></td>
+      <td>
+        <span class="${{planCls}}">${{planLbl}}</span>
+        ${{k.status === 'active' ? `<button class="plan-toggle" style="margin-top:4px;display:block" onclick="togglePlan('${{k.id}}','${{plan}}')">${{planToggleLbl}}</button>` : ''}}
+      </td>
       <td>
         ${{k.requests_today}} / ${{k.rate_limit_day}}
         <span class="rbar"><span class="rbar-fill ${{barCls}}" style="width:${{Math.min(100,pct*100)}}%"></span></span>
@@ -1186,6 +1208,24 @@ function openRevoke(id) {{
   document.getElementById('modal-confirm-btn').textContent = 'Revoke permanently';
   document.getElementById('modal-confirm-btn').className   = 'modal-confirm danger';
   document.getElementById('modal').classList.add('open');
+}}
+
+async function togglePlan(id, currentPlan) {{
+  const newPlan = currentPlan === 'pro' ? 'free' : 'pro';
+  const label   = newPlan === 'pro' ? 'upgrade to Pro' : 'downgrade to Free';
+  if (!confirm(`Change plan to ${{newPlan.toUpperCase()}} for this user? This will also update the rate limit.`)) return;
+  const r = await fetch(`/api/v1/admin/keys/${{id}}`, {{
+    method: 'PATCH', credentials: 'include',
+    headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{plan: newPlan}}),
+  }});
+  if (r.ok) {{
+    showToast(`✅ Piano aggiornato a ${{newPlan.toUpperCase()}}`);
+    loadKeys(currentTab);
+  }} else {{
+    const d = await r.json().catch(()=>({{}}));
+    showToast('❌ ' + (d.detail||'Errore'), true);
+  }}
 }}
 
 function openEdit(id) {{

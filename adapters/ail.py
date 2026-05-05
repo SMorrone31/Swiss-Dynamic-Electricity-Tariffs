@@ -82,8 +82,8 @@ class AilAdapter(BaseAdapter):
     def _build_url(self, start_utc: datetime, end_utc: datetime) -> str:
         return self.base_url
 
-    def _build_headers(self) -> dict[str, str]:
-        return {
+    def _build_headers(self, referer: bool = False) -> dict[str, str]:
+        headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -93,6 +93,133 @@ class AilAdapter(BaseAdapter):
             "Accept-Language": "it-CH,it;q=0.9,de-CH;q=0.8",
             "Cache-Control":   "no-cache",
         }
+        if referer:
+            headers["Referer"] = self.base_url
+            headers["Origin"]  = "https://www.ail.ch"
+        return headers
+
+    async def _fetch_csrf_token(self) -> tuple[str, dict]:
+        """
+        GET alla pagina AIL per estrarre il CSRF token e i cookie di sessione.
+        Ritorna (csrf_token, cookies) — entrambi necessari per il POST successivo.
+        """
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            raise AdapterParseError("beautifulsoup4 non installato.")
+
+        import httpx
+        async with httpx.AsyncClient(
+            timeout=self.TIMEOUT_SECONDS,
+            follow_redirects=True,
+        ) as client:
+            resp = await client.get(self.base_url, headers=self._build_headers())
+            resp.raise_for_status()
+            cookies = dict(resp.cookies)
+            soup = BeautifulSoup(resp.content.decode("utf-8", errors="replace"), "html.parser")
+
+        csrf_input = soup.find("input", {"name": "csrf"})
+        if csrf_input and csrf_input.get("value"):
+            token = csrf_input["value"]
+            self._log.info(f"AIL: CSRF token estratto ({len(token)} chars), cookies: {list(cookies.keys())}")
+            return token, cookies
+
+        raise AdapterParseError(
+            "AIL: CSRF token non trovato nella pagina. "
+            "La struttura HTML potrebbe essere cambiata."
+        )
+
+    async def fetch(self, target_date: date) -> NormalizedPrices:
+        """
+        Override: GET per CSRF token+cookie, poi POST con stessa sessione.
+
+        AIL lega il CSRF token alla sessione HTTP — GET e POST devono condividere
+        gli stessi cookie, altrimenti il server risponde 403.
+
+        Flusso:
+          1. GET  -> estrai CSRF token + cookie di sessione
+          2. POST csrf=<token>&targetDate=<YYYY-MM-DD> con gli stessi cookie
+          3. Scraping della risposta
+        """
+        fetched_at = utc_now()
+
+        self._log.info(f"AIL: fetch {target_date} — step 1: GET per CSRF + sessione")
+
+        # ── 1. GET → CSRF token + cookie di sessione ──────────────────────────
+        import httpx
+        async with httpx.AsyncClient(
+            timeout=self.TIMEOUT_SECONDS,
+            follow_redirects=True,
+        ) as session:
+            # GET
+            get_resp = await session.get(self.base_url, headers=self._build_headers())
+            get_resp.raise_for_status()
+
+            try:
+                from bs4 import BeautifulSoup
+            except ImportError:
+                raise AdapterParseError("beautifulsoup4 non installato.")
+
+            soup = BeautifulSoup(get_resp.content.decode("utf-8", errors="replace"), "html.parser")
+            csrf_input = soup.find("input", {"name": "csrf"})
+            if not csrf_input or not csrf_input.get("value"):
+                raise AdapterParseError(
+                    "AIL: CSRF token non trovato nella pagina. "
+                    "La struttura HTML potrebbe essere cambiata."
+                )
+            csrf_token = csrf_input["value"]
+            self._log.info(
+                f"AIL: CSRF token estratto ({len(csrf_token)} chars), "
+                f"cookie di sessione: {list(dict(session.cookies).keys())}"
+            )
+
+            # ── 2. POST con stessa sessione (stesso cookie jar) ───────────────
+            post_headers = self._build_headers(referer=True)
+            post_headers["Content-Type"] = "application/x-www-form-urlencoded"
+            post_body = f"csrf={csrf_token}&targetDate={target_date.isoformat()}"
+
+            self._log.info(f"AIL: step 2: POST targetDate={target_date.isoformat()}")
+
+            try:
+                post_resp = await session.post(
+                    self.base_url,
+                    content=post_body.encode("utf-8"),
+                    headers=post_headers,
+                )
+                post_resp.raise_for_status()
+                raw_response = post_resp.content
+            except httpx.HTTPStatusError as exc:
+                raise AdapterParseError(f"AIL: POST fallito — {exc}") from exc
+
+        # ── 3. Scraping del risultato ─────────────────────────────────────────
+        response_data = self._preprocess_response(raw_response)
+        slots         = self._parse(response_data, target_date)
+
+        if not slots:
+            raise AdapterEmptyError(f"{self.tariff_id}: nessun slot generato")
+
+        actual_date = slots[0].slot_start_utc.astimezone(TZ_CH).date()
+        if actual_date != target_date:
+            self._log.warning(
+                f"AIL: risposta contiene {actual_date} invece di {target_date} — "
+                "la data richiesta potrebbe non essere disponibile."
+            )
+
+        result = NormalizedPrices(
+            tariff_id    = self.tariff_id,
+            source_date  = actual_date,
+            fetched_at   = fetched_at,
+            slots        = sorted(slots, key=lambda s: s.slot_start_utc),
+            adapter_name = self.__class__.__name__,
+            raw_url      = self.base_url,
+        )
+
+        if not result.is_complete:
+            result.warnings.append(f"Slot count inatteso: {result.slot_count} (attesi 96)")
+            self._log.warning(result.warnings[-1])
+
+        self._log.info(result.summary())
+        return result
 
     def _preprocess_response(self, raw: bytes) -> dict | list:
         """
@@ -182,46 +309,7 @@ class AilAdapter(BaseAdapter):
         self._log.info(f"AIL: {len(slots)} slot generati per {slot_date}")
         return slots
 
-    async def fetch(self, target_date: date) -> NormalizedPrices:
-        """
-        Override: usa la data reale della pagina come source_date
-        (pattern identico ad AemAdapter).
-        """
-        start_utc, end_utc = make_day_range_utc(target_date)
-        url        = self._build_url(start_utc, end_utc)
-        headers    = self._build_headers()
-        fetched_at = utc_now()
 
-        self._log.info(f"AIL scraping {target_date} -> {url}")
-
-        raw_response  = await self._http_get_with_retry(url, headers)
-        response_data = self._preprocess_response(raw_response)
-        slots         = self._parse(response_data, target_date)
-
-        if not slots:
-            raise AdapterEmptyError(f"{self.tariff_id}: nessun slot generato")
-
-        actual_date = slots[0].slot_start_utc.astimezone(TZ_CH).date()
-        if actual_date != target_date:
-            self._log.info(
-                f"AIL: pagina contiene {actual_date} (richiesto {target_date}) — normale day-ahead."
-            )
-
-        result = NormalizedPrices(
-            tariff_id    = self.tariff_id,
-            source_date  = actual_date,
-            fetched_at   = fetched_at,
-            slots        = sorted(slots, key=lambda s: s.slot_start_utc),
-            adapter_name = self.__class__.__name__,
-            raw_url      = url,
-        )
-
-        if not result.is_complete:
-            result.warnings.append(f"Slot count inatteso: {result.slot_count} (attesi 96)")
-            self._log.warning(result.warnings[-1])
-
-        self._log.info(result.summary())
-        return result
 
     # ── HTML helpers ──────────────────────────────────────────────────────────
 
