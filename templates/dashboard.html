@@ -154,6 +154,8 @@
     .day-btn.active{background:#185fa5;border-color:#185fa5;color:white;box-shadow:0 2px 8px rgba(24,95,165,.3)}
     .day-btn.today-pill{border-color:#1d9e75;color:#1d9e75}
     .day-btn.today-pill.active{background:#1d9e75;border-color:#1d9e75;color:white}
+    .day-btn.locked{opacity:.35;cursor:not-allowed;pointer-events:none;
+      border-style:dashed;border-color:#ccc}
     .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
     .metric{background:white;border-radius:10px;padding:12px 16px;border:0.5px solid #eee;box-shadow:0 1px 3px rgba(0,0,0,.04)}
     .metric .label{font-size:10px;color:#999;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
@@ -212,6 +214,25 @@
     .s-miss{font-size:10px;padding:2px 8px;border-radius:999px;background:#fee2e2;color:#991b1b;font-weight:500}
     .tooltip-def{position:relative;display:inline-block;cursor:help;border-bottom:1px dashed #aaa}
     .tooltip-def:hover::after{content:attr(data-tip);position:absolute;bottom:120%;left:50%;transform:translateX(-50%);background:#1a1a2e;color:white;padding:6px 10px;border-radius:6px;font-size:11px;white-space:nowrap;z-index:99;pointer-events:none}
+    /* Monthly lock */
+    .monthly-lock-wrap{position:relative}
+    .monthly-lock-overlay{
+      position:absolute;inset:0;z-index:5;
+      background:rgba(240,242,245,.6);border-radius:10px;
+      display:flex;align-items:center;justify-content:center
+    }
+    .monthly-lock-icon-wrap{width:36px;height:36px;border-radius:50%;
+      background:white;border:0.5px solid #dde5f0;
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 2px 8px rgba(0,0,0,.07)}
+    /* Data view access control */
+    .dv-slot-lock{display:none;background:#f8f9fc;border:0.5px solid #e0e8f4;
+      border-left:3px solid #185fa5;border-radius:8px;padding:12px 14px;
+      font-size:12px;color:#666;line-height:1.5}
+    .dv-slot-lock strong{display:block;color:#1a1a2e;font-size:12px;margin-bottom:3px}
+    .dv-slot-lock-btn{font-size:11px;font-weight:600;color:#185fa5;background:none;
+      border:none;cursor:pointer;padding:0;margin-top:6px;display:block}
+    .dv-slot-lock-btn:hover{text-decoration:underline}
     @media(max-width:900px){.metrics{grid-template-columns:1fr 1fr}.dv-body{grid-template-columns:1fr}}
     .view-tabs{display:flex;gap:0;background:#f1efe8;border-radius:8px;padding:3px;margin-left:12px}
     .view-tab{font-size:11px;font-weight:500;padding:4px 12px;border-radius:6px;border:none;
@@ -613,6 +634,38 @@
     @keyframes sk-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
     .sk-mini-bars{display:flex;gap:2px;align-items:flex-end;height:36px}
     .sk-mini-bar{flex:1;border-radius:2px 2px 0 0}
+    /* Overlay skeleton lock */
+    .sk-lock-wrap{position:relative;border-radius:14px;overflow:hidden}
+    .sk-lock-overlay{
+      position:absolute;inset:0;z-index:5;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(240,242,245,.55)
+    }
+    .sk-lock-icon-wrap{
+      width:40px;height:40px;border-radius:50%;
+      background:white;
+      border:0.5px solid #dde5f0;
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 2px 10px rgba(0,0,0,.08)
+    }
+    /* Pill in fondo */
+    .smart-lock-pill{
+      display:flex;align-items:center;gap:12px;
+      background:white;border:0.5px solid #dce8f5;
+      border-left:3px solid #185fa5;
+      border-radius:10px;padding:12px 16px;
+      box-shadow:0 1px 8px rgba(24,95,165,.07)
+    }
+    .smart-lock-icon{width:34px;height:34px;border-radius:50%;flex-shrink:0;
+      background:#eef4fb;border:0.5px solid #c5d8f0;
+      display:flex;align-items:center;justify-content:center}
+    .smart-lock-text{flex:1;min-width:0}
+    .smart-lock-title{font-size:12px;font-weight:600;color:#1a1a2e;margin-bottom:2px}
+    .smart-lock-sub{font-size:11px;color:#999;line-height:1.4}
+    .smart-lock-btn{flex-shrink:0;padding:7px 14px;background:#185fa5;color:white;
+      border:none;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;
+      transition:background .15s;white-space:nowrap}
+    .smart-lock-btn:hover{background:#1470c0}
     .tariff-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px}
     .tariff-tab{font-size:11px;padding:4px 10px;border-radius:6px;border:0.5px solid #ddd;
       background:white;color:#555;cursor:pointer;transition:all .15s}
@@ -1244,7 +1297,13 @@
     <!-- Skeleton signal + best times (non loggato) -->
     <div id="smart-top-skeleton" style="display:none">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
-        <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div class="sk-lock-wrap card" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div class="sk-lock-overlay">
+          <div class="sk-lock-icon-wrap"><svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="2.5" y="7.5" width="11" height="8" rx="2" stroke="#185fa5" stroke-width="1.5"/>
+                <path d="M5.5 7.5V5.5a2.5 2.5 0 015 0v2" stroke="#185fa5" stroke-width="1.5" stroke-linecap="round"/>
+              </svg></div>
+        </div>
           <div style="display:flex;flex-direction:column;gap:8px">
             <div style="display:flex;gap:6px">
               <div class="sk" style="width:18px;height:18px;border-radius:50%"></div>
@@ -1259,7 +1318,13 @@
             <div class="sk" style="height:8px;width:40px;border-radius:4px;margin-top:6px;margin-left:auto;opacity:.5"></div>
           </div>
         </div>
-        <div class="card" style="display:flex;flex-direction:column;gap:8px">
+        <div class="sk-lock-wrap card" style="display:flex;flex-direction:column;gap:8px">
+          <div class="sk-lock-overlay">
+          <div class="sk-lock-icon-wrap"><svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="2.5" y="7.5" width="11" height="8" rx="2" stroke="#185fa5" stroke-width="1.5"/>
+                <path d="M5.5 7.5V5.5a2.5 2.5 0 015 0v2" stroke="#185fa5" stroke-width="1.5" stroke-linecap="round"/>
+              </svg></div>
+        </div>
           <div class="sk" style="height:10px;width:60%"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <div class="sk" style="height:24px;width:70px;border-radius:6px"></div>
@@ -1292,6 +1357,13 @@
       </div>
       <!-- Skeleton (non loggato) -->
       <div id="smart-profile-skeleton" style="display:none">
+        <div class="sk-lock-wrap">
+        <div class="sk-lock-overlay">
+          <div class="sk-lock-icon-wrap"><svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="2.5" y="7.5" width="11" height="8" rx="2" stroke="#185fa5" stroke-width="1.5"/>
+                <path d="M5.5 7.5V5.5a2.5 2.5 0 015 0v2" stroke="#185fa5" stroke-width="1.5" stroke-linecap="round"/>
+              </svg></div>
+        </div>
         <div class="card">
           <div class="sk" style="height:10px;width:40%;margin-bottom:14px;border-radius:5px"></div>
           <div class="sk-mini-bars"><div class="sk sk-mini-bar" style="height:20px"></div><div class="sk sk-mini-bar" style="height:25px"></div><div class="sk sk-mini-bar" style="height:31px"></div><div class="sk sk-mini-bar" style="height:35px"></div><div class="sk sk-mini-bar" style="height:38px"></div><div class="sk sk-mini-bar" style="height:39px"></div><div class="sk sk-mini-bar" style="height:39px"></div><div class="sk sk-mini-bar" style="height:30px"></div><div class="sk sk-mini-bar" style="height:27px"></div><div class="sk sk-mini-bar" style="height:24px"></div><div class="sk sk-mini-bar" style="height:20px"></div><div class="sk sk-mini-bar" style="height:17px"></div><div class="sk sk-mini-bar" style="height:15px"></div><div class="sk sk-mini-bar" style="height:14px"></div><div class="sk sk-mini-bar" style="height:6px"></div><div class="sk sk-mini-bar" style="height:7px"></div><div class="sk sk-mini-bar" style="height:11px"></div><div class="sk sk-mini-bar" style="height:15px"></div><div class="sk sk-mini-bar" style="height:20px"></div><div class="sk sk-mini-bar" style="height:26px"></div><div class="sk sk-mini-bar" style="height:32px"></div><div class="sk sk-mini-bar" style="height:29px"></div><div class="sk sk-mini-bar" style="height:33px"></div><div class="sk sk-mini-bar" style="height:36px"></div><div class="sk sk-mini-bar" style="height:37px"></div><div class="sk sk-mini-bar" style="height:37px"></div><div class="sk sk-mini-bar" style="height:35px"></div><div class="sk sk-mini-bar" style="height:32px"></div><div class="sk sk-mini-bar" style="height:21px"></div><div class="sk sk-mini-bar" style="height:17px"></div><div class="sk sk-mini-bar" style="height:14px"></div><div class="sk sk-mini-bar" style="height:12px"></div><div class="sk sk-mini-bar" style="height:11px"></div><div class="sk sk-mini-bar" style="height:12px"></div><div class="sk sk-mini-bar" style="height:13px"></div><div class="sk sk-mini-bar" style="height:9px"></div><div class="sk sk-mini-bar" style="height:13px"></div><div class="sk sk-mini-bar" style="height:19px"></div><div class="sk sk-mini-bar" style="height:25px"></div><div class="sk sk-mini-bar" style="height:30px"></div><div class="sk sk-mini-bar" style="height:35px"></div><div class="sk sk-mini-bar" style="height:39px"></div><div class="sk sk-mini-bar" style="height:33px"></div><div class="sk sk-mini-bar" style="height:34px"></div><div class="sk sk-mini-bar" style="height:34px"></div><div class="sk sk-mini-bar" style="height:32px"></div><div class="sk sk-mini-bar" style="height:29px"></div><div class="sk sk-mini-bar" style="height:26px"></div></div>
@@ -1299,25 +1371,29 @@
             <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span>
           </div>
         </div>
+        </div><!-- end sk-lock-wrap -->
       </div>
     </div>
 
-    <!-- ── Pill CTA unica (non loggato) ── -->
-    <div id="smart-lock-pill-wrap" style="display:none;margin-top:10px">
+    <!-- Pill CTA separata dopo gli skeleton -->
+    <div id="smart-lock-pill-wrap" style="display:none;margin-top:12px">
       <div class="smart-lock-pill">
-        <div class="smart-lock-icon"><svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-              <rect x="2" y="7" width="11" height="8" rx="2" stroke="#185fa5" stroke-width="1.4"/>
-              <path d="M5 7V5a2.5 2.5 0 015 0v2" stroke="#185fa5" stroke-width="1.4" stroke-linecap="round"/>
-            </svg></div>
+        <div class="smart-lock-icon">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <rect x="2" y="7" width="11" height="8" rx="2" stroke="#185fa5" stroke-width="1.4"/>
+            <path d="M5 7V5a2.5 2.5 0 015 0v2" stroke="#185fa5" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </div>
         <div class="smart-lock-text">
-          <div class="smart-lock-title" data-i18n="smart_lock_title">Accedi per vedere i segnali live</div>
-          <div class="smart-lock-sub" data-i18n="smart_lock_sub">Accedi con la tua API key per vedere le ore migliori, il segnale prezzo e il profilo giornaliero.</div>
+          <div class="smart-lock-title" data-i18n="smart_lock_title">Login to see live signals</div>
+          <div class="smart-lock-sub" data-i18n="smart_lock_sub">Log in with your API key to see best hours, price signal and today's profile.</div>
         </div>
         <button class="smart-lock-btn"
           onclick="switchView('api');setTimeout(()=>document.getElementById('gate-key-input')?.focus(),200)"
           data-i18n="smart_lock_btn">Log in →</button>
       </div>
     </div>
+
 
     <!-- ── Tariff comparison — sempre visibile ── -->
     <div class="card" style="margin-top:1.25rem">
@@ -1330,7 +1406,7 @@
 
     <!-- ── Toolbar: selettore tariffa + day pills ── -->
     <div class="dv-toolbar">
-      <div class="dv-select-wrap">
+      <div class="dv-select-wrap" style="position:relative">
         <select id="tariff-select" onchange="onTariffChange()"></select>
       </div>
       <div class="dv-daypills" id="day-btns"></div>
@@ -1378,8 +1454,39 @@
           </div>
         </div>
 
-        <div class="card" style="margin-top:14px">
+        <div class="card monthly-lock-wrap" style="margin-top:14px" id="monthly-card">
           <div class="card-header"><span class="card-title" data-i18n="monthly_summary"></span></div>
+          <!-- Overlay lock (non-pro su tariffa ≥2) -->
+          <div class="monthly-lock-overlay" id="monthly-lock-overlay" style="display:none">
+            <div class="monthly-lock-icon-wrap">
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                <rect x="2" y="7" width="11" height="8" rx="2" stroke="#185fa5" stroke-width="1.4"/>
+                <path d="M5 7V5a2.5 2.5 0 015 0v2" stroke="#185fa5" stroke-width="1.4" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+          <!-- Skeleton monthly (non-pro su tariffa ≥2) -->
+          <div id="monthly-skeleton" style="display:none">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div class="sk" style="height:10px;width:32px;border-radius:3px"></div>
+                <div class="sk" style="height:6px;flex:1;border-radius:3px;opacity:.7"></div>
+                <div class="sk" style="height:10px;width:36px;border-radius:3px"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div class="sk" style="height:10px;width:32px;border-radius:3px"></div>
+                <div class="sk" style="height:6px;flex:1;border-radius:3px;opacity:.5"></div>
+                <div class="sk" style="height:10px;width:28px;border-radius:3px"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div class="sk" style="height:10px;width:32px;border-radius:3px"></div>
+                <div class="sk" style="height:6px;flex:1;border-radius:3px;opacity:.4"></div>
+                <div class="sk" style="height:10px;width:32px;border-radius:3px"></div>
+              </div>
+            </div>
+
+          </div>
+          <!-- Contenuto reale -->
           <div class="month-grid" id="month-grid">
             <div style="color:#bbb;font-size:12px" data-i18n="select_tariff"></div>
           </div>
@@ -1391,6 +1498,12 @@
         <div class="sc-time-label" data-i18n="selected_slot"></div>
         <div id="slot-panel-content">
           <div class="sc-empty" data-i18n="hover_chart"></div>
+        </div>
+        <!-- Lock message quando slot inspector non disponibile -->
+        <div class="dv-slot-lock" id="dv-slot-lock">
+          <strong id="dv-slot-lock-title">Upgrade to see slot details</strong>
+          <span id="dv-slot-lock-sub">Log in or upgrade to Pro to inspect individual 15-min price slots.</span>
+          <button class="dv-slot-lock-btn" id="dv-slot-lock-btn">Log in →</button>
         </div>
       </div>
 
@@ -1845,6 +1958,15 @@ const T = {
     smart_lock_title: 'Login to see live signals',
     smart_lock_sub: 'Log in with your API key to see best hours, price signal and today\'s profile.',
     smart_lock_btn: 'Log in →',
+    dv_slot_lock_title: 'Login to inspect slots',
+    dv_slot_lock_sub: 'Log in with your API key to inspect individual 15-min price slots.',
+    dv_slot_lock_btn: 'Log in →',
+    dv_slot_free_title: 'Pro feature',
+    dv_slot_free_sub: 'Slot inspection is available for all tariffs on the Pro plan. On Free, only the first tariff is unlocked.',
+    dv_slot_free_btn: 'Upgrade to Pro →',
+    monthly_lock_guest: 'Log in to see the monthly price history.',
+    monthly_lock_free:  'Monthly history for all tariffs is available on the Pro plan.',
+    day_lock_tip: 'Log in to see past days',
     smart_compare_lock_sub: 'Log in with your API key to compare all Swiss tariffs.',
     smart_compare_lock_btn: 'Log in →',
     home_plan_pro_btn:   'Contact us for Pro →',
@@ -2054,6 +2176,15 @@ const T = {
     smart_lock_title: 'Anmelden für Live-Signale',
     smart_lock_sub: 'Melden Sie sich an, um beste Stunden, Preissignale und das heutige Profil zu sehen.',
     smart_lock_btn: 'Anmelden →',
+    dv_slot_lock_title: 'Anmelden für Slot-Details',
+    dv_slot_lock_sub: 'Melden Sie sich an, um einzelne 15-Minuten-Preisslots zu inspizieren.',
+    dv_slot_lock_btn: 'Anmelden →',
+    dv_slot_free_title: 'Pro-Funktion',
+    dv_slot_free_sub: 'Die Slot-Inspektion ist für alle Tarife im Pro-Plan verfügbar. Im Free-Plan ist nur der erste Tarif freigeschaltet.',
+    dv_slot_free_btn: 'Auf Pro upgraden →',
+    monthly_lock_guest: 'Melden Sie sich an, um den monatlichen Preisverlauf zu sehen.',
+    monthly_lock_free:  'Monatsverlauf für alle Tarife ist im Pro-Plan verfügbar.',
+    day_lock_tip: 'Anmelden für vergangene Tage',
     smart_compare_lock_sub: 'Melden Sie sich mit Ihrem API-Key an, um alle Schweizer Tarife zu vergleichen.',
     smart_compare_lock_btn: 'Anmelden →',
     home_plan_pro_btn:   'Kontakt für Pro →',
@@ -2264,6 +2395,15 @@ const T = {
     smart_lock_title: 'Connexion pour les signaux en direct',
     smart_lock_sub: 'Connectez-vous pour voir les meilleures heures, le signal de prix et le profil du jour.',
     smart_lock_btn: 'Se connecter →',
+    dv_slot_lock_title: 'Connexion pour inspecter les slots',
+    dv_slot_lock_sub: 'Connectez-vous pour inspecter les créneaux de prix de 15 minutes.',
+    dv_slot_lock_btn: 'Se connecter →',
+    dv_slot_free_title: 'Fonctionnalité Pro',
+    dv_slot_free_sub: "L'inspection des slots est disponible pour tous les tarifs avec le plan Pro.",
+    dv_slot_free_btn: 'Passer à Pro →',
+    monthly_lock_guest: 'Connectez-vous pour voir l’historique mensuel des prix.',
+    monthly_lock_free:  'L’historique mensuel pour tous les tarifs est disponible avec le plan Pro.',
+    day_lock_tip: 'Connectez-vous pour voir les jours passés',
     smart_compare_lock_sub: 'Connectez-vous avec votre clé API pour comparer tous les tarifs suisses.',
     smart_compare_lock_btn: 'Se connecter →',
     home_plan_pro_btn:   'Nous contacter pour Pro →',
@@ -2473,6 +2613,15 @@ const T = {
     smart_lock_title: 'Accedi per vedere i segnali live',
     smart_lock_sub: 'Accedi con la tua API key per vedere le ore migliori, il segnale prezzo e il profilo giornaliero.',
     smart_lock_btn: 'Accedi →',
+    dv_slot_lock_title: 'Accedi per ispezionare gli slot',
+    dv_slot_lock_sub: 'Accedi con la tua API key per ispezionare i singoli slot di 15 minuti.',
+    dv_slot_lock_btn: 'Accedi →',
+    dv_slot_free_title: 'Funzione Pro',
+    dv_slot_free_sub: 'L’ispezione degli slot è disponibile per tutte le tariffe nel piano Pro. Con Free, solo la prima tariffa è sbloccata.',
+    dv_slot_free_btn: 'Passa a Pro →',
+    monthly_lock_guest: 'Accedi per vedere lo storico mensile dei prezzi.',
+    monthly_lock_free:  'Lo storico mensile per tutte le tariffe è disponibile nel piano Pro.',
+    day_lock_tip: 'Accedi per vedere i giorni passati',
     smart_compare_lock_sub: 'Accedi con la tua API key per confrontare tutte le tariffe svizzere.',
     smart_compare_lock_btn: 'Accedi →',
     home_plan_pro_btn:   'Contatta per Pro →',
@@ -2593,6 +2742,8 @@ function setLang(l) {
     const isPro = (_apiUserInfo.plan||'free') === 'pro';
     _updatePlansForUser(isPro);
   }
+  // Aggiorna testi slot lock in base al piano corrente
+  if (typeof activeTariff !== 'undefined' && activeTariff) _updateDvSlotAccess(activeTariff);
   // ── Re-render tutto il contenuto dinamico ────────────────────────────────
   // Health / status
   if (lastHealthData.length) {
@@ -2703,19 +2854,48 @@ async function loadTariffs() {
   const r = await fetch('/api/v1/tariffs');
   if (!r.ok) return [];
   const tariffs = await r.json();
-  const sel = document.getElementById('tariff-select');
-  const placeholder = lang==='de'?'\u2014 Tarif ausw\u00e4hlen \u2014':lang==='fr'?'\u2014 S\u00e9lectionner \u2014':lang==='it'?'\u2014 Seleziona tariffa \u2014':'\u2014 Select tariff \u2014';
-  sel.innerHTML = `<option value="">${placeholder}</option>` +
-    tariffs.map(t => `<option value="${t.tariff_id}">${t.provider_name} \u2014 ${t.tariff_name}</option>`).join('');
-  if (tariffs.length) sel.value = tariffs[0].tariff_id;
+  _allTariffs = tariffs;
+  _buildTariffSelect(tariffs);
   return tariffs;
 }
+
+function _getUserPlan() {
+  if (!_apiSessionToken) return 'guest';
+  return (_apiUserInfo?.plan || 'free');
+}
+
+function _buildTariffSelect(tariffs) {
+  const sel = document.getElementById('tariff-select');
+  if (!sel) return;
+  const plan = _getUserPlan();
+  // guest: prime 2 libere, resto disabled
+  // free: tutte visibili ma slot lock sulla 2a+
+  // pro: tutto libero
+  sel.innerHTML = tariffs.map((t, i) => {
+    const locked = plan === 'guest' && i >= 2;
+    const lockLabel = locked ? ' 🔒' : '';
+    return `<option value="${t.tariff_id}" ${locked ? 'disabled' : ''}>${t.provider_name} — ${t.tariff_name}${lockLabel}</option>`;
+  }).join('');
+  // Seleziona prima disponibile
+  const first = tariffs.find((_, i) => !(plan === 'guest' && i >= 2));
+  if (first) sel.value = first.tariff_id;
+}
+
+let _allTariffs = [];
 
 async function onTariffChange() {
   const tariffId = document.getElementById('tariff-select').value;
   if (!tariffId) return;
+  // Blocca se non loggato e tariffa fuori dalle prime 2
+  const plan = _getUserPlan();
+  if (plan === 'guest') {
+    const idx = _allTariffs.findIndex(t => t.tariff_id === tariffId);
+    if (idx >= 2) { _buildTariffSelect(_allTariffs); return; }
+  }
   activeTariff = tariffId;
   activeDate = null;
+  // Aggiorna slot panel lock
+  _updateDvSlotAccess(tariffId);
   updatePricesExample(tariffId);
   if (chart) { chart.destroy(); chart = null; }
   const canvas = document.getElementById('priceChart');
@@ -2750,13 +2930,23 @@ async function loadDaySummary(tariffId) {
     return;
   }
   dailySummary = await r.json();
+  const _plan    = _getUserPlan();
+  const _firstId = _allTariffs[0]?.tariff_id;
+  const _isFirst = tariffId === _firstId;
+  // Blocca giorni passati se: guest (sempre), free su tariffa ≥2
+  const _lockPast = _plan === 'guest' || (_plan === 'free' && !_isFirst);
   document.getElementById('day-btns').innerHTML = dailySummary.map((d, i) => {
-    const isToday = d.date === '{{ today }}';
-    const label = isToday ? t('today') : new Date(d.date+'T12:00:00Z').toLocaleDateString(locale(),{weekday:'short',day:'numeric',month:'short'});
+    const isToday  = d.date === '{{ today }}';
+    const isPast   = !isToday;
+    const locked   = _lockPast && isPast;
+    const label    = isToday ? t('today') : new Date(d.date+'T12:00:00Z').toLocaleDateString(locale(),{weekday:'short',day:'numeric',month:'short'});
     const todayCls = isToday ? ' today-pill' : '';
     const activeCls = i === dailySummary.length - 1 ? ' active' : '';
-    return `<button class="day-btn${todayCls}${activeCls}" onclick="selectDay('${d.date}',this)">${label}</button>`;
+    const lockCls  = locked ? ' locked' : '';
+    const lockAttr = locked ? ' title="' + (t('day_lock_tip')||'Log in for history') + '"' : '';
+    return `<button class="day-btn${todayCls}${activeCls}${lockCls}"${lockAttr} ${locked ? '' : `onclick="selectDay('${d.date}',this)"`}>${label}${locked ? ' 🔒' : ''}</button>`;
   }).join('');
+  // Carica sempre oggi (ultimo disponibile)
   if (dailySummary.length) await loadDayChart(tariffId, dailySummary[dailySummary.length-1].date);
 }
 
@@ -2923,10 +3113,12 @@ async function loadDayChart(tariffId, dateStr) {
     options:{
       responsive:true,maintainAspectRatio:false,animation:false,normalized:true,
       interaction:{mode:'index',intersect:false},
+      hover: _isChartInteractive() ? {mode:'index',intersect:false} : {mode:null},
       plugins:{
         legend:{display:false},
         tooltip:{
-          enabled:true,mode:'index',intersect:false,
+          enabled: _isChartInteractive(),
+          mode:'index',intersect:false,
           backgroundColor:'rgba(26,26,46,0.95)',padding:10,cornerRadius:8,
           callbacks:{
             title: items => items?.[0]?.label ?? '',
@@ -2939,21 +3131,85 @@ async function loadDayChart(tariffId, dateStr) {
           }
         }
       },
-      elements:{point:{radius:0,hoverRadius:5,hitRadius:15},line:{borderJoinStyle:'round'}},
+      elements:{point:{radius:0,hoverRadius:_isChartInteractive()?5:0,hitRadius:_isChartInteractive()?15:0},line:{borderJoinStyle:'round'}},
       scales:{
         x:{grid:{display:false},ticks:{maxTicksLimit:8,font:{size:10}}},
         y:{grace:'5%',beginAtZero:false,ticks:{callback:v=>v+' Rp',font:{size:10}}}
       }
     }
   });
-  canvas.onmousemove = e => { const pts = chart.getElementsAtEventForMode(e,'index',{intersect:false},true); if (pts.length) updateSlotPanel(pts[0].index); };
+  canvas.onmousemove = e => {
+    const plan = _getUserPlan();
+    // guest: nessun hover
+    if (plan === 'guest') return;
+    // free: hover solo sulla prima tariffa
+    if (plan === 'free') {
+      const firstId = _allTariffs[0]?.tariff_id;
+      if (activeTariff !== firstId) return;
+    }
+    const pts = chart.getElementsAtEventForMode(e,'index',{intersect:false},true);
+    if (pts.length) updateSlotPanel(pts[0].index);
+  };
   canvas.onmouseleave = () => updateSlotPanel(null);
+  // Cursore grafico
+  canvas.style.cursor = _getChartCursor();
+}
+
+function _getChartCursor() {
+  const plan = _getUserPlan();
+  if (plan === 'guest') return 'default';
+  if (plan === 'free') {
+    const firstId = _allTariffs[0]?.tariff_id;
+    return activeTariff === firstId ? 'crosshair' : 'default';
+  }
+  return 'crosshair';
+}
+
+function _isChartInteractive() {
+  const plan = _getUserPlan();
+  if (plan === 'guest') return false;
+  if (plan === 'pro')   return true;
+  // free: solo prima tariffa
+  const firstId = _allTariffs[0]?.tariff_id;
+  return activeTariff === firstId;
 }
 
 // ── Monthly ───────────────────────────────────────────────────────────────────
 async function loadMonthly(tariffId) {
+  const plan    = _getUserPlan();
+  const firstId = _allTariffs[0]?.tariff_id;
+  const isFirst = tariffId === firstId;
+  const grid    = document.getElementById('month-grid');
+  const overlay = document.getElementById('monthly-lock-overlay');
+  const skel    = document.getElementById('monthly-skeleton');
+
+  // Solo guest: mostra skeleton + lock (loggati vedono sempre il monthly)
+  if (plan === 'guest') {
+    if (grid)    grid.style.display    = 'none';
+    if (overlay) overlay.style.display = 'flex';
+    if (skel)    skel.style.display    = 'block';
+    // Testo pill in base al piano
+    const titleEl = document.getElementById('monthly-lock-title');
+    const subEl   = document.getElementById('monthly-lock-sub');
+    const btnEl   = document.getElementById('monthly-lock-btn');
+    if (plan === 'guest') {
+      if (titleEl) titleEl.textContent = t('dv_slot_lock_title');
+      if (subEl)   subEl.textContent   = t('monthly_lock_guest');
+      if (btnEl)   { btnEl.textContent = t('dv_slot_lock_btn'); btnEl.onclick = () => switchView('api'); }
+    } else {
+      if (titleEl) titleEl.textContent = t('dv_slot_free_title');
+      if (subEl)   subEl.textContent   = t('monthly_lock_free');
+      if (btnEl)   { btnEl.textContent = 'Pro →'; btnEl.onclick = showProUpgradeForm; }
+    }
+    return;
+  }
+
+  // Mostra contenuto reale
+  if (grid)    grid.style.display    = '';
+  if (overlay) overlay.style.display = 'none';
+  if (skel)    skel.style.display    = 'none';
+
   const r = await fetch(`/api/v1/summary/monthly?tariff_id=${tariffId}&months=3`);
-  const grid = document.getElementById('month-grid');
   if (!r.ok) { grid.innerHTML = `<div style="color:#aaa;font-size:12px">${t('select_tariff')}</div>`; return; }
   lastMonthData = await r.json(); renderMonthGrid(lastMonthData);
 }
@@ -3453,12 +3709,14 @@ async function loadSmart(dateStr) {
           `</optgroup>`
         : '');
   }
+  // Prima aggiorna accesso (mostra/nasconde div loggato/skeleton)
+  _updateSmartAccess();
+  // Poi renderizza — i div sono già visibili
   if (withData.length) {
     activeSmartTariff = withData[0].tariff_id;
     if (_apiSessionToken) renderSmartTariff(withData[0]);
   }
   renderSmartCompare(smartData.tariffs);
-  _updateSmartAccess();
 }
 
 function selectSmartTariff(tariffId, btn) {
@@ -3684,6 +3942,7 @@ async function init() {
   try {
     await Promise.all([loadHealth(), loadTariffs()]);
     await onTariffChange();
+    _updateDvSlotAccess(activeTariff);
   } catch(e) {
     console.error('Init error:', e);
     const _eb = document.getElementById('header-badge'); if(_eb){_eb.textContent='Error';_eb.className='badge badge-err';}
@@ -3808,6 +4067,59 @@ async function homeLogin() {
     err.textContent = t('home_auth_err_net');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Accedi →'; }
+  }
+}
+
+function _updateDvSlotAccess(tariffId) {
+  const plan = _getUserPlan();
+  const slotContent = document.getElementById('slot-panel-content');
+  const slotLock    = document.getElementById('dv-slot-lock');
+  if (!slotContent || !slotLock) return;
+
+  let lockMsg = '';
+  if (plan === 'guest') {
+    lockMsg = 'guest';
+  } else if (plan === 'free') {
+    const firstId = _allTariffs[0]?.tariff_id;
+    if (tariffId && tariffId !== firstId) lockMsg = 'free';
+  }
+
+  if (lockMsg) {
+    slotContent.style.display = 'none';
+    slotLock.style.display    = 'block';
+    const titleEl = document.getElementById('dv-slot-lock-title');
+    const subEl   = document.getElementById('dv-slot-lock-sub');
+    const btnEl   = document.getElementById('dv-slot-lock-btn');
+    if (lockMsg === 'guest') {
+      if (titleEl) titleEl.textContent = t('dv_slot_lock_title');
+      if (subEl)   subEl.textContent   = t('dv_slot_lock_sub');
+      if (btnEl)   { btnEl.textContent = t('dv_slot_lock_btn'); btnEl.onclick = () => switchView('api'); }
+    } else {
+      // free — su tariffa non-prima
+      if (titleEl) titleEl.textContent = t('dv_slot_free_title');
+      if (subEl)   subEl.textContent   = t('dv_slot_free_sub');
+      if (btnEl)   { btnEl.textContent = t('dv_slot_free_btn'); btnEl.onclick = showProUpgradeForm; }
+    }
+  } else {
+    slotContent.style.display = '';
+    slotLock.style.display    = 'none';
+  }
+}
+
+function _updateDvAccess() {
+  // Ricostruisce select con accesso corretto dopo login/logout
+  if (_allTariffs.length) {
+    _buildTariffSelect(_allTariffs);
+    // Se la tariffa attiva è ora bloccata, reset alla prima
+    const plan = _getUserPlan();
+    if (plan === 'guest') {
+      const idx = _allTariffs.findIndex(t => t.tariff_id === activeTariff);
+      if (idx >= 2) {
+        activeTariff = _allTariffs[0]?.tariff_id;
+        document.getElementById('tariff-select').value = activeTariff;
+      }
+    }
+    _updateDvSlotAccess(activeTariff);
   }
 }
 
@@ -4314,6 +4626,14 @@ function showApiContent() {
     _populateUserDropdown(info);
   _updateHomeAuthBox();
   _updateSmartAccess();
+  _updateDvAccess();
+  // Ricarica dati con nuovi permessi
+  if (activeTariff) onTariffChange();
+  if (smartData && activeSmartTariff) {
+    const _td = smartData.tariffs.find(t => t.tariff_id === activeSmartTariff);
+    if (_td) renderSmartTariff(_td);
+    renderSmartCompare(smartData.tariffs);
+  }
   }
 }
 
@@ -4392,6 +4712,16 @@ function apiLogout() {
   _updateHomeAuthBox();
   _resetPlansUI();
   _updateSmartAccess();
+  _updateDvAccess();
+  // Ricarica dati con permessi resettati
+  if (activeTariff) onTariffChange();
+  if (smartData && activeSmartTariff) {
+    renderSmartCompare(smartData.tariffs);
+    // Svuota sezioni bloccate
+    document.getElementById('smart-bars').innerHTML = '';
+    document.getElementById('smart-best').innerHTML = '';
+    document.getElementById('smart-worst').innerHTML = '';
+  }
 }
 
 function showRegForm() {
