@@ -242,6 +242,52 @@ _engine = None
 _SessionLocal = None
 
 
+def _migrate_api_keys_columns(engine) -> None:
+    """
+    Migrazione leggera senza Alembic: aggiunge le colonne mancanti alla tabella
+    api_keys se il DB esiste già da una versione precedente.
+    Idempotente — può essere chiamata ad ogni avvio senza effetti collaterali.
+    """
+    import logging
+    log = logging.getLogger("database.migrate")
+
+    # Colonne da aggiungere: (nome, DDL SQLite/PG compatibile)
+    migrations = [
+        ("plan",      "VARCHAR(10)  DEFAULT 'free' NOT NULL"),
+        ("pro_since", "TIMESTAMP"),
+    ]
+
+    dialect = engine.dialect.name
+
+    with engine.connect() as conn:
+        for col_name, col_def in migrations:
+            try:
+                if dialect == "sqlite":
+                    # SQLite: PRAGMA table_info per vedere le colonne esistenti
+                    result = conn.execute(text("PRAGMA table_info(api_keys)"))
+                    existing = {row[1] for row in result}  # row[1] = nome colonna
+                    if col_name not in existing:
+                        conn.execute(text(
+                            f"ALTER TABLE api_keys ADD COLUMN {col_name} {col_def}"
+                        ))
+                        conn.commit()
+                        log.info(f"[migrate] Aggiunta colonna api_keys.{col_name} (SQLite)")
+                else:
+                    # PostgreSQL: information_schema
+                    result = conn.execute(text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name='api_keys' AND column_name=:col"
+                    ), {"col": col_name})
+                    if result.fetchone() is None:
+                        conn.execute(text(
+                            f"ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS {col_name} {col_def}"
+                        ))
+                        conn.commit()
+                        log.info(f"[migrate] Aggiunta colonna api_keys.{col_name} (PostgreSQL)")
+            except Exception as e:
+                log.warning(f"[migrate] Impossibile aggiungere {col_name}: {e}")
+
+
 def init_db(database_url: Optional[str] = None) -> sessionmaker:
     """
     Crea le tabelle (se non esistono) e ritorna una session factory.
@@ -264,6 +310,7 @@ def init_db(database_url: Optional[str] = None) -> sessionmaker:
         except ImportError:
             pass
         Base.metadata.create_all(_engine)
+        _migrate_api_keys_columns(_engine)
         _SessionLocal = sessionmaker(bind=_engine, expire_on_commit=False)
 
         import logging

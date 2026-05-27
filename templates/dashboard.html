@@ -140,6 +140,12 @@
                 font-size:12px;font-weight:500;cursor:pointer;
                 transition:background .15s;display:flex;align-items:center;justify-content:center;gap:7px}
     .hdd-logout:hover{background:rgba(226,75,74,.2)}
+    .hdd-upgrade{width:100%;padding:9px;border-radius:9px;border:none;
+      background:linear-gradient(135deg,#185fa5,#1d9e75);color:white;
+      font-size:12px;font-weight:600;cursor:pointer;margin-bottom:8px;
+      display:none;align-items:center;justify-content:center;gap:6px;
+      transition:opacity .15s}
+    .hdd-upgrade:hover{opacity:.9}
     /* ── USER BAR ── */
 
 
@@ -468,116 +474,157 @@
     .hrm-countdown{font-size:12px;color:#aaa}
     .hrm-countdown span{font-weight:600;color:#555}
 
-    /* Upgrade payment modal */
-    /* ── UPGRADE MODAL ── */
+    /* ══════════════════════════════════════════════════════════════
+       UPGRADE / PAYMENT MODAL — Professional Checkout
+       ══════════════════════════════════════════════════════════════ */
     .upgrade-modal-bg{
-      position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9998;
+      position:fixed;inset:0;background:rgba(8,10,18,.72);z-index:9998;
       display:none;align-items:center;justify-content:center;padding:16px;
-      backdrop-filter:blur(4px)
+      backdrop-filter:blur(6px)
     }
     .upgrade-modal-bg.open{display:flex}
     .upgrade-modal{
-      background:white;border-radius:20px;width:100%;max-width:860px;
-      box-shadow:0 32px 80px rgba(0,0,0,.3);
-      display:grid;grid-template-columns:280px 1fr;
-      max-height:92vh;overflow:hidden;position:relative
+      background:white;border-radius:22px;width:100%;max-width:880px;
+      box-shadow:0 40px 100px rgba(0,0,0,.35);
+      display:grid;grid-template-columns:300px 1fr;
+      max-height:94vh;overflow:hidden;position:relative;
+      animation:umIn .3s cubic-bezier(.4,0,.2,1)
     }
-    /* Colonna sinistra — piano */
+    @keyframes umIn{from{transform:translateY(24px) scale(.97);opacity:0}to{transform:none;opacity:1}}
+
+    /* ── COLONNA SINISTRA ── */
     .um-left{
-      background:linear-gradient(160deg,#0d1117 0%,#152038 100%);
-      padding:32px 28px;display:flex;flex-direction:column;position:relative;
-      overflow:hidden
+      background:linear-gradient(155deg,#080d18 0%,#0f1e3a 60%,#0a2740 100%);
+      padding:28px 24px;display:flex;flex-direction:column;position:relative;
+      overflow-y:auto;overflow-x:hidden
     }
-    .um-left::before{content:'';position:absolute;top:-60px;right:-60px;
-      width:200px;height:200px;border-radius:50%;
-      background:radial-gradient(circle,rgba(52,211,153,.15),transparent 70%)}
+    .um-left::before{content:'';position:absolute;top:-80px;right:-80px;width:240px;height:240px;
+      border-radius:50%;background:radial-gradient(circle,rgba(29,158,117,.18),transparent 65%);pointer-events:none}
+    .um-left::after{content:'';position:absolute;bottom:-60px;left:-60px;width:200px;height:200px;
+      border-radius:50%;background:radial-gradient(circle,rgba(24,95,165,.15),transparent 65%);pointer-events:none}
+    .um-logo{display:flex;align-items:center;gap:9px;margin-bottom:24px;position:relative;z-index:1}
+    .um-logo-icon{width:30px;height:30px;border-radius:8px;background:#c8102e;
+      display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .um-logo-text{font-size:12px;font-weight:600;color:rgba(255,255,255,.6);letter-spacing:.03em}
+    .um-plan-badge{display:inline-flex;align-items:center;gap:6px;position:relative;z-index:1;
+      background:rgba(52,211,153,.12);border:0.5px solid rgba(52,211,153,.28);
+      color:#34d399;font-size:10px;font-weight:700;padding:4px 11px;
+      border-radius:99px;margin-bottom:10px;letter-spacing:.06em;width:fit-content}
+    .um-plan-price{font-size:42px;font-weight:800;color:white;line-height:1;
+      font-family:'Georgia',serif;margin-bottom:2px;position:relative;z-index:1}
+    .um-plan-price sup{font-size:16px;vertical-align:super;font-weight:600;opacity:.7}
+    .um-plan-period{font-size:12px;color:rgba(255,255,255,.35);margin-bottom:20px;position:relative;z-index:1}
+    .um-features{display:flex;flex-direction:column;gap:9px;position:relative;z-index:1}
+    .um-feature{display:flex;align-items:center;gap:10px;font-size:12px;color:rgba(255,255,255,.7)}
+    .um-feature-check{width:18px;height:18px;border-radius:50%;flex-shrink:0;
+      background:rgba(52,211,153,.18);border:0.5px solid rgba(52,211,153,.35);
+      display:flex;align-items:center;justify-content:center}
+    .um-guarantee{margin-top:18px;padding:11px;background:rgba(255,255,255,.05);
+      border-radius:10px;font-size:11px;color:rgba(255,255,255,.38);
+      line-height:1.5;border:0.5px solid rgba(255,255,255,.07);position:relative;z-index:1}
+    .um-trust-badges{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;position:relative;z-index:1;padding-bottom:4px}
+    .um-trust-badge{font-size:9px;color:rgba(255,255,255,.3);display:flex;align-items:center;gap:4px}
     .um-close{
-      position:absolute;top:14px;right:14px;background:rgba(255,255,255,.1);
-      border:none;color:rgba(255,255,255,.7);width:28px;height:28px;
-      border-radius:50%;cursor:pointer;font-size:18px;line-height:1;
-      display:flex;align-items:center;justify-content:center;transition:all .15s;
-      z-index:2
+      position:absolute;top:16px;right:16px;background:rgba(255,255,255,.08);
+      border:0.5px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6);
+      width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:17px;
+      display:flex;align-items:center;justify-content:center;transition:all .15s;z-index:10
     }
-    .um-close:hover{background:rgba(255,255,255,.2);color:white}
-    .um-logo{display:flex;align-items:center;gap:8px;margin-bottom:32px}
-    .um-logo-icon{width:28px;height:28px;border-radius:7px;background:#c8102e;
-      display:flex;align-items:center;justify-content:center;flex-shrink:0}
-    .um-logo-text{font-size:12px;font-weight:600;color:rgba(255,255,255,.7);
-      letter-spacing:.02em}
-    .um-plan-badge{display:inline-flex;align-items:center;gap:6px;
-      background:rgba(52,211,153,.15);border:0.5px solid rgba(52,211,153,.3);
-      color:#34d399;font-size:11px;font-weight:600;padding:4px 10px;
-      border-radius:99px;margin-bottom:16px;letter-spacing:.04em}
-    .um-plan-price{font-size:42px;font-weight:700;color:white;line-height:1;
-      font-family:'Georgia',serif;margin-bottom:4px}
-    .um-plan-period{font-size:13px;color:rgba(255,255,255,.4);margin-bottom:28px}
-    .um-features{display:flex;flex-direction:column;gap:10px;flex:1}
-    .um-feature{display:flex;align-items:center;gap:10px;font-size:12px;
-      color:rgba(255,255,255,.7)}
-    .um-feature-check{width:18px;height:18px;border-radius:50%;
-      background:rgba(52,211,153,.2);border:0.5px solid rgba(52,211,153,.4);
-      display:flex;align-items:center;justify-content:center;flex-shrink:0}
-    .um-guarantee{margin-top:24px;padding:12px;background:rgba(255,255,255,.06);
-      border-radius:10px;font-size:11px;color:rgba(255,255,255,.45);
-      line-height:1.5;border:0.5px solid rgba(255,255,255,.08)}
-    /* Colonna destra — form */
-    .um-right{overflow-y:auto;display:flex;flex-direction:column}
-    .um-right-header{padding:28px 32px 0;border-bottom:0.5px solid #f0f0f0;
-      padding-bottom:20px}
-    .um-right-title{font-size:17px;font-weight:700;color:#0d1117;
-      margin-bottom:4px;font-family:'Georgia',serif}
-    .um-right-sub{font-size:12px;color:#999}
-    .um-body{padding:24px 32px;flex:1}
-    .um-section-title{font-size:10px;font-weight:600;color:#bbb;
-      text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;
-      margin-top:20px}
-    .um-section-title:first-child{margin-top:0}
-    .um-field{margin-bottom:12px}
-    .um-label{font-size:11px;color:#888;font-weight:500;
-      margin-bottom:5px;display:block}
+    .um-close:hover{background:rgba(255,255,255,.18);color:white}
+
+    /* ── COLONNA DESTRA ── */
+    .um-right{overflow-y:auto;display:flex;flex-direction:column;background:#fff}
+    .um-right-header{padding:28px 32px 20px;border-bottom:1px solid #f2f2f4}
+    .um-right-title{font-size:18px;font-weight:700;color:#0d1117;margin-bottom:3px}
+    .um-right-sub{font-size:12px;color:#aaa;display:flex;align-items:center;gap:5px}
+    .um-body{padding:24px 32px;flex:1;min-height:0}
+    .um-footer{padding:0 32px 28px}
+    .um-err{font-size:12px;color:#e24b4a;min-height:16px;margin-bottom:8px;
+      display:flex;align-items:center;gap:5px}
+    .um-section-title{font-size:10px;font-weight:600;color:#b0b4be;
+      text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px;margin-top:0}
+    .um-field{margin-bottom:14px}
+    .um-label{font-size:11.5px;color:#555;font-weight:500;margin-bottom:5px;display:block}
     .um-input,.um-card-input{
-      width:100%;padding:9px 12px;font-size:13px;
-      border:0.5px solid #e0e0e0;border-radius:8px;outline:none;
-      color:#0d1117;transition:border .15s;background:#fafafa
+      width:100%;padding:10px 13px;font-size:13px;
+      border:1.5px solid #e8eaee;border-radius:9px;outline:none;
+      color:#0d1117;transition:border .15s,box-shadow .15s;background:#fff
     }
-    .um-input:focus,.um-card-input:focus{border-color:#185fa5;background:white}
-    .um-card-input{font-family:monospace;letter-spacing:.06em}
-    .um-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .um-card-row{display:grid;grid-template-columns:1fr 76px 68px;gap:10px}
-    .um-divider{height:0.5px;background:#f0f0f0;margin:16px 0}
-    /* Card brand icons */
-    .um-card-brands{display:flex;gap:6px;margin-bottom:10px}
-    .um-brand{height:22px;padding:0 8px;border:0.5px solid #e8e8e8;
+    .um-input:focus,.um-card-input:focus{
+      border-color:#185fa5;box-shadow:0 0 0 3px rgba(24,95,165,.08)}
+    .um-input::placeholder,.um-card-input::placeholder{color:#ccc}
+    .um-card-input{font-family:monospace;letter-spacing:.08em}
+    .um-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .um-card-row{display:grid;grid-template-columns:1fr 80px 70px;gap:10px}
+    .um-divider{height:1px;background:#f2f2f4;margin:20px 0}
+
+    /* ── SELEZIONE METODO ── */
+    .um-method-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px}
+    .um-method-btn{
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+      padding:14px 10px;border:1.5px solid #e8eaee;border-radius:12px;
+      background:#fff;cursor:pointer;transition:all .18s;
+      font-size:11px;font-weight:600;color:#555;min-height:72px
+    }
+    .um-method-btn:hover{border-color:#185fa5;background:#f5f8ff;color:#185fa5}
+    .um-method-btn.active{border-color:#185fa5;background:#eef3ff;color:#185fa5;
+      box-shadow:0 0 0 3px rgba(24,95,165,.1)}
+    .um-method-icon{width:36px;height:24px;display:flex;align-items:center;justify-content:center}
+    .um-method-full{grid-column:1/-1}
+
+    /* ── STEP ANIMAZIONE ── */
+    .um-step{transition:opacity .22s,transform .22s}
+    .um-step.leaving{opacity:0;transform:translateX(-18px);pointer-events:none}
+    .um-step.entering{animation:stepIn .22s cubic-bezier(.4,0,.2,1)}
+    @keyframes stepIn{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+
+    /* ── BACK BUTTON ── */
+    .um-back-btn{display:flex;align-items:center;gap:6px;background:none;border:none;
+      color:#aaa;font-size:12px;cursor:pointer;padding:0;margin-bottom:18px;
+      transition:color .15s}
+    .um-back-btn:hover{color:#185fa5}
+
+    /* ── SUBMIT ── */
+    .um-submit{
+      width:100%;padding:14px;
+      background:linear-gradient(135deg,#185fa5 0%,#1d9e75 100%);
+      color:white;border:none;border-radius:11px;font-size:14px;font-weight:700;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;
+      gap:9px;transition:all .2s;box-shadow:0 4px 18px rgba(24,95,165,.28);
+      letter-spacing:.01em
+    }
+    .um-submit:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(24,95,165,.38)}
+    .um-submit:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+    .um-submit-paypal{background:linear-gradient(135deg,#003087,#009cde)}
+    .um-submit-apple{background:#000}
+    .um-submit-google{background:#fff;color:#1a1a2e;border:1.5px solid #e0e0e0;
+      box-shadow:0 2px 8px rgba(0,0,0,.08)}
+    .um-security{display:flex;align-items:center;gap:6px;margin-top:11px;
+      font-size:10.5px;color:#bbb;justify-content:center}
+
+    /* ── WALLET NOTICE ── */
+    .um-wallet-notice{
+      padding:20px;background:#f8f9fc;border-radius:12px;border:1px dashed #dde2ee;
+      text-align:center;margin:8px 0 20px
+    }
+    .um-wallet-notice-icon{font-size:32px;margin-bottom:10px}
+    .um-wallet-notice-title{font-size:14px;font-weight:600;color:#1a1a2e;margin-bottom:6px}
+    .um-wallet-notice-sub{font-size:12px;color:#888;line-height:1.5;max-width:280px;margin:0 auto}
+
+    /* ── CARD BRANDS ── */
+    .um-card-brands{display:flex;gap:5px;margin-bottom:14px;flex-wrap:wrap}
+    .um-brand{height:24px;padding:0 8px;border:1px solid #eee;
       border-radius:5px;background:white;display:flex;align-items:center;
-      justify-content:center;font-size:10px;font-weight:700;letter-spacing:.03em}
+      justify-content:center;font-size:9px;font-weight:800;letter-spacing:.04em}
     .um-brand-visa{color:#1a1f71}
-    .um-brand-mc{background:white;overflow:hidden}
     .um-brand-amex{color:#016fcf}
     .um-brand-twint{color:#000}
-    /* Submit area */
-    .um-footer{padding:0 32px 28px}
-    .um-err{font-size:12px;color:#e24b4a;min-height:16px;margin-bottom:8px}
-    .um-submit{
-      width:100%;padding:13px;background:linear-gradient(135deg,#185fa5,#0f6e56);
-      color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;
-      cursor:pointer;display:flex;align-items:center;justify-content:center;
-      gap:8px;transition:all .2s;box-shadow:0 4px 14px rgba(24,95,165,.3)
+
+    @media(max-width:720px){
+      .upgrade-modal{grid-template-columns:1fr;max-height:96vh}
+      .um-left{display:none}
+      .um-method-grid{grid-template-columns:1fr 1fr}
     }
-    .um-submit:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(24,95,165,.4)}
-    .um-submit:disabled{opacity:.6;cursor:not-allowed;transform:none}
-    .um-security{display:flex;align-items:center;gap:6px;margin-top:12px;
-      font-size:11px;color:#bbb;justify-content:center}
-    @media(max-width:700px){
-      .upgrade-modal{grid-template-columns:1fr;max-height:95vh}
-      .um-left{padding:24px;display:none}
-    }
-    /* Upgrade btn nel dropdown */
-    .hdd-upgrade{width:100%;padding:9px;border-radius:9px;border:none;
-      background:linear-gradient(135deg,#185fa5,#1d9e75);color:white;
-      font-size:12px;font-weight:600;cursor:pointer;margin-bottom:8px;
-      display:none;align-items:center;justify-content:center;gap:6px;
-      transition:opacity .15s}
-    .hdd-upgrade:hover{opacity:.9}
     @keyframes spin{to{transform:rotate(360deg)}}
     @media(max-width:680px){
       .home-auth-section{grid-template-columns:1fr}
@@ -808,6 +855,32 @@
                  white-space:pre-wrap;word-break:break-all;display:none}
     .try-result.error{color:#e24b4a}
     .try-meta{font-size:10px;color:#aaa;margin-bottom:6px;display:none}
+
+    /* ── Try-it warning popup ── */
+    #try-warn-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99990;
+      display:flex;align-items:center;justify-content:center;
+      animation:fadeInOverlay .18s ease}
+    @keyframes fadeInOverlay{from{opacity:0}to{opacity:1}}
+    #try-warn-box{background:#fff;border-radius:16px;padding:28px 28px 22px;max-width:380px;width:92%;
+      box-shadow:0 24px 64px rgba(0,0,0,.28);text-align:center;
+      animation:popIn .2s cubic-bezier(.34,1.56,.64,1)}
+    @keyframes popIn{from{transform:scale(.88);opacity:0}to{transform:scale(1);opacity:1}}
+    #try-warn-icon{font-size:36px;margin-bottom:10px}
+    #try-warn-title{font-size:15px;font-weight:700;color:#1a1a2e;margin-bottom:7px}
+    #try-warn-body{font-size:12.5px;color:#666;line-height:1.6;margin-bottom:18px}
+    #try-warn-body strong{color:#185fa5}
+    #try-warn-actions{display:flex;flex-direction:column;gap:8px}
+    #try-warn-confirm{padding:11px 0;background:linear-gradient(135deg,#185fa5,#1d9e75);
+      color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;
+      transition:opacity .15s}
+    #try-warn-confirm:hover{opacity:.9}
+    #try-warn-cancel{padding:9px 0;background:#f3f4f6;color:#555;border:none;border-radius:9px;
+      font-size:12px;font-weight:500;cursor:pointer}
+    #try-warn-cancel:hover{background:#e5e7eb}
+    #try-warn-nevershow{display:flex;align-items:center;justify-content:center;gap:6px;
+      margin-top:10px;cursor:pointer}
+    #try-warn-nevershow input{width:14px;height:14px;cursor:pointer;accent-color:#185fa5}
+    #try-warn-nevershow label{font-size:11px;color:#aaa;cursor:pointer;user-select:none}
   </style>{% endraw %}
 </head>
 <body>
@@ -940,8 +1013,28 @@
           </span>
           <span class="hdd-val" id="hdd-country">—</span>
         </div>
+        <div class="hdd-row" id="hdd-tariff-row" style="display:none">
+          <span class="hdd-label">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M1 9.5V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v5.5M1 9.5h11M4 6.5h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+            Tariff
+          </span>
+          <span class="hdd-val" id="hdd-tariff-val" style="font-size:10px;color:#185fa5;font-family:monospace">—</span>
+        </div>
       </div>
       <div class="hdd-footer">
+        <button id="hdd-change-tariff-btn" onclick="_showFreeTariffModal(true);toggleUserDropdown()"
+          style="display:none;width:100%;margin-bottom:6px;padding:8px 12px;
+                 border:1px solid #c5d8f0;border-radius:8px;background:#f4f8ff;
+                 color:#185fa5;font-size:12px;font-weight:600;cursor:pointer;
+                 display:none;align-items:center;gap:8px">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M1 6.5A5.5 5.5 0 0 1 10.4 2.3M12 6.5A5.5 5.5 0 0 1 2.6 10.7M1 2v3h3M12 11v-3H9"
+                  stroke="#185fa5" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span data-i18n="ftm_title">Choose tariff</span>
+        </button>
         <button class="hdd-upgrade" id="hdd-upgrade-btn" onclick="showProUpgradeForm();toggleUserDropdown()">
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
             <path d="M6.5 1l1.2 3.4H11l-2.9 2.1 1.1 3.4L6.5 8 3.8 9.9l1.1-3.4L2 4.4h3.3L6.5 1z" fill="white"/>
@@ -1088,11 +1181,11 @@
       <div class="home-plan featured" id="home-plan-pro-card">
 <div class="home-plan-badge" id="home-plan-pro-badge" data-i18n="home_plan_recommended">Consigliato</div>
         <div class="home-plan-name" data-i18n="home_plan_pro">Pro</div>
-        <div class="home-plan-price">CHF 49 <span data-i18n="um_per_month">/ mese</span></div>
+        <div class="home-plan-price">CHF 19 <span data-i18n="um_per_month">/ mese</span></div>
 <div class="home-plan-desc" data-i18n="home_plan_pro_desc">Per aziende, aggregatori e sistemi di automazione energetica.</div>
         <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div><span data-i18n="pf_pro_1">2000 richieste / giorno</span></div>
-        <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div>Storico illimitato</div>
-        <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div>/prices/all — tutte le tariffe</div>
+        <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div><span data-i18n="pf_pro_2">Storico illimitato</span></div>
+        <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div><span data-i18n="pf_pro_3">/prices/all — tutte le tariffe</span></div>
         <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div><span data-i18n="pf_pro_4">Summary mensile e /metrics</span></div>
         <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div><span data-i18n="pf_pro_5">Rate limit 30 req/min</span></div>
         <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div><span data-i18n="pf_pro_6">Supporto prioritario</span></div>
@@ -1299,10 +1392,7 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
         <div class="sk-lock-wrap card" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
           <div class="sk-lock-overlay">
-          <div class="sk-lock-icon-wrap"><svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <rect x="2.5" y="7.5" width="11" height="8" rx="2" stroke="#185fa5" stroke-width="1.5"/>
-                <path d="M5.5 7.5V5.5a2.5 2.5 0 015 0v2" stroke="#185fa5" stroke-width="1.5" stroke-linecap="round"/>
-              </svg></div>
+          <div class="smart-lock-icon">🔒</div>
         </div>
           <div style="display:flex;flex-direction:column;gap:8px">
             <div style="display:flex;gap:6px">
@@ -1320,10 +1410,7 @@
         </div>
         <div class="sk-lock-wrap card" style="display:flex;flex-direction:column;gap:8px">
           <div class="sk-lock-overlay">
-          <div class="sk-lock-icon-wrap"><svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <rect x="2.5" y="7.5" width="11" height="8" rx="2" stroke="#185fa5" stroke-width="1.5"/>
-                <path d="M5.5 7.5V5.5a2.5 2.5 0 015 0v2" stroke="#185fa5" stroke-width="1.5" stroke-linecap="round"/>
-              </svg></div>
+          <div class="smart-lock-icon">🔒</div>
         </div>
           <div class="sk" style="height:10px;width:60%"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -1359,10 +1446,7 @@
       <div id="smart-profile-skeleton" style="display:none">
         <div class="sk-lock-wrap">
         <div class="sk-lock-overlay">
-          <div class="sk-lock-icon-wrap"><svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <rect x="2.5" y="7.5" width="11" height="8" rx="2" stroke="#185fa5" stroke-width="1.5"/>
-                <path d="M5.5 7.5V5.5a2.5 2.5 0 015 0v2" stroke="#185fa5" stroke-width="1.5" stroke-linecap="round"/>
-              </svg></div>
+          <div class="smart-lock-icon">🔒</div>
         </div>
         <div class="card">
           <div class="sk" style="height:10px;width:40%;margin-bottom:14px;border-radius:5px"></div>
@@ -1379,10 +1463,7 @@
     <div id="smart-lock-pill-wrap" style="display:none;margin-top:12px">
       <div class="smart-lock-pill">
         <div class="smart-lock-icon">
-          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-            <rect x="2" y="7" width="11" height="8" rx="2" stroke="#185fa5" stroke-width="1.4"/>
-            <path d="M5 7V5a2.5 2.5 0 015 0v2" stroke="#185fa5" stroke-width="1.4" stroke-linecap="round"/>
-          </svg>
+          🔒
         </div>
         <div class="smart-lock-text">
           <div class="smart-lock-title" data-i18n="smart_lock_title">Login to see live signals</div>
@@ -1458,11 +1539,8 @@
           <div class="card-header"><span class="card-title" data-i18n="monthly_summary"></span></div>
           <!-- Overlay lock (non-pro su tariffa ≥2) -->
           <div class="monthly-lock-overlay" id="monthly-lock-overlay" style="display:none">
-            <div class="monthly-lock-icon-wrap">
-              <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-                <rect x="2" y="7" width="11" height="8" rx="2" stroke="#185fa5" stroke-width="1.4"/>
-                <path d="M5 7V5a2.5 2.5 0 015 0v2" stroke="#185fa5" stroke-width="1.4" stroke-linecap="round"/>
-              </svg>
+            <div class="smart-lock-icon">
+              🔒
             </div>
           </div>
           <!-- Skeleton monthly (non-pro su tariffa ≥2) -->
@@ -1772,7 +1850,7 @@
       </div>
 
       <!-- /prices/all -->
-      <div class="api-section">
+      <div class="api-section" id="api-section-all" style="position:relative">
         <div class="api-section-header">
           <div class="api-section-title">
             <span class="api-method">GET</span>
@@ -1797,6 +1875,25 @@
           </div>
           <div class="try-meta" id="try-meta-all"></div>
           <pre class="try-result" id="try-result-all"></pre>
+        </div>
+        <!-- Overlay Pro — visibile solo per piano free -->
+        <div id="api-all-pro-overlay" style="display:none;position:absolute;inset:0;
+             background:rgba(248,250,255,.92);backdrop-filter:blur(3px);
+             border-radius:inherit;z-index:10;
+             flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center">
+          <div style="width:48px;height:48px;border-radius:50%;background:#f0f4ff;
+                      border:1.5px solid #c5d8f0;display:flex;align-items:center;justify-content:center;font-size:22px">
+            🔒
+          </div>
+          <div style="font-size:14px;font-weight:700;color:#1a1a2e">Pro only</div>
+          <div style="font-size:12px;color:#888;max-width:260px;line-height:1.5">
+            <code>/prices/all</code> returns all providers in one call.<br>Available on the Pro plan.
+          </div>
+          <button onclick="showProUpgradeForm()"
+            style="padding:9px 22px;background:linear-gradient(135deg,#185fa5,#1d9e75);
+                   color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">
+            Upgrade to Pro →
+          </button>
         </div>
       </div>
 
@@ -1905,6 +2002,9 @@ const T = {
     gate_suspended_msg: 'Your API key has been suspended. Contact support.',
     gate_revoked_msg: 'Your API key has been revoked.',
     gate_ratelimit_msg: 'Daily rate limit reached. Resets at midnight CET.',
+    susp_banner_title: 'Key temporarily suspended',
+    susp_banner_sub: 'An email has been sent to you with details. Contact support for more information.',
+    susp_banner_contact: 'Contact support',
     ratelimit_popup_title: 'Daily limit reached',
     ratelimit_popup_sub: 'You have used {used} of {limit} requests today. Your quota resets at midnight Swiss time. An email has been sent to you.',
     reg_replace_title: 'You already have an active key',
@@ -1992,7 +2092,7 @@ const T = {
     home_your_plan:      'Your plan',
     hdd_upgrade_btn:     'Upgrade to Pro ⚡',
     um_per_month:        '/ month',
-    um_billed_monthly:   'Monthly billing · cancel anytime',
+    um_billed_monthly:   'Monthly billing \u00b7 cancel anytime',
     um_billing_info:     'Billing details',
     um_payment_info:     'Payment details',
     um_first_name:       'First name',
@@ -2000,7 +2100,7 @@ const T = {
     um_card_number:      'Card number',
     um_card_name:        'Name on card',
     um_expiry:           'Expiry',
-    um_pay_btn:          'Pay CHF 49 / month',
+    um_pay_btn:          'Pay CHF 19 / month',
     um_processing:       'Processing...',
     um_secure:           'SSL secure payment · Data not stored',
     um_cards_accepted:   'Accepted cards',
@@ -2013,7 +2113,7 @@ const T = {
     um_success_title:    'Payment received!',
     um_success_sub:      'Thank you! We are activating your Pro plan. You will receive a confirmation email within a few minutes.',
     um_success_close:    'Close',
-    um_guarantee:        '🔒 30-day money-back guarantee. No questions asked.',
+    um_guarantee:        '\uD83D\uDD12 Secure payment \u00b7 Cancel anytime before next billing date.',
     um_right_sub:        'Secure payment · Instant activation',
     um_title:            'Complete your subscription',
     hrm_closing:         'Closing in <span id="hrm-countdown-n">10</span>s...',
@@ -2031,6 +2131,40 @@ const T = {
     um_submit:           'Send Pro request',
     um_note:             'We will reply within 24h with payment instructions. No immediate charge.',
     um_err_required:     'Name and email are required.',
+    um_gate_title:       'Create an account first',
+    um_gate_sub:         'You need a free API key before upgrading to Pro. Registration is quick and free.',
+    um_gate_register:    'Create free account →',
+    um_gate_login:       'Already have a key? Log in',
+    ftm_title:           'Choose your default tariff',
+    ftm_sub:             'Free plan: pick the one tariff you need. You can change it later from your account.',
+    ftm_confirm:         'Confirm choice',
+    ftm_skip:            'Skip for now',
+    um_method_title:     'Payment method',
+    um_billing_title:    'Billing details',
+    um_card_details:     'Card details',
+    um_back:             '← Back to payment methods',
+    um_back_short:       '← Back',
+    um_method_card:      'Credit / Debit card',
+    um_method_paypal:    'PayPal',
+    um_method_apple:     'Apple Pay',
+    um_method_google:    'Google Pay',
+    um_pay_card:         'Pay CHF\u00a019 / month',
+    um_pay_paypal:       'Continue with PayPal',
+    um_pay_apple:        'Pay with Apple Pay',
+    um_pay_google:       'Pay with Google Pay',
+    um_paypal_title:     "You\u2019ll be redirected to PayPal",
+    um_paypal_sub:       'Log in to your PayPal account to authorize the CHF\u00a019/month subscription. You\u2019ll return here after confirmation.',
+    um_apple_title:      'Pay with Apple Pay',
+    um_apple_sub:        'Use Face ID, Touch ID, or your device passcode to authorize CHF\u00a019/month. Available on Safari on iPhone, iPad and Mac.',
+    um_google_title:     'Pay with Google Pay',
+    um_google_sub:       'Use your saved Google Pay payment method. A confirmation prompt will appear in your browser to authorize CHF\u00a019/month.',
+    um_err_phone:        'Valid mobile number required.',
+    um_security_line:    'SSL encrypted \u00b7 No card data stored on our servers',
+    um_header_default:   'Complete your subscription',
+    um_welcome_pro:      'Welcome to Pro! \u26a1',
+    um_welcome_sub:      'Your account has been upgraded. 2\u2009000 requests/day \u00b7 all providers \u00b7 full history.',
+    um_start_pro:        'Start using Pro \u2192',
+    um_processing:       'Processing...',
   },
   de: {
     unit_explanation: 'Preise in Rp/kWh (Rappen pro Kilowattstunde). 100 Rp = 1 CHF.',
@@ -2123,6 +2257,9 @@ const T = {
     gate_suspended_msg: 'Ihr API-Key wurde gesperrt. Kontaktieren Sie den Support.',
     gate_revoked_msg: 'Ihr API-Key wurde widerrufen.',
     gate_ratelimit_msg: 'Tägliches Limit erreicht. Reset um Mitternacht CET.',
+    susp_banner_title: 'Key vor\u00fcbergehend gesperrt',
+    susp_banner_sub: 'Eine E-Mail mit Details wurde an Sie gesendet. Kontaktieren Sie den Support f\u00fcr weitere Informationen.',
+    susp_banner_contact: 'Support kontaktieren',
     ratelimit_popup_title: 'Tageslimit erreicht',
     ratelimit_popup_sub: 'Sie haben {used} von {limit} Anfragen heute verwendet. Ihr Kontingent wird um Mitternacht zurückgesetzt.',
     reg_replace_title: 'Sie haben bereits einen aktiven Key',
@@ -2210,7 +2347,7 @@ const T = {
     home_your_plan:      'Ihr Plan',
     hdd_upgrade_btn:     'Auf Pro upgraden ⚡',
     um_per_month:        '/ Monat',
-    um_billed_monthly:   'Monatliche Abrechnung · jederzeit kündbar',
+    um_billed_monthly:   'Monatliche Abrechnung \u00b7 jederzeit k\u00fcndbar',
     um_billing_info:     'Rechnungsdaten',
     um_payment_info:     'Zahlungsdaten',
     um_first_name:       'Vorname',
@@ -2218,7 +2355,7 @@ const T = {
     um_card_number:      'Kartennummer',
     um_card_name:        'Name auf der Karte',
     um_expiry:           'Gültigkeit',
-    um_pay_btn:          'CHF 49 / Monat bezahlen',
+    um_pay_btn:          'CHF 19 / Monat bezahlen',
     um_processing:       'Wird verarbeitet...',
     um_secure:           'SSL-gesicherter Zahlungsverkehr · Daten nicht gespeichert',
     um_cards_accepted:   'Akzeptierte Karten',
@@ -2231,7 +2368,7 @@ const T = {
     um_success_title:    'Zahlung erhalten!',
     um_success_sub:      'Wir aktivieren Ihren Pro-Plan. Bestätigung per E-Mail in wenigen Minuten.',
     um_success_close:    'Schließen',
-    um_guarantee:        '🔒 30 Tage Geld-zurück-Garantie.',
+    um_guarantee:        '\uD83D\uDD12 Sichere Zahlung \u00b7 Jederzeit vor dem n\u00e4chsten Abrechnungsdatum k\u00fcndbar.',
     um_right_sub:        'Sicherer Zahlungsverkehr · Sofortige Aktivierung',
     um_title:            'Abonnement abschließen',
     hrm_closing:         'Schließt in <span id="hrm-countdown-n">10</span>s...',
@@ -2249,6 +2386,40 @@ const T = {
     um_submit:           'Pro-Anfrage senden',
     um_note:             'Wir antworten innerhalb von 24 Stunden mit Zahlungsanweisungen. Keine sofortige Abbuchung.',
     um_err_required:     'Name und E-Mail sind erforderlich.',
+    um_gate_title:       'Zuerst ein Konto erstellen',
+    um_gate_sub:         'Sie benötigen einen kostenlosen API-Key, bevor Sie auf Pro upgraden können.',
+    um_gate_register:    'Kostenloses Konto erstellen →',
+    um_gate_login:       'Haben Sie bereits einen Key? Anmelden',
+    ftm_title:           'W\u00e4hlen Sie Ihren Standard-Tarif',
+    ftm_sub:             'Free-Plan: W\u00e4hlen Sie den einen Tarif, den Sie ben\u00f6tigen. Sie k\u00f6nnen ihn sp\u00e4ter \u00e4ndern.',
+    ftm_confirm:         'Auswahl best\u00e4tigen',
+    ftm_skip:            'Jetzt \u00fcberspringen',
+    um_method_title:     'Zahlungsmethode',
+    um_billing_title:    'Rechnungsdaten',
+    um_card_details:     'Kartendaten',
+    um_back:             '\u2190 Zur\u00fcck zu den Zahlungsmethoden',
+    um_back_short:       '\u2190 Zur\u00fcck',
+    um_method_card:      'Kredit- / Debitkarte',
+    um_method_paypal:    'PayPal',
+    um_method_apple:     'Apple Pay',
+    um_method_google:    'Google Pay',
+    um_pay_card:         'CHF\u00a019 / Monat bezahlen',
+    um_pay_paypal:       'Weiter zu PayPal',
+    um_pay_apple:        'Mit Apple Pay bezahlen',
+    um_pay_google:       'Mit Google Pay bezahlen',
+    um_paypal_title:     'Sie werden zu PayPal weitergeleitet',
+    um_paypal_sub:       'Melden Sie sich bei Ihrem PayPal-Konto an, um das Abonnement \u00e0 CHF\u00a019/Monat zu autorisieren.',
+    um_apple_title:      'Mit Apple Pay bezahlen',
+    um_apple_sub:        'Verwenden Sie Face ID, Touch ID oder Ihren Ger\u00e4te-Code, um CHF\u00a019/Monat zu autorisieren. Verf\u00fcgbar auf Safari.',
+    um_google_title:     'Mit Google Pay bezahlen',
+    um_google_sub:       'Nutzen Sie Ihre gespeicherte Google-Pay-Zahlungsmethode. Eine Best\u00e4tigungsaufforderung erscheint in Ihrem Browser.',
+    um_err_phone:        'G\u00fcltige Handynummer erforderlich.',
+    um_security_line:    'SSL-verschl\u00fcsselt \u00b7 Keine Kartendaten auf unseren Servern',
+    um_header_default:   'Abonnement abschlie\u00dfen',
+    um_welcome_pro:      'Willkommen bei Pro! \u26a1',
+    um_welcome_sub:      'Ihr Konto wurde aktualisiert. 2\u2009000 Anfragen/Tag \u00b7 alle Anbieter \u00b7 volles Archiv.',
+    um_start_pro:        'Pro nutzen \u2192',
+    um_processing:       'Wird verarbeitet...',
   },
   fr: {
     unit_explanation: 'Prix en Rp/kWh (Rappen par kilowattheure). 100 Rp = 1 CHF.',
@@ -2342,6 +2513,9 @@ const T = {
     gate_suspended_msg: 'Votre clé API a été suspendue. Contactez le support.',
     gate_revoked_msg: 'Votre clé API a été révoquée.',
     gate_ratelimit_msg: 'Limite quotidienne atteinte. Réinitialisation à minuit CET.',
+    susp_banner_title: 'Cl\u00e9 temporairement suspendue',
+    susp_banner_sub: 'Un e-mail avec les d\u00e9tails vous a \u00e9t\u00e9 envoy\u00e9. Contactez le support pour plus d\u2019informations.',
+    susp_banner_contact: 'Contacter le support',
     ratelimit_popup_title: 'Limite quotidienne atteinte',
     ratelimit_popup_sub: "Vous avez utilis\u00e9 {used} des {limit} requ\u00eates aujourd\u2019hui. Votre quota est r\u00e9initialis\u00e9 \u00e0 minuit.",
     reg_replace_title: 'Vous avez déjà une clé active',
@@ -2429,7 +2603,7 @@ const T = {
     home_your_plan:      'Votre forfait',
     hdd_upgrade_btn:     'Passer à Pro ⚡',
     um_per_month:        '/ mois',
-    um_billed_monthly:   'Facturation mensuelle · annulable',
+    um_billed_monthly:   'Facturation mensuelle \u00b7 r\u00e9siliable \u00e0 tout moment',
     um_billing_info:     'Informations de facturation',
     um_payment_info:     'Informations de paiement',
     um_first_name:       'Prénom',
@@ -2437,7 +2611,7 @@ const T = {
     um_card_number:      'Numéro de carte',
     um_card_name:        'Nom sur la carte',
     um_expiry:           'Expiration',
-    um_pay_btn:          'Payer CHF 49 / mois',
+    um_pay_btn:          'Payer CHF 19 / mois',
     um_processing:       'Traitement...',
     um_secure:           'Paiement sécurisé SSL',
     um_cards_accepted:   'Cartes acceptées',
@@ -2450,7 +2624,7 @@ const T = {
     um_success_title:    'Paiement reçu !',
     um_success_sub:      'Merci ! Plan Pro en cours d’activation.',
     um_success_close:    'Fermer',
-    um_guarantee:        '🔒 Garantie satisfait ou remboursé 30 jours.',
+    um_guarantee:        '\uD83D\uDD12 Paiement s\u00e9curis\u00e9 \u00b7 R\u00e9siliable \u00e0 tout moment avant la prochaine date de facturation.',
     um_right_sub:        'Paiement sécurisé · Activation instantanée',
     um_title:            'Finaliser votre abonnement',
     hrm_closing:         'Fermeture dans <span id="hrm-countdown-n">10</span>s...',
@@ -2467,7 +2641,41 @@ const T = {
     um_message_ph:       "Décrivez votre cas d'utilisation...",
     um_submit:           'Envoyer la demande Pro',
     um_note:             'Nous répondrons sous 24h avec les instructions de paiement. Aucun débit immédiat.',
-    um_err_required:     'Le nom et l’e-mail sont obligatoires.',
+    um_err_required:     "Le nom et l’e-mail sont obligatoires.",
+    um_gate_title:       "Créez d’abord un compte",
+    um_gate_sub:         "Vous avez besoin d’une clé API gratuite avant de passer à Pro.",
+    um_gate_register:    "Créer un compte gratuit →",
+    um_gate_login:       "Déjà une clé ? Se connecter",
+    ftm_title:           'Choisissez votre tarif par d\u00e9faut',
+    ftm_sub:             'Plan gratuit\u00a0: choisissez le tarif dont vous avez besoin. Vous pourrez le modifier plus tard.',
+    ftm_confirm:         'Confirmer le choix',
+    ftm_skip:            'Passer pour l\u2019instant',
+    um_method_title:     'Mode de paiement',
+    um_billing_title:    'Informations de facturation',
+    um_card_details:     'D\u00e9tails de la carte',
+    um_back:             '\u2190 Retour aux modes de paiement',
+    um_back_short:       '\u2190 Retour',
+    um_method_card:      'Carte bancaire',
+    um_method_paypal:    'PayPal',
+    um_method_apple:     'Apple Pay',
+    um_method_google:    'Google Pay',
+    um_pay_card:         'Payer CHF\u00a019 / mois',
+    um_pay_paypal:       'Continuer avec PayPal',
+    um_pay_apple:        'Payer avec Apple Pay',
+    um_pay_google:       'Payer avec Google Pay',
+    um_paypal_title:     'Vous serez redirig\u00e9 vers PayPal',
+    um_paypal_sub:       'Connectez-vous \u00e0 votre compte PayPal pour autoriser l\u2019abonnement de CHF\u00a019/mois. Vous reviendrez ici apr\u00e8s confirmation.',
+    um_apple_title:      'Payer avec Apple Pay',
+    um_apple_sub:        'Utilisez Face ID, Touch ID ou le code de votre appareil pour autoriser CHF\u00a019/mois. Disponible sur Safari.',
+    um_google_title:     'Payer avec Google Pay',
+    um_google_sub:       'Utilisez votre moyen de paiement Google Pay enregistr\u00e9. Une invite de confirmation appara\u00eetra dans votre navigateur.',
+    um_err_phone:        'Num\u00e9ro de t\u00e9l\u00e9phone valide requis.',
+    um_security_line:    'Chiffrement SSL \u00b7 Aucune donn\u00e9e de carte sur nos serveurs',
+    um_header_default:   'Finaliser votre abonnement',
+    um_welcome_pro:      'Bienvenue dans Pro\u00a0! \u26a1',
+    um_welcome_sub:      'Votre compte a \u00e9t\u00e9 mis \u00e0 niveau. 2\u2009000 requ\u00eates/jour \u00b7 tous les fournisseurs \u00b7 historique complet.',
+    um_start_pro:        'Utiliser Pro \u2192',
+    um_processing:       'Traitement en cours...',
   },
   it: {
     unit_explanation: 'Prezzi in Rp/kWh (Rappen per kilowattora). 100 Rp = 1 CHF.',
@@ -2560,6 +2768,9 @@ const T = {
     gate_suspended_msg: 'La tua chiave API è stata sospesa. Contatta il supporto.',
     gate_revoked_msg: 'La tua chiave API è stata revocata.',
     gate_ratelimit_msg: 'Limite giornaliero raggiunto. Reset a mezzanotte CET.',
+    susp_banner_title: 'Chiave temporaneamente sospesa',
+    susp_banner_sub: 'Ti \u00e8 stata inviata un\u2019email con i dettagli. Contatta il supporto per ulteriori informazioni.',
+    susp_banner_contact: 'Contatta il supporto',
     ratelimit_popup_title: 'Limite giornaliero raggiunto',
     ratelimit_popup_sub: 'Hai usato {used} di {limit} richieste oggi. Il tuo limite si azzera a mezzanotte ora svizzera. Ti è stata inviata una email.',
     reg_replace_title: 'Hai già una chiave attiva',
@@ -2647,7 +2858,7 @@ const T = {
     home_your_plan:      'Il tuo piano',
     hdd_upgrade_btn:     'Passa a Pro ⚡',
     um_per_month:        '/ mese',
-    um_billed_monthly:   'Fatturazione mensile · cancella quando vuoi',
+    um_billed_monthly:   'Fatturazione mensile \u00b7 disdici quando vuoi',
     um_billing_info:     'Dati di fatturazione',
     um_payment_info:     'Dati di pagamento',
     um_first_name:       'Nome',
@@ -2655,7 +2866,7 @@ const T = {
     um_card_number:      'Numero carta',
     um_card_name:        'Nome sulla carta',
     um_expiry:           'Scadenza',
-    um_pay_btn:          'Paga CHF 49 / mese',
+    um_pay_btn:          'Paga CHF 19 / mese',
     um_processing:       'Elaborazione...',
     um_secure:           'Pagamento sicuro SSL · Dati non memorizzati',
     um_cards_accepted:   'Carte accettate',
@@ -2668,7 +2879,7 @@ const T = {
     um_success_title:    'Pagamento ricevuto!',
     um_success_sub:      'Grazie! Piano Pro in attivazione. Riceverai conferma via email.',
     um_success_close:    'Chiudi',
-    um_guarantee:        '🔒 Rimborso garantito entro 30 giorni.',
+    um_guarantee:        '\uD83D\uDD12 Pagamento sicuro \u00b7 Disdici quando vuoi prima della prossima scadenza.',
     um_right_sub:        'Pagamento sicuro · Attivazione immediata',
     um_title:            'Completa il tuo abbonamento',
     hrm_closing:         'Chiude in <span id="hrm-countdown-n">10</span>s...',
@@ -2686,6 +2897,40 @@ const T = {
     um_submit:           'Invia richiesta Pro',
     um_note:             'Ti risponderemo entro 24 ore con le istruzioni per il pagamento. Nessun addebito immediato.',
     um_err_required:     'Nome e email sono obbligatori.',
+    um_gate_title:       'Crea prima un account',
+    um_gate_sub:         'Hai bisogno di una API key gratuita prima di passare al piano Pro. La registrazione è rapida e gratuita.',
+    um_gate_register:    'Crea account gratuito →',
+    um_gate_login:       'Hai già una key? Accedi',
+    ftm_title:           'Scegli la tua tariffa predefinita',
+    ftm_sub:             'Piano free: scegli l\u2019unica tariffa che ti serve. Potrai cambiarla in seguito dal tuo account.',
+    ftm_confirm:         'Conferma scelta',
+    ftm_skip:            'Salta per ora',
+    um_method_title:     'Metodo di pagamento',
+    um_billing_title:    'Dati di fatturazione',
+    um_card_details:     'Dati della carta',
+    um_back:             '\u2190 Torna ai metodi di pagamento',
+    um_back_short:       '\u2190 Indietro',
+    um_method_card:      'Carta di credito / debito',
+    um_method_paypal:    'PayPal',
+    um_method_apple:     'Apple Pay',
+    um_method_google:    'Google Pay',
+    um_pay_card:         'Paga CHF\u00a019 / mese',
+    um_pay_paypal:       'Continua con PayPal',
+    um_pay_apple:        'Paga con Apple Pay',
+    um_pay_google:       'Paga con Google Pay',
+    um_paypal_title:     'Verrai reindirizzato a PayPal',
+    um_paypal_sub:       'Accedi al tuo account PayPal per autorizzare l\u2019abbonamento da CHF\u00a019/mese. Tornerai qui dopo la conferma.',
+    um_apple_title:      'Paga con Apple Pay',
+    um_apple_sub:        'Usa Face ID, Touch ID o il codice del dispositivo per autorizzare CHF\u00a019/mese. Disponibile su Safari su iPhone, iPad e Mac.',
+    um_google_title:     'Paga con Google Pay',
+    um_google_sub:       'Usa il metodo di pagamento salvato su Google Pay. Comparir\u00e0 una richiesta di conferma nel browser per autorizzare CHF\u00a019/mese.',
+    um_err_phone:        'Numero di cellulare valido richiesto.',
+    um_security_line:    'Crittografia SSL \u00b7 Dati carta non archiviati sui nostri server',
+    um_header_default:   'Completa il tuo abbonamento',
+    um_welcome_pro:      'Benvenuto in Pro! \u26a1',
+    um_welcome_sub:      'Il tuo account \u00e8 stato aggiornato. 2\u2009000 richieste/giorno \u00b7 tutti i provider \u00b7 storico completo.',
+    um_start_pro:        'Inizia con Pro \u2192',
+    um_processing:       'Elaborazione in corso...',
   }
 };
 
@@ -2797,6 +3042,19 @@ let lastMonthData = [], lastHealthData = [], lastSlotIdx = null;
 function fmt(v) { return v.toFixed(2) + ' Rp'; }
 function fmtShort(v) { return v.toFixed(1) + ' Rp'; }
 
+// ── Internal fetch helper ─────────────────────────────────────────────────────
+// _DS = Dashboard Secret iniettato dal server — usato SOLO per /internal/*
+// Gli endpoint /api/v1/* usano invece X-API-Key dell'utente loggato
+const _DS = '{{ dashboard_secret }}';
+async function _ifetch(path, opts) {
+  return fetch(path, { ...opts, headers: { ...(opts?.headers||{}), 'X-Dashboard-Secret': _DS } });
+}
+// Helper per fetch API utente (endpoint /api/v1/* protetti da API key)
+async function _apifetch(path, opts) {
+  const h = _apiKeyRaw ? { 'X-API-Key': _apiKeyRaw } : {};
+  return fetch(path, { ...opts, headers: { ...(opts?.headers||{}), ...h } });
+}
+
 function extractSeries(seriesData) {
   if (!seriesData?.length) return { labels: [], values: [] };
   return {
@@ -2851,7 +3109,7 @@ function renderStatusList(tariffs) {
 
 // ── Tariffs ───────────────────────────────────────────────────────────────────
 async function loadTariffs() {
-  const r = await fetch('/api/v1/tariffs');
+  const r = await _ifetch('/internal/tariffs');
   if (!r.ok) return [];
   const tariffs = await r.json();
   _allTariffs = tariffs;
@@ -2914,7 +3172,7 @@ async function onTariffChange() {
 
 // ── Day summary buttons ───────────────────────────────────────────────────────
 async function loadDaySummary(tariffId) {
-  const r = await fetch(`/api/v1/summary/daily?tariff_id=${tariffId}&days=5`);
+  const r = await _ifetch(`/internal/summary/daily?tariff_id=${tariffId}&days=5`);
   if (!r.ok) {
     document.getElementById('day-btns').innerHTML = '';
     document.getElementById('chart-placeholder').style.display = 'flex';
@@ -3046,7 +3304,7 @@ async function loadDayChart(tariffId, dateStr) {
   activeDate = dateStr;
   const placeholder = document.getElementById('chart-placeholder');
   const canvas = document.getElementById('priceChart');
-  const r = await fetch(`/api/v1/prices?tariff_id=${tariffId}&start_time=${dateStr}T00:00:00Z`);
+  const r = await _ifetch(`/internal/prices/all?start_time=${dateStr}T00:00:00Z`);
   if (!r.ok) {
     canvas.style.display = 'none'; placeholder.style.display = 'flex';
     placeholder.innerHTML = `<div style="text-align:center">
@@ -3064,7 +3322,11 @@ async function loadDayChart(tariffId, dateStr) {
     ['m-min-sub','m-max-sub','m-slots'].forEach(id => document.getElementById(id).textContent = '');
     return;
   }
-  const data = await r.json();
+  const raw  = await r.json();
+  // /internal/prices/all ritorna {tariffs: {tariff_id: {energy_price_utc, grid_price_utc, ...}}}
+  // Estraiamo i dati per la tariffa corrente
+  const tariffData = (raw.tariffs || {})[tariffId] || raw;
+  const data = tariffData;
   const grid = extractSeries(data.grid_price_utc);
   const energy = extractSeries(data.energy_price_utc);
   const residual = extractSeries(data.residual_price_utc);
@@ -3209,7 +3471,7 @@ async function loadMonthly(tariffId) {
   if (overlay) overlay.style.display = 'none';
   if (skel)    skel.style.display    = 'none';
 
-  const r = await fetch(`/api/v1/summary/monthly?tariff_id=${tariffId}&months=3`);
+  const r = await _ifetch(`/internal/summary/monthly?tariff_id=${tariffId}&months=3`);
   if (!r.ok) { grid.innerHTML = `<div style="color:#aaa;font-size:12px">${t('select_tariff')}</div>`; return; }
   lastMonthData = await r.json(); renderMonthGrid(lastMonthData);
 }
@@ -3440,6 +3702,7 @@ async function loadMap() {
         const id   = String(d.id || d.properties?.id || '');
         const info = MAP_BFS[id];
         if (!info) return;  // comune senza provider — ignora click
+        if (!_apiSessionToken) return;  // non loggato — panel disabilitato
         const name = BFS_NAMES[id]
           || d.properties?.name || d.properties?.NAME || d.properties?.GEM_NAME || '';
         const displayName = name || (lang==='de'?'Gemeinde':lang==='fr'?'Commune':lang==='it'?'Comune':'Municipality') + ' ' + id;
@@ -3504,9 +3767,11 @@ async function openPricePanel(info, comuneName, bfsId) {
   }
 
   try {
-    const resp = await fetch('/api/v1/prices/today?tariff_id=' + encodeURIComponent(tariffId));
+    const resp = await _ifetch('/internal/prices/all?start_time=' + encodeURIComponent(new Date().toISOString().slice(0,10) + 'T00:00:00Z'));
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const data = await resp.json();
+    const raw  = await resp.json();
+    // Estrae i dati per la tariffa selezionata da {tariffs: {tariff_id: {...}}}
+    const data = (raw.tariffs || {})[tariffId] || {};
     _mppData = data;
 
     // Raccogli tutti i prezzi totali (energy+grid+residual o solo quelli disponibili)
@@ -3691,7 +3956,7 @@ function switchView(view) {
 
 // ── Consumer view ─────────────────────────────────────────────────────────────
 async function loadSmart(dateStr) {
-  const r = await fetch(`/api/v1/smart?date_str=${dateStr||'{{ today }}'}`);
+  const r = await _ifetch(`/internal/smart?date_str=${dateStr||'{{ today }}'}`);
   if (!r.ok) return;
   smartData = await r.json();
   const withData    = smartData.tariffs.filter(t => t.has_data);
@@ -3884,15 +4149,23 @@ function renderApiStatusList(tariffs) {
 
 // ── API tab helpers ───────────────────────────────────────────────────────────
 function populateApiTariffSelect() {
-  const okTariffs = (lastHealthData || []).filter(t => t.has_today_data || t.status === 'ok');
-  const sel = document.getElementById('api-tariff-select');
+  const okTariffs    = (lastHealthData || []).filter(t => t.has_today_data || t.status === 'ok');
+  const sel          = document.getElementById('api-tariff-select');
   if (!sel) return;
+  const plan         = _getUserPlan();
+  const freeTariffId = _apiUserInfo?.free_tariff_id || null;
+
   if (!okTariffs.length) {
     sel.innerHTML = `<option value="">${t('api_no_live_data')}</option>`;
   } else {
-    sel.innerHTML = okTariffs.map(t =>
-      `<option value="${t.tariff_id}">${t.provider_name} \u2014 ${t.tariff_name}</option>`
-    ).join('');
+    sel.innerHTML = okTariffs.map(tariff => {
+      const isFreeTariff = tariff.tariff_id === freeTariffId;
+      const disabled     = (plan === 'free' && freeTariffId && !isFreeTariff) ? 'disabled' : '';
+      const suffix       = (plan === 'free' && freeTariffId && !isFreeTariff) ? ' \uD83D\uDD12' : '';
+      const selected     = (plan === 'free' && freeTariffId && isFreeTariff) ? 'selected' : '';
+      return `<option value="${tariff.tariff_id}" ${disabled} ${selected}>${tariff.provider_name} \u2014 ${tariff.tariff_name}${suffix}</option>`;
+    }).join('');
+    if (plan === 'free' && freeTariffId) sel.value = freeTariffId;
   }
   updateApiPricesUrl();
   renderApiStatusList(lastHealthData);
@@ -3966,7 +4239,12 @@ let _keyStatusTimer  = null;
       body: JSON.stringify({api_key: _apiKeyRaw}),
     }).then(r => r.json()).then(data => {
       if (!data.valid) {
-        _clearSession();
+        if (data.status === 'suspended') {
+          _showSuspendedBanner();
+          setTimeout(() => { _clearSession(); _forceLogout(data.status); }, 5000);
+        } else {
+          _clearSession();
+        }
       } else {
         _apiUserInfo.requests_today = data.requests_today;
         _apiUserInfo.rate_limit_day = data.rate_limit_day;
@@ -4000,8 +4278,10 @@ function _clearSession() {
   sessionStorage.removeItem('_apiSessionToken');
   sessionStorage.removeItem('_apiUserInfo');
   sessionStorage.removeItem('_apiKeyRaw');
+  localStorage.removeItem('sth_try_warned');
   _updateHomeAuthBox();
   if (_keyStatusTimer) { clearInterval(_keyStatusTimer); _keyStatusTimer = null; }
+  closePricePanel();
 }
 
 function _startKeyStatusPolling() {
@@ -4016,23 +4296,83 @@ function _startKeyStatusPolling() {
       });
       const data = await r.json();
       if (!data.valid) {
-        _clearSession();
-        _forceLogout(data.status);
+        if (data.status === 'suspended') {
+          _showSuspendedBanner();
+          setTimeout(() => { _clearSession(); _forceLogout(data.status); }, 5000);
+        } else {
+          _clearSession();
+          _forceLogout(data.status);
+        }
         return;
       }
       if (_apiUserInfo) {
+        const oldPlan = _apiUserInfo.plan || 'free';
         _apiUserInfo.requests_today = data.requests_today;
         _apiUserInfo.rate_limit_day = data.rate_limit_day;
+        if (data.plan) _apiUserInfo.plan = data.plan;
         _saveSession();
         _updateUsageBar(data.requests_today, data.rate_limit_day);
         _updateDropdownUsage(data.requests_today, data.rate_limit_day);
+        // Se il piano è cambiato (upgrade o downgrade admin) aggiorna tutta la UI
+        if (data.plan && data.plan !== oldPlan) {
+          _updateHomeAuthBox();
+          _updatePlanPill(data.plan);
+          // Ricarica la view attiva per sbloccare/bloccare i contenuti
+          const activeTab = document.querySelector('.view-tab.active');
+          if (activeTab) {
+            const m = activeTab.getAttribute('onclick')?.match(/switchView\('([^']+)'\)/);
+            if (m) switchView(m[1]);
+          }
+          // Banner downgrade visibile
+          if (oldPlan === 'pro' && data.plan === 'free') {
+            _showDowngradeBanner();
+          }
+        }
       }
       if (data.requests_today >= data.rate_limit_day) {
         _showRateLimitPopup(data.requests_today, data.rate_limit_day);
       }
     } catch(e) {}
-  }, 60000);
+  }, 15000);
 }
+
+// Check immediato quando l'utente torna sulla tab (dopo essere stato su admin, email, ecc.)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && _apiKeyRaw) {
+    fetch('/api/v1/check-key-status', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({api_key: _apiKeyRaw}),
+    }).then(r => r.json()).then(data => {
+      if (!data.valid) {
+        if (data.status === 'suspended') {
+          _showSuspendedBanner();
+          setTimeout(() => { _clearSession(); _forceLogout(data.status); }, 5000);
+        } else {
+          _clearSession();
+          _forceLogout(data.status);
+        }
+        return;
+      }
+      // Aggiorna piano se cambiato mentre la tab era in background
+      if (_apiUserInfo && data.plan && data.plan !== (_apiUserInfo.plan || 'free')) {
+        const oldPlan = _apiUserInfo.plan || 'free';
+        _apiUserInfo.plan           = data.plan;
+        _apiUserInfo.rate_limit_day = data.rate_limit_day ?? _apiUserInfo.rate_limit_day;
+        _apiUserInfo.requests_today = data.requests_today ?? _apiUserInfo.requests_today;
+        _saveSession();
+        _updateHomeAuthBox();
+        _updatePlanPill(data.plan);
+        const activeTab = document.querySelector('.view-tab.active');
+        if (activeTab) {
+          const m = activeTab.getAttribute('onclick')?.match(/switchView\('([^']+)'\)/);
+          if (m) switchView(m[1]);
+        }
+        if (oldPlan === 'pro' && data.plan === 'free') _showDowngradeBanner();
+      }
+    }).catch(() => {});
+  }
+});
 
 async function homeLogin() {
   const input = document.getElementById('home-key-input');
@@ -4200,6 +4540,7 @@ function _updateHomeAuthBox() {
 
     // Piani: evidenzia piano attuale, nasconde free btn se loggato, aggiorna pro btn
     _updatePlansForUser(isPro);
+    _updatePlanPill(u.plan || 'free');
 
   } else {
     // Non loggato
@@ -4253,6 +4594,28 @@ function _updatePlansForUser(isPro) {
     if (freeBtn)  freeBtn.style.display = 'none';
     if (proBtn)   { proBtn.disabled = false; proBtn.onclick = showProUpgradeForm; proBtn.textContent = t('home_plan_pro_btn'); }
   }
+}
+
+function _updatePlanPill(plan) {
+  const isPro = plan === 'pro';
+  // Pill nel dropdown header
+  const pill = document.getElementById('hdd-plan-pill');
+  if (pill) {
+    pill.textContent = isPro ? '⚡ Pro' : 'Free';
+    pill.className   = 'hdd-plan-pill ' + (isPro ? 'hdd-plan-pro' : 'hdd-plan-free');
+  }
+  // Badge nella sezione home auth
+  const pb = document.getElementById('home-auth-plan-badge');
+  if (pb) {
+    pb.textContent = isPro ? '⚡ Pro' : 'Free';
+    pb.className   = 'ham-plan ' + (isPro ? 'ham-plan-pro' : 'ham-plan-free');
+  }
+  // Bottone upgrade dropdown (nascondi se già pro)
+  const upgradeBtn = document.getElementById('hdd-upgrade-btn');
+  if (upgradeBtn) upgradeBtn.style.display = isPro ? 'none' : 'flex';
+  // Bottone upgrade in home-auth-left
+  const halBtn = document.getElementById('hal-upgrade-btn');
+  if (halBtn) halBtn.style.display = isPro ? 'none' : '';
 }
 
 function _resetPlansUI() {
@@ -4366,18 +4729,85 @@ function closeUpgradeModal() {
   if (modal) modal.classList.remove('open');
 }
 
+async function umFinishPro() {
+  // Ricarica stato completo dal server prima di aggiornare la UI
+  if (_apiKeyRaw) {
+    try {
+      const r = await fetch('/api/v1/check-key-status', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({api_key: _apiKeyRaw}),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        if (_apiUserInfo) {
+          _apiUserInfo.plan            = d.plan || 'pro';
+          _apiUserInfo.rate_limit_day  = d.rate_limit_day  ?? _apiUserInfo.rate_limit_day;
+          _apiUserInfo.requests_today  = d.requests_today  ?? _apiUserInfo.requests_today;
+          _apiUserInfo.requests_total  = d.requests_total  ?? _apiUserInfo.requests_total;
+          _apiUserInfo.free_tariff_id  = d.free_tariff_id  ?? _apiUserInfo.free_tariff_id;
+          _saveSession();
+        }
+        _updatePlanPill(d.plan || 'pro');
+        _updateHomeAuthBox();
+        // Riapplica la view attiva per sbloccare i contenuti pro
+        const activeTab = document.querySelector('.view-tab.active');
+        if (activeTab) {
+          const m = activeTab.getAttribute('onclick')?.match(/switchView\('([^']+)'\)/);
+          if (m) switchView(m[1]);
+        }
+      }
+    } catch(_) {}
+  }
+  closeUpgradeModal();
+}
+
 function showProUpgradeForm() {
   const modal = document.getElementById('upgrade-pro-modal');
   if (!modal) return;
-  // Ripristina form se era in stato successo
-  const formBody = document.getElementById('um-form-body');
+
+  // Reset stato checkout
+  _umMethod = null;
+  umGoBack(); // torna sempre allo step 1
+
+  // ── Utente NON loggato ────────────────────────────────────────────────────
+  if (!_apiSessionToken) {
+    const formBody = document.getElementById('um-form-body');
+    const footer   = document.querySelector('.um-footer');
+    if (formBody) formBody.innerHTML = `
+      <div style="text-align:center;padding:40px 16px">
+        <div style="font-size:40px;margin-bottom:16px">🔑</div>
+        <div style="font-size:17px;font-weight:700;color:#0d1117;margin-bottom:10px">
+          ${t('um_gate_title')||'Create an account first'}
+        </div>
+        <div style="font-size:13px;color:#666;line-height:1.7;margin-bottom:24px;max-width:300px;margin-left:auto;margin-right:auto">
+          ${t('um_gate_sub')||'You need a free API key before upgrading to Pro.'}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;max-width:260px;margin:0 auto">
+          <button onclick="closeUpgradeModal();openHomeRegModal()"
+            style="padding:12px 20px;background:#185fa5;color:white;border:none;border-radius:10px;
+                   font-size:13px;font-weight:600;cursor:pointer">
+            ${t('um_gate_register')||'Create free account →'}
+          </button>
+          <button onclick="closeUpgradeModal();switchView('api')"
+            style="padding:10px 20px;background:transparent;color:#185fa5;border:1.5px solid #185fa5;
+                   border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">
+            ${t('um_gate_login')||'Already have a key? Log in'}
+          </button>
+        </div>
+      </div>
+    `;
+    if (footer) footer.style.display = 'none';
+    modal.classList.add('open');
+    return;
+  }
+
+  // ── Utente LOGGATO: precompila form ──────────────────────────────────────
   const footer = document.querySelector('.um-footer');
-  if (formBody) formBody.style.display = '';
   if (footer) footer.style.display = '';
-  // Precompila con dati utente se loggato
   if (_apiUserInfo) {
     const parts = (_apiUserInfo.full_name || '').trim().split(' ');
-    const _v = (id, v) => { const el = document.getElementById(id); if(el && v) el.value = v; };
+    const _v = (id, val) => { const el = document.getElementById(id); if(el && val) el.value = val; };
     _v('um-firstname', parts[0] || '');
     _v('um-lastname',  parts.slice(1).join(' ') || '');
     _v('um-email',     _apiUserInfo.email || '');
@@ -4387,83 +4817,200 @@ function showProUpgradeForm() {
   ['um-card-number','um-expiry','um-cvv'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
   });
-  const errEl = document.getElementById('um-err');
-  if (errEl) errEl.textContent = '';
-  const btn = document.getElementById('um-submit-btn');
-  if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="4.5" width="14" height="9" rx="2" stroke="white" stroke-width="1.3"/><path d="M1 8h14" stroke="white" stroke-width="1.3"/><rect x="3" y="10" width="4" height="1.5" rx=".5" fill="white"/></svg><span data-i18n="um_pay_btn">' + t('um_pay_btn') + '</span>'; }
+  if (document.getElementById('um-err')) document.getElementById('um-err').textContent = '';
   modal.classList.add('open');
 }
 
+// ── Checkout state ────────────────────────────────────────────────────────────
+let _umMethod = null; // 'card'|'paypal'|'apple'|'google'
+
+function umSelectMethod(method) {
+  _umMethod = method;
+
+  // Evidenzia il bottone selezionato
+  ['card','paypal','apple','google'].forEach(m => {
+    const btn = document.getElementById('um-method-' + m);
+    if (btn) btn.classList.toggle('active', m === method);
+  });
+
+  // Dopo 180ms anima verso lo step del metodo
+  const step1 = document.getElementById('um-step-1');
+  if (step1) { step1.classList.add('leaving'); }
+  setTimeout(() => {
+    if (step1) step1.style.display = 'none';
+    ['card','paypal','apple','google'].forEach(m => {
+      const s = document.getElementById('um-step-' + m);
+      if (s) s.style.display = 'none';
+    });
+    const target = document.getElementById('um-step-' + method);
+    if (target) { target.style.display = 'block'; target.classList.add('entering'); }
+
+    // Titolo header localizzato
+    const titles = {
+      card:      t('um_card_details'),
+      paypal:    t('um_method_paypal'),
+      apple:     t('um_method_apple'),
+      google:    t('um_method_google'),
+          };
+    const hdr = document.getElementById('um-header-title');
+    if (hdr) hdr.textContent = titles[method] || t('um_header_default');
+
+    // Pulsante submit localizzato
+    const submitBtn   = document.getElementById('um-submit-btn');
+    const submitLabel = document.getElementById('um-submit-label');
+    if (submitBtn) {
+      submitBtn.style.display = 'flex';
+      submitBtn.className = 'um-submit';
+      const labels = {
+        card:      t('um_pay_card'),
+        paypal:    t('um_pay_paypal'),
+        apple:     t('um_pay_apple'),
+        google:    t('um_pay_google'),
+              };
+      if (submitLabel) submitLabel.textContent = labels[method] || t('um_pay_card');
+      if (method === 'paypal')   submitBtn.classList.add('um-submit-paypal');
+      if (method === 'apple')    submitBtn.classList.add('um-submit-apple');
+      if (method === 'google')   submitBtn.classList.add('um-submit-google');
+    }
+  }, 180);
+}
+
+function umFillTestCard() {
+  const _v = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+  _v('um-card-number', '4242 4242 4242 4242');
+  _v('um-expiry',      '12/30');
+  _v('um-cvv',         '123');
+  if (!document.getElementById('um-card-name')?.value) {
+    _v('um-card-name', 'TEST USER');
+  }
+}
+
+function umGoBack() {
+  _umMethod = null;
+  ['card','paypal','apple','google'].forEach(m => {
+    const s = document.getElementById('um-step-' + m);
+    if (s) s.style.display = 'none';
+  });
+  const step1 = document.getElementById('um-step-1');
+  if (step1) { step1.style.display = 'block'; step1.classList.remove('leaving'); step1.classList.add('entering'); }
+  // Rimuove active dai bottoni metodo
+  ['card','paypal','apple','google'].forEach(m => {
+    const btn = document.getElementById('um-method-' + m);
+    if (btn) btn.classList.remove('active');
+  });
+  const submitBtn = document.getElementById('um-submit-btn');
+  if (submitBtn) submitBtn.style.display = 'none';
+  const hdr = document.getElementById('um-header-title');
+  if (hdr) hdr.textContent = t('um_header_default');
+  if (document.getElementById('um-err')) document.getElementById('um-err').textContent = '';
+}
+
 async function submitPayment() {
+  if (!_umMethod) return;
   const errEl = document.getElementById('um-err');
   const btn   = document.getElementById('um-submit-btn');
   if (errEl) errEl.textContent = '';
 
+  // Validazione campi billing (sempre)
   const firstname = (document.getElementById('um-firstname')?.value || '').trim();
   const lastname  = (document.getElementById('um-lastname')?.value  || '').trim();
   const email     = (document.getElementById('um-email')?.value     || '').trim();
-  const cardNum   = (document.getElementById('um-card-number')?.value || '').replace(/\s/g,'');
-  const cardName  = (document.getElementById('um-card-name')?.value  || '').trim();
-  const expiry    = (document.getElementById('um-expiry')?.value     || '').trim();
-  const cvv       = (document.getElementById('um-cvv')?.value        || '').trim();
+  const showErr   = (msg) => { if(errEl) errEl.textContent = msg; };
 
-  // Validazioni
-  const showErr = (msg) => { if(errEl) errEl.textContent = msg; };
-  if (!firstname || !lastname) return showErr(t('um_err_name')    || 'Name required');
-  if (!email || !email.includes('@')) return showErr(t('um_err_email')  || 'Valid email required');
-  if (cardNum.length < 13 || cardNum.length > 19) return showErr(t('um_err_card')  || 'Invalid card number');
-  if (!cardName) return showErr(t('um_err_cardname') || 'Name on card required');
-  if (!/^\d{2}\/\d{2}$/.test(expiry)) return showErr(t('um_err_expiry') || 'Expiry MM/YY required');
-  if (cvv.length < 3) return showErr(t('um_err_cvv') || 'CVV required');
+  if (!firstname || !lastname) return showErr(t('um_err_name') || 'First and last name required.');
+  if (!email || !email.includes('@')) return showErr(t('um_err_email') || 'Valid email required.');
 
-  // Simula processing (qui andrà integrazione Stripe/PayRexx)
-  btn.disabled = true;
-  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="animation:spin 1s linear infinite"><path d="M8 1v3M8 12v3M1 8h3M12 8h3" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>&nbsp;&nbsp;' + (t('um_processing') || 'Processing...');
+  if (_umMethod === 'card') {
+    const cardNum = (document.getElementById('um-card-number')?.value || '').replace(/\s/g,'');
+    const cardName = (document.getElementById('um-card-name')?.value || '').trim();
+    const expiry  = (document.getElementById('um-expiry')?.value || '').trim();
+    const cvv     = (document.getElementById('um-cvv')?.value || '').trim();
+    if (cardNum.length < 13) return showErr(t('um_err_card') || 'Invalid card number.');
+    if (!cardName) return showErr(t('um_err_cardname') || 'Name on card required.');
+    if (!/^\d{2}\/\d{2}$/.test(expiry)) return showErr(t('um_err_expiry') || 'Expiry MM/YY required.');
+    if (cvv.length < 3) return showErr(t('um_err_cvv') || 'CVV required.');
+  }
+  // Processing
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 15 15" fill="none" style="animation:spin 1s linear infinite"><path d="M7.5 1v3M7.5 11v3M1 7.5h3M11 7.5h3" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>&nbsp;${t('um_processing')}`;
+  }
 
-  await new Promise(r => setTimeout(r, 1500));
+  // Per wallet (paypal, apple, google) → simula redirect/push
+  if (['paypal','apple','google'].includes(_umMethod)) {
+    await new Promise(r => setTimeout(r, 1200));
+    // In produzione: redirect a PayPal, trigger Apple/Google Pay API, etc.
+    // Per ora simuliamo il flusso completo come con carta
+  } else {
+    await new Promise(r => setTimeout(r, 1500));
+  }
 
-  // Qui andrebbe la vera chiamata al backend di pagamento
-  // Per ora mostriamo successo e notifichiamo admin via email
   try {
-    await fetch('/api/v1/register', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        full_name: firstname + ' ' + lastname, email,
-        country: _apiUserInfo?.country || 'CH', lang,
-        company: (document.getElementById('um-company')?.value || '') || null,
-        vat_number: (document.getElementById('um-vat')?.value || '') || null,
-      })
-    }).catch(()=>{});
-  } catch(e) {}
+    const r = await fetch('/api/v1/upgrade-to-pro', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({api_key: _apiKeyRaw}),
+    });
+    const data = await r.json();
 
-  // Successo
-  const _fb = document.getElementById('um-form-body');
-  const _ff = document.querySelector('.um-footer');
-  if (_fb) { _fb.innerHTML = `
-    <div style="text-align:center;padding:48px 20px">
-      <div style="width:64px;height:64px;border-radius:50%;background:#e8f7f0;
-                  display:flex;align-items:center;justify-content:center;margin:0 auto 20px">
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-          <polyline points="5,14 11,20 23,8" stroke="#1d9e75" stroke-width="2.5"
-            stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+    if (!r.ok || !data.success) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="4" width="13" height="8.5" rx="2" stroke="white" stroke-width="1.2"/><path d="M1 7.5h13" stroke="white" stroke-width="1.2"/><rect x="2.5" y="9.5" width="4" height="1.5" rx=".6" fill="white"/></svg><span id="um-submit-label">Pay CHF\u00a019 / month</span>'; }
+      return showErr(data.message || data.detail || 'Upgrade failed. Please try again.');
+    }
+
+    // Aggiorna stato locale
+    if (_apiUserInfo) {
+      _apiUserInfo.plan          = 'pro';
+      _apiUserInfo.rate_limit_day = data.rate_limit_day || _apiUserInfo.rate_limit_day;
+      _saveSession();
+    }
+    // Refresh completo dal server per sincronizzare contatori e plan
+    try {
+      const sr = await fetch('/api/v1/check-key-status', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({api_key: _apiKeyRaw}),
+      });
+      if (sr.ok) {
+        const sd = await sr.json();
+        if (_apiUserInfo) {
+          _apiUserInfo.plan           = sd.plan || 'pro';
+          _apiUserInfo.rate_limit_day = sd.rate_limit_day || _apiUserInfo.rate_limit_day;
+          _apiUserInfo.requests_today = sd.requests_today ?? _apiUserInfo.requests_today;
+          _saveSession();
+        }
+      }
+    } catch(_) {}
+    _updateHomeAuthBox();
+    _updatePlanPill('pro');
+
+    // Schermata successo
+    const formBody = document.getElementById('um-form-body');
+    const footer   = document.querySelector('.um-footer');
+    if (formBody) formBody.innerHTML = `
+      <div style="text-align:center;padding:52px 20px">
+        <div style="width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,#e8f7f0,#d1f0e6);
+                    display:flex;align-items:center;justify-content:center;margin:0 auto 20px;
+                    box-shadow:0 8px 24px rgba(29,158,117,.2)">
+          <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+            <polyline points="6,15 12,21 24,9" stroke="#1d9e75" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div style="font-size:20px;font-weight:800;color:#0d1117;margin-bottom:6px">${t('um_welcome_pro')}</div>
+        <div style="font-size:13px;color:#666;line-height:1.65;margin-bottom:24px">${t('um_welcome_sub')}</div>
+        <button onclick="umFinishPro()"
+          style="padding:12px 32px;background:linear-gradient(135deg,#185fa5,#1d9e75);
+                 color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;
+                 box-shadow:0 4px 16px rgba(24,95,165,.28)">
+          ${t('um_start_pro')}
+        </button>
       </div>
-      <div style="font-size:20px;font-weight:700;color:#0d1117;margin-bottom:8px;
-                  font-family:'Georgia',serif">
-        ${t('um_success_title') || 'Payment received!'}
-      </div>
-      <div style="font-size:13px;color:#888;line-height:1.7;margin-bottom:28px;
-                  max-width:320px;margin-left:auto;margin-right:auto">
-        ${t('um_success_sub') || 'Thank you! Your Pro plan is being activated.'}
-      </div>
-      <button onclick="closeUpgradeModal()"
-        style="padding:12px 32px;background:#185fa5;color:white;border:none;
-               border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">
-        ${t('um_success_close') || 'Close'}
-      </button>
-    </div>
-  `; }
-  if (_ff) _ff.style.display = 'none';
+    `;
+    if (footer) footer.style.display = 'none';
+
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<span id="um-submit-label">Pay CHF\u00a019 / month</span>'; }
+    showErr(t('home_auth_err_net') || 'Network error. Please try again.');
+  }
 }
 
 async function submitProRequest() {
@@ -4552,6 +5099,132 @@ function _showInfoPopup(msg, color) {
   document.body.appendChild(overlay);
 }
 
+function _showDowngradeBanner() {
+  if (document.getElementById('_downgrade-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = '_downgrade-banner';
+  banner.style.cssText = [
+    'position:fixed','top:62px','left:0','right:0','z-index:99997',
+    'background:linear-gradient(135deg,#7a4f00 0%,#9a6200 100%)',
+    'border-bottom:1.5px solid rgba(245,158,11,.5)',
+    'padding:12px 20px','display:flex','align-items:center','gap:14px',
+    'box-shadow:0 4px 24px rgba(180,100,0,.35)',
+    'animation:suspBannerIn .35s cubic-bezier(.4,0,.2,1)',
+  ].join(';');
+  banner.innerHTML = `
+    <span style="font-size:20px">⬇️</span>
+    <div style="flex:1;min-width:0">
+      <div style="color:white;font-size:13px;font-weight:700;margin-bottom:2px">Your plan has been changed to Free</div>
+      <div style="color:rgba(255,255,255,.75);font-size:11px">Pro features are no longer available. Contact support if you have questions.</div>
+    </div>
+    <button onclick="this.parentElement.remove()" style="
+      background:rgba(255,255,255,.15);border:none;color:white;
+      width:28px;height:28px;border-radius:50%;cursor:pointer;
+      font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0
+    ">×</button>
+  `;
+  document.body.appendChild(banner);
+  setTimeout(() => { if (banner.parentElement) banner.remove(); }, 12000);
+}
+
+function _showSuspendedBanner() {
+  if (document.getElementById('_susp-banner')) return;
+
+  // Inject keyframes + close button style once
+  if (!document.getElementById('_susp-kf')) {
+    const s = document.createElement('style');
+    s.id = '_susp-kf';
+    s.textContent = `
+      @keyframes suspBannerIn{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
+      @keyframes suspBannerOut{from{transform:translateY(0);opacity:1}to{transform:translateY(-100%);opacity:0}}
+      #_susp-banner-close:hover{background:rgba(255,255,255,.25)!important}
+      #_susp-b-contact:hover{background:rgba(255,255,255,.28)!important}
+      @keyframes suspPulse{0%,100%{box-shadow:0 4px 32px rgba(226,75,74,.45)}50%{box-shadow:0 4px 48px rgba(226,75,74,.75)}}
+    `;
+    document.head.appendChild(s);
+  }
+
+  const banner = document.createElement('div');
+  banner.id = '_susp-banner';
+  banner.style.cssText = [
+    'position:fixed','top:62px','left:0','right:0','z-index:99998',
+    'background:linear-gradient(135deg,#6b1414 0%,#8b1c1c 40%,#7a1818 100%)',
+    'border-bottom:1.5px solid rgba(226,75,74,.6)',
+    'padding:12px 20px 12px 24px',
+    'display:flex','align-items:center','gap:14px',
+    'box-shadow:0 4px 32px rgba(226,75,74,.45)',
+    'animation:suspBannerIn .35s cubic-bezier(.4,0,.2,1)',
+  ].join(';');
+
+  const supportEmail = 'support@swisstariffhub.ch';
+  banner.innerHTML = `
+    <!-- Icona -->
+    <div style="flex-shrink:0;width:36px;height:36px;border-radius:50%;
+                background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
+                display:flex;align-items:center;justify-content:center;font-size:18px">
+      🔶
+    </div>
+    <!-- Testo -->
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;letter-spacing:.01em"
+           id="_susp-b-title"></div>
+      <div style="font-size:11.5px;color:rgba(255,255,255,.7);line-height:1.45"
+           id="_susp-b-sub"></div>
+    </div>
+    <!-- Pulsante contatto -->
+    <a id="_susp-b-contact" href="mailto:${supportEmail}"
+       style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;
+              padding:7px 15px;background:rgba(255,255,255,.14);
+              color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:8px;
+              font-size:11.5px;font-weight:600;text-decoration:none;
+              transition:background .15s;white-space:nowrap">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <path d="M1 3l5.5 4L12 3M1 3h11v7.5a.5.5 0 01-.5.5h-10a.5.5 0 01-.5-.5V3z"
+              stroke="white" stroke-width="1.2" stroke-linejoin="round"/>
+      </svg>
+    </a>
+    <!-- Separatore -->
+    <div style="width:1px;height:28px;background:rgba(255,255,255,.15);flex-shrink:0"></div>
+    <!-- Countdown + chiudi -->
+    <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="font-size:10px;color:rgba(255,255,255,.4);line-height:1">
+        <span id="_susp-b-countdown">5</span>s
+      </div>
+      <button id="_susp-banner-close"
+        style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,.2);
+               background:rgba(255,255,255,.1);color:rgba(255,255,255,.8);
+               font-size:16px;line-height:1;cursor:pointer;
+               display:flex;align-items:center;justify-content:center;
+               transition:background .15s;padding:0">
+        ×
+      </button>
+    </div>`;
+
+  // Testi i18n
+  banner.querySelector('#_susp-b-title').textContent   = t('susp_banner_title');
+  banner.querySelector('#_susp-b-sub').textContent     = t('susp_banner_sub');
+  banner.querySelector('#_susp-b-contact').querySelector('svg').insertAdjacentText('afterend', ' ' + t('susp_banner_contact'));
+
+  // Funzione di chiusura animata
+  function closeBanner() {
+    banner.style.animation = 'suspBannerOut .3s cubic-bezier(.4,0,.2,1) forwards';
+    clearInterval(cdTimer);
+    setTimeout(() => banner.remove(), 300);
+  }
+
+  banner.querySelector('#_susp-banner-close').addEventListener('click', closeBanner);
+  document.body.prepend(banner);
+
+  // Countdown
+  let remaining = 5;
+  const cdEl = banner.querySelector('#_susp-b-countdown');
+  const cdTimer = setInterval(() => {
+    remaining--;
+    if (cdEl) cdEl.textContent = remaining;
+    if (remaining <= 0) clearInterval(cdTimer);
+  }, 1000);
+}
+
 async function gateSubmit() {
   const input = document.getElementById('gate-key-input');
   const btn   = document.getElementById('gate-btn');
@@ -4597,19 +5270,16 @@ async function gateSubmit() {
 function showApiContent() {
   const info = _apiUserInfo;
   if (!info) return;
-  document.getElementById('api-gate').style.display     = 'none';
-  // api-user-bar rimossa
-  document.getElementById('api-content').style.display  = 'block';
-  const company = info.company ? ` — ${info.company}` : '';
-  // aub-* rimossi — dati nel dropdown tendina
+  document.getElementById('api-gate').style.display    = 'none';
+  document.getElementById('api-content').style.display = 'block';
   _updateUsageBar(info.requests_today, info.rate_limit_day);
   populateTryTariffSelect();
+
   // Aggiorna pill header
   const pill = document.getElementById('header-auth-pill');
   if (pill) {
-    const initials = (info.full_name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const initials  = (info.full_name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     const firstName = (info.full_name||'').split(' ')[0];
-    // Pill compatta — solo avatar + nome + chevron
     pill.innerHTML = `
       <div class="h-pill-av">${initials}</div>
       <span style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${firstName}</span>
@@ -4617,28 +5287,40 @@ function showApiContent() {
         <path d="M2 3.5l3 3 3-3" stroke="white" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>`;
     pill.style.display = 'flex';
-    // Mostra il wrapper
     const wrap = document.getElementById('h-dropdown-wrap');
     if (wrap) wrap.style.display = 'block';
     const _lb = document.getElementById('h-logout-btn');
     if (_lb) _lb.style.display = 'flex';
-    // Popola il dropdown
     _populateUserDropdown(info);
+  }
+
   _updateHomeAuthBox();
   _updateSmartAccess();
   _updateDvAccess();
-  // Ricarica dati con nuovi permessi
+
   if (activeTariff) onTariffChange();
   if (smartData && activeSmartTariff) {
     const _td = smartData.tariffs.find(t => t.tariff_id === activeSmartTariff);
     if (_td) renderSmartTariff(_td);
     renderSmartCompare(smartData.tariffs);
   }
+
+  // Aggiorna select tariffa e overlay Pro con i dati del piano
+  populateTryTariffSelect();
+  populateApiTariffSelect();
+  const allOverlay = document.getElementById('api-all-pro-overlay');
+  if (allOverlay) {
+    allOverlay.style.display = ((info.plan || 'free') === 'free') ? 'flex' : 'none';
+  }
+
+  // Trigger modal selezione tariffa per piano free senza tariffa scelta
+  const _plan = info.plan || 'free';
+  if (_plan === 'free' && !info.free_tariff_id) {
+    setTimeout(() => _showFreeTariffModal(), 700);
   }
 }
 
 function _populateUserDropdown(info) {
-  // Bottone upgrade nel dropdown: visibile solo se piano free
   const upgradeBtn = document.getElementById('hdd-upgrade-btn');
   if (upgradeBtn) upgradeBtn.style.display = ((info.plan||'free') === 'free') ? 'flex' : 'none';
   const initials = (info.full_name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
@@ -4646,20 +5328,223 @@ function _populateUserDropdown(info) {
   const el = id => document.getElementById(id);
 
   if(el('hdd-avatar'))    el('hdd-avatar').textContent = initials;
-  _s('hdd-name',    info.full_name || '—');
-  _s('hdd-email',   info.email     || '—');
-  _s('hdd-key',     (info.key_prefix||'stk_') + '••••••••');
-  _s('hdd-country', info.country   || '—');
+  _s('hdd-name',    info.full_name || '\u2014');
+  _s('hdd-email',   info.email     || '\u2014');
+  _s('hdd-key',     (info.key_prefix||'stk_') + '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022');
+  _s('hdd-country', info.country   || '\u2014');
   _s('hdd-total-val', (info.requests_total||0).toLocaleString());
 
   const plan = info.plan || 'free';
   const pill = el('hdd-plan-pill');
   if (pill) {
-    pill.textContent  = plan === 'pro' ? '⚡ Pro' : 'Free';
-    pill.className    = 'hdd-plan-pill ' + (plan === 'pro' ? 'hdd-plan-pro' : 'hdd-plan-free');
+    pill.textContent = plan === 'pro' ? '\u26A1 Pro' : 'Free';
+    pill.className   = 'hdd-plan-pill ' + (plan === 'pro' ? 'hdd-plan-pro' : 'hdd-plan-free');
+  }
+
+  // Bottone cambia tariffa: visibile solo per piano free
+  const changeTariffBtn = document.getElementById('hdd-change-tariff-btn');
+  if (changeTariffBtn) changeTariffBtn.style.display = (plan === 'free') ? 'flex' : 'none';
+
+  // Riga tariffa: visibile solo per piano free con tariffa scelta
+  const tariffRow = document.getElementById('hdd-tariff-row');
+  const tariffVal = document.getElementById('hdd-tariff-val');
+  const freeTariffId = info.free_tariff_id || null;
+  if (tariffRow && tariffVal) {
+    if (plan === 'free' && freeTariffId) {
+      // Trova il nome leggibile dalla lista tariffe caricate
+      const tariffObj = _allTariffs.find(t => t.tariff_id === freeTariffId);
+      const label = tariffObj
+        ? `${tariffObj.provider_name} — ${tariffObj.tariff_name}`
+        : freeTariffId;
+      tariffVal.textContent = label;
+      tariffRow.style.display = 'flex';
+    } else {
+      tariffRow.style.display = 'none';
+    }
+  }
+
+  // Overlay Pro su prices/all
+  const allOverlay = document.getElementById('api-all-pro-overlay');
+  if (allOverlay) {
+    allOverlay.style.display = (plan === 'free') ? 'flex' : 'none';
   }
 
   _updateDropdownUsage(info.requests_today||0, info.rate_limit_day||100);
+}
+
+// ── Modal selezione tariffa free ──────────────────────────────────────────────
+
+let _ftmDone = false; // flag: non mostrare più il modal se già visto/saltato
+
+function _showFreeTariffModal(force) {
+  if (_ftmDone && !force) return;
+  if (force) _ftmDone = false;  // reset per riapertura manuale
+  if (document.getElementById('_ftm-overlay')) return;
+
+  // Inietta keyframe una volta sola
+  if (!document.getElementById('_ftm-kf')) {
+    const s = document.createElement('style');
+    s.id = '_ftm-kf';
+    s.textContent = `
+      @keyframes ftmIn{from{transform:translateY(32px) scale(.97);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+      @keyframes ftmOut{from{opacity:1}to{opacity:0}}
+      ._ftm-opt{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid #e8eaf0;
+                border-radius:10px;cursor:pointer;transition:border-color .15s,background .15s;margin-bottom:8px}
+      ._ftm-opt:hover{border-color:#185fa5;background:#f4f8ff}
+      ._ftm-opt.selected{border-color:#185fa5;background:#eef4ff}
+      ._ftm-opt-icon{width:36px;height:36px;border-radius:8px;background:#f0f2f5;
+                     display:flex;align-items:center;justify-content:circle;flex-shrink:0;font-size:18px}
+      ._ftm-opt-label{font-size:13px;font-weight:600;color:#1a1a2e;line-height:1.3}
+      ._ftm-opt-sub{font-size:11px;color:#888;margin-top:2px}
+    `;
+    document.head.appendChild(s);
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = '_ftm-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,10,20,.55);z-index:99990;display:flex;align-items:center;justify-content:center;padding:16px';
+
+  overlay.innerHTML = `
+    <div id="_ftm-box" style="background:#fff;border-radius:18px;padding:28px 28px 24px;
+         max-width:460px;width:100%;box-shadow:0 24px 80px rgba(0,0,0,.22);
+         animation:ftmIn .35s cubic-bezier(.4,0,.2,1)">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:18px">
+        <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#185fa5,#1d9e75);
+                    display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px">\u26A1</div>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:4px" id="_ftm-title"></div>
+          <div style="font-size:12px;color:#888;line-height:1.5" id="_ftm-sub"></div>
+        </div>
+      </div>
+      <div id="_ftm-list" style="max-height:320px;overflow-y:auto;margin-bottom:16px;padding-right:2px"></div>
+      <div style="display:flex;gap:10px">
+        <button id="_ftm-skip" onclick="_closeFtm()"
+          style="flex:1;padding:10px;border:1px solid #ddd;border-radius:9px;background:#fff;
+                 color:#888;font-size:12px;font-weight:500;cursor:pointer"></button>
+        <button id="_ftm-confirm" onclick="_saveFreeTariff()"
+          style="flex:2;padding:10px;border:none;border-radius:9px;
+                 background:linear-gradient(135deg,#185fa5,#1d9e75);
+                 color:#fff;font-size:13px;font-weight:600;cursor:pointer;opacity:.4;pointer-events:none"></button>
+      </div>
+    </div>`;
+
+  // Appende al DOM PRIMA di cercare gli elementi figli
+  document.body.appendChild(overlay);
+
+  // Ora gli elementi esistono nel DOM
+  overlay.querySelector('#_ftm-title').textContent   = t('ftm_title');
+  overlay.querySelector('#_ftm-sub').textContent     = t('ftm_sub');
+  overlay.querySelector('#_ftm-skip').textContent    = t('ftm_skip');
+  overlay.querySelector('#_ftm-confirm').textContent = t('ftm_confirm');
+
+  const list = overlay.querySelector('#_ftm-list');
+
+  if (_allTariffs.length) {
+    _renderFtmOptions(list, _allTariffs);
+  } else {
+    list.innerHTML = '<div style="color:#bbb;font-size:13px;text-align:center;padding:20px">Loading...</div>';
+    _ifetch('/internal/tariffs').then(r => r.json()).then(data => {
+      _allTariffs = data;
+      _renderFtmOptions(list, data);
+    }).catch(() => {
+      list.innerHTML = '<div style="color:#e24b4a;font-size:12px;text-align:center;padding:16px">Error loading tariffs.</div>';
+    });
+  }
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) _closeFtm(); });
+}
+
+function _renderFtmOptions(list, tariffs) {
+  const providerEmoji = {
+    ckw: '\uD83D\uDCA1', ekz: '\u26A1', aem: '\uD83C\uDF0D', groupe: '\uD83C\uDDEB\uD83C\uDDF7',
+    primeo: '\uD83C\uDF3F', avag: '\uD83C\uDFD4\uFE0F', elag: '\uD83D\uDD0C', ega: '\uD83C\uDFD4\uFE0F', ail: '\uD83C\uDDEE\uD83C\uDDF9',
+  };
+  list.innerHTML = tariffs.map(tariff => {
+    const pid = tariff.tariff_id.split('_')[0];
+    const emoji = providerEmoji[pid] || '\u26A1';
+    const zipStr = tariff.zip_ranges && tariff.zip_ranges.length
+      ? (tariff.zip_ranges.length <= 4 ? tariff.zip_ranges.join(', ') : tariff.zip_ranges[0] + '\u2013' + tariff.zip_ranges[tariff.zip_ranges.length-1])
+      : '';
+    return `<div class="_ftm-opt" data-tariff-id="${tariff.tariff_id}" onclick="_selectFtmOpt(this)">
+      <div class="_ftm-opt-icon">${emoji}</div>
+      <div style="min-width:0;flex:1">
+        <div class="_ftm-opt-label">${tariff.provider_name}</div>
+        <div class="_ftm-opt-sub">${tariff.tariff_name}${zipStr ? ' \u00b7 ZIP ' + zipStr : ''}</div>
+      </div>
+      <div id="_ftm-check-${tariff.tariff_id}" style="display:none;color:#185fa5;font-size:18px">\u2713</div>
+    </div>`;
+  }).join('');
+}
+
+function _selectFtmOpt(el) {
+  document.querySelectorAll('._ftm-opt').forEach(o => {
+    o.classList.remove('selected');
+    const tid = o.dataset.tariffId;
+    const chk = document.getElementById('_ftm-check-' + tid);
+    if (chk) chk.style.display = 'none';
+  });
+  el.classList.add('selected');
+  const chk = document.getElementById('_ftm-check-' + el.dataset.tariffId);
+  if (chk) chk.style.display = 'block';
+  const btn = document.getElementById('_ftm-confirm');
+  if (btn) { btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; }
+}
+
+function _closeFtm(fromSave) {
+  if (fromSave) _ftmDone = true;  // blocca solo se l'utente ha confermato
+  // se "salta", _ftmDone rimane false → il pulsante dropdown può riaprire
+  const ov = document.getElementById('_ftm-overlay');
+  if (!ov) return;
+  ov.style.animation = 'ftmOut .25s ease forwards';
+  setTimeout(() => ov.remove(), 250);
+}
+
+async function _saveFreeTariff() {
+  const selected = document.querySelector('._ftm-opt.selected');
+  if (!selected) return;
+  const tariffId = selected.dataset.tariffId;
+  if (!tariffId || !_apiKeyRaw) return;
+
+  const btn = document.getElementById('_ftm-confirm');
+  if (btn) { btn.textContent = '...'; btn.style.pointerEvents = 'none'; }
+
+  try {
+    const r = await fetch(`/api/v1/me/tariff?tariff_id=${encodeURIComponent(tariffId)}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': _apiKeyRaw,
+      },
+      body: JSON.stringify({ api_key: _apiKeyRaw }),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+
+    // Aggiorna info locale
+    if (_apiUserInfo) {
+      _apiUserInfo.free_tariff_id = tariffId;
+      _saveSession();
+    }
+    _closeFtm(true);
+
+    // Aggiorna UI immediatamente
+    populateTryTariffSelect();
+    populateApiTariffSelect();
+    const allOverlay = document.getElementById('api-all-pro-overlay');
+    if (allOverlay) allOverlay.style.display = 'flex';
+    // Aggiorna riga tariffa nel dropdown
+    if (_apiUserInfo) _populateUserDropdown(_apiUserInfo);  // fromSave=true → setta _ftmDone, non mostra più auto
+
+    // Piccolo toast di conferma
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 22px;background:#0d2e1e;color:#1d9e75;border:0.5px solid #1d4030;border-radius:10px;font-size:13px;font-weight:600;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,.3)';
+    toast.textContent = '\u2713 ' + (selected.querySelector('._ftm-opt-label')?.textContent || tariffId);
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+
+  } catch(e) {
+    if (btn) { btn.textContent = t('ftm_confirm'); btn.style.pointerEvents = 'auto'; }
+    console.error('_saveFreeTariff error:', e);
+  }
 }
 
 function _updateDropdownUsage(used, limit) {
@@ -4862,13 +5747,89 @@ function _showReplaceKeyPopup() {
 function populateTryTariffSelect() {
   const sel = document.getElementById('try-tariff-select');
   if (!sel || !lastHealthData.length) return;
-  sel.innerHTML = lastHealthData
-    .filter(tariff => tariff.has_today_data || tariff.status === 'ok')
-    .map(tariff => `<option value="${tariff.tariff_id}">${tariff.provider_name} — ${tariff.tariff_name}</option>`)
-    .join('');
+  const plan          = _getUserPlan();
+  const freeTariffId  = _apiUserInfo?.free_tariff_id || null;
+  const okTariffs     = lastHealthData.filter(t => t.has_today_data || t.status === 'ok');
+
+  sel.innerHTML = okTariffs.map(tariff => {
+    const isFreeTariff = tariff.tariff_id === freeTariffId;
+    const disabled     = (plan === 'free' && freeTariffId && !isFreeTariff) ? 'disabled' : '';
+    const suffix       = (plan === 'free' && freeTariffId && !isFreeTariff) ? ' 🔒' : '';
+    const selected     = (plan === 'free' && freeTariffId && isFreeTariff) ? 'selected' : '';
+    return `<option value="${tariff.tariff_id}" ${disabled} ${selected}>${tariff.provider_name} — ${tariff.tariff_name}${suffix}</option>`;
+  }).join('');
+
+  if (plan === 'free' && freeTariffId) sel.value = freeTariffId;
+
+  // Disabilita il calendario date per piano free (solo oggi disponibile)
+  const dateInput = document.getElementById('try-date');
+  if (dateInput) {
+    const isFree = plan === 'free';
+    dateInput.disabled = isFree;
+    dateInput.title    = isFree ? 'Free plan: today only' : '';
+    dateInput.style.opacity = isFree ? '.45' : '1';
+    dateInput.style.cursor  = isFree ? 'not-allowed' : '';
+    dateInput.value = '{{ today }}'; // forza sempre oggi per free
+  }
+}
+
+// ── Try-it warning popup ─────────────────────────────────────────────────────
+function _tryWarn(callback) {
+  if (localStorage.getItem('sth_try_warned') === '1') { callback(); return; }
+  const lang = typeof _currentLang !== 'undefined' ? _currentLang : 'en';
+  const msgs = {
+    en: { title: 'This counts as a real request',
+          body:  'Running an endpoint uses <strong>1 request</strong> from your daily quota. Continue?',
+          confirm: 'Run anyway →', cancel: 'Cancel', never: "Don't show again" },
+    it: { title: 'Questa conta come richiesta reale',
+          body:  'Eseguire un endpoint usa <strong>1 richiesta</strong> dal tuo quota giornaliero. Continuare?',
+          confirm: 'Esegui comunque →', cancel: 'Annulla', never: 'Non mostrare più' },
+    de: { title: 'Dies zählt als echte Anfrage',
+          body:  'Das Ausführen eines Endpunkts verbraucht <strong>1 Anfrage</strong> aus deinem Tageskontingent. Fortfahren?',
+          confirm: 'Trotzdem ausführen →', cancel: 'Abbrechen', never: 'Nicht mehr anzeigen' },
+    fr: { title: 'Ceci compte comme une vraie requête',
+          body:  'Exécuter un endpoint utilise <strong>1 requête</strong> de votre quota journalier. Continuer?',
+          confirm: 'Exécuter quand même →', cancel: 'Annuler', never: 'Ne plus afficher' },
+  };
+  const m = msgs[lang] || msgs.en;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'try-warn-overlay';
+  overlay.innerHTML = `
+    <div id=try-warn-box>
+      <div id=try-warn-icon>⚡</div>
+      <div id=try-warn-title>${m.title}</div>
+      <div id=try-warn-body>${m.body}</div>
+      <div id=try-warn-actions>
+        <button id=try-warn-confirm>${m.confirm}</button>
+        <button id=try-warn-cancel>${m.cancel}</button>
+      </div>
+      <div id=try-warn-nevershow>
+        <input type=checkbox id=try-warn-cb>
+        <label for=try-warn-cb>${m.never}</label>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  function close(run) {
+    if (document.getElementById('try-warn-cb').checked) {
+      localStorage.setItem('sth_try_warned', '1');
+    }
+    overlay.remove();
+    if (run) callback();
+  }
+
+  document.getElementById('try-warn-confirm').onclick = () => close(true);
+  document.getElementById('try-warn-cancel').onclick  = () => close(false);
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(false); });
 }
 
 async function tryEndpoint(which) {
+  if (!_apiKeyRaw) return;
+  _tryWarn(() => _doTryEndpoint(which));
+}
+
+async function _doTryEndpoint(which) {
   if (!_apiKeyRaw) return;
   const resultEl = document.getElementById('try-result-' + which);
   const metaEl   = document.getElementById('try-meta-' + which);
@@ -5013,7 +5974,7 @@ setInterval(() => { if (activeTariff) loadMonthly(activeTariff); }, 300000);
         <div class="hrm-success-icon">📬</div>
         <div class="hrm-success-title" data-i18n="reg_success_title">Request sent!</div>
         <div class="hrm-success-sub" data-i18n="reg_success_sub">We'll review your request and send your API key by email within 24 hours.</div>
-        <div class="hrm-countdown" data-i18n="hrm_closing">Closing in <span id="hrm-countdown-n">10</span>s...</div>
+        <div class="hrm-countdown" data-i18n-html="hrm_closing">Closing in <span id="hrm-countdown-n">10</span>s...</div>
       </div>
     </div>
   </div>
@@ -5036,33 +5997,33 @@ setInterval(() => { if (activeTariff) loadMonthly(activeTariff); }, 300000);
         <span class="um-logo-text">Swiss Tariff Hub</span>
       </div>
       <div class="um-plan-badge">
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-          <path d="M5 .5l1 2.8H9L6.5 5l1 2.8L5 6.3 2.5 7.8l1-2.8L1 3.3h3z" fill="#34d399"/>
+        <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+          <path d="M4.5.5l.9 2.5H8L5.9 4.7l.9 2.5L4.5 5.7 2.2 7.2l.9-2.5L1 3h2.6z" fill="#34d399"/>
         </svg>
         PRO PLAN
       </div>
-      <div class="um-plan-price">CHF 49</div>
-      <div class="um-plan-period" data-i18n="um_billed_monthly">Fatturazione mensile · cancella quando vuoi</div>
+      <div class="um-plan-price"><sup>CHF</sup>19</div>
+      <div class="um-plan-period" data-i18n="um_billed_monthly">Monthly billing · cancel anytime</div>
       <div class="um-features">
         <div class="um-feature">
           <div class="um-feature-check"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#34d399" stroke-width="1.5" fill="none"/></svg></div>
-          <span>2000 requests / day</span>
+          <span>2 000 requests / day</span>
         </div>
         <div class="um-feature">
           <div class="um-feature-check"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#34d399" stroke-width="1.5" fill="none"/></svg></div>
-          <span>Unlimited price history</span>
+          <span>Full price history</span>
         </div>
         <div class="um-feature">
           <div class="um-feature-check"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#34d399" stroke-width="1.5" fill="none"/></svg></div>
-          <span>/api/v1/prices/all</span>
+          <span>All providers — <code style="font-size:10px">/prices/all</code></span>
         </div>
         <div class="um-feature">
           <div class="um-feature-check"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#34d399" stroke-width="1.5" fill="none"/></svg></div>
-          <span>Monthly summary + /metrics</span>
+          <span>Monthly summaries + /metrics</span>
         </div>
         <div class="um-feature">
           <div class="um-feature-check"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#34d399" stroke-width="1.5" fill="none"/></svg></div>
-          <span>30 req/min rate limit</span>
+          <span>30 req / min</span>
         </div>
         <div class="um-feature">
           <div class="um-feature-check"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#34d399" stroke-width="1.5" fill="none"/></svg></div>
@@ -5070,121 +6031,776 @@ setInterval(() => { if (activeTariff) loadMonthly(activeTariff); }, 300000);
         </div>
       </div>
       <div class="um-guarantee" data-i18n="um_guarantee">
-        🔒 30-day money-back guarantee. No questions asked.
+        🔒 Secure payment · Cancel anytime before next billing date.
+      </div>
+      <div class="um-trust-badges">
+        <div class="um-trust-badge">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5 1L1.5 2.5v2.8C1.5 7.5 3 9.2 5 9.8c2-.6 3.5-2.3 3.5-4.5V2.5L5 1z" stroke="rgba(255,255,255,.3)" stroke-width=".8"/></svg>
+          SSL 256-bit
+        </div>
+        <div class="um-trust-badge">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="rgba(255,255,255,.3)" stroke-width=".8"/><polyline points="3,5 4.5,6.5 7,3.5" stroke="rgba(255,255,255,.3)" stroke-width=".8" fill="none"/></svg>
+          PCI compliant
+        </div>
+        <div class="um-trust-badge">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="1" y="3" width="8" height="5.5" rx="1" stroke="rgba(255,255,255,.3)" stroke-width=".8"/><path d="M3 3V2.5a2 2 0 014 0V3" stroke="rgba(255,255,255,.3)" stroke-width=".8"/></svg>
+          GDPR
+        </div>
       </div>
     </div>
 
-    <!-- ── COLONNA DESTRA: form pagamento ── -->
+    <!-- ── COLONNA DESTRA: checkout ── -->
     <div class="um-right">
       <div class="um-right-header">
-        <div class="um-right-title" data-i18n="um_title">Complete your subscription</div>
-        <div class="um-right-sub" data-i18n="um_right_sub">Secure payment · Instant activation</div>
+        <div class="um-right-title" id="um-header-title">Complete your subscription</div>
+        <div class="um-right-sub">
+          <svg width="11" height="12" viewBox="0 0 11 12" fill="none">
+            <path d="M5.5 1L1 3v3C1 8.8 3 10.8 5.5 11.5 8 10.8 10 8.8 10 6V3L5.5 1z" stroke="#34d399" stroke-width="1"/>
+            <polyline points="3.5,6 5,7.5 7.5,4.5" stroke="#34d399" stroke-width="1" stroke-linecap="round"/>
+          </svg>
+          <span data-i18n="um_right_sub">Secure payment · Instant activation</span>
+        </div>
       </div>
 
       <div class="um-body" id="um-form-body">
-        <!-- Billing info -->
-        <div class="um-section-title" data-i18n="um_billing_info">Billing details</div>
-        <div class="um-row">
-          <div class="um-field">
-            <label class="um-label" data-i18n="um_first_name">First name</label>
-            <input class="um-input" id="um-firstname" type="text" placeholder="Mario" autocomplete="given-name">
+
+        <!-- STEP 1: billing + selezione metodo -->
+        <div id="um-step-1" class="um-step">
+
+          <!-- Billing info -->
+          <div class="um-section-title" data-i18n="um_billing_title">Billing details</div>
+          <div class="um-row">
+            <div class="um-field">
+              <label class="um-label">First name</label>
+              <input class="um-input" id="um-firstname" type="text" placeholder="Mario" autocomplete="given-name">
+            </div>
+            <div class="um-field">
+              <label class="um-label">Last name</label>
+              <input class="um-input" id="um-lastname" type="text" placeholder="Rossi" autocomplete="family-name">
+            </div>
           </div>
           <div class="um-field">
-            <label class="um-label" data-i18n="um_last_name">Last name</label>
-            <input class="um-input" id="um-lastname" type="text" placeholder="Rossi" autocomplete="family-name">
+            <label class="um-label">Email</label>
+            <input class="um-input" id="um-email" type="email" placeholder="mario@azienda.ch" autocomplete="email">
           </div>
-        </div>
-        <div class="um-field">
-          <label class="um-label" data-i18n="um_email">Email</label>
-          <input class="um-input" id="um-email" type="email" placeholder="mario@azienda.ch" autocomplete="email">
-        </div>
-        <div class="um-row">
-          <div class="um-field">
-            <label class="um-label">Company <span style="color:#ddd;font-weight:400">(opt.)</span></label>
-            <input class="um-input" id="um-company" type="text" placeholder="Azienda SA" autocomplete="organization">
+          <div class="um-row">
+            <div class="um-field">
+              <label class="um-label">Company <span style="color:#ccc;font-weight:400">(opt.)</span></label>
+              <input class="um-input" id="um-company" type="text" placeholder="Azienda SA" autocomplete="organization">
+            </div>
+            <div class="um-field">
+              <label class="um-label">VAT / UID <span style="color:#ccc;font-weight:400">(opt.)</span></label>
+              <input class="um-input" id="um-vat" type="text" placeholder="CHE-123.456.789">
+            </div>
           </div>
-          <div class="um-field">
-            <label class="um-label">VAT / UID <span style="color:#ddd;font-weight:400">(opt.)</span></label>
-            <input class="um-input" id="um-vat" type="text" placeholder="CHE-123.456.789">
+
+          <div class="um-divider"></div>
+
+          <!-- Selezione metodo -->
+          <div class="um-section-title" data-i18n="um_method_title">Payment method</div>
+          <div class="um-method-grid">
+
+            <!-- Card -->
+            <button class="um-method-btn" id="um-method-card" onclick="umSelectMethod('card')">
+              <div class="um-method-icon">
+                <svg width="36" height="24" viewBox="0 0 36 24" fill="none">
+                  <rect x=".5" y=".5" width="35" height="23" rx="3.5" stroke="#e0e0e0"/>
+                  <rect x="0" y="6" width="36" height="5" fill="#e8e8e8"/>
+                  <rect x="4" y="15" width="10" height="2.5" rx="1.2" fill="#ddd"/>
+                  <rect x="17" y="15" width="6" height="2.5" rx="1.2" fill="#ddd"/>
+                </svg>
+              </div>
+              <span data-i18n="um_method_card">Credit / Debit card</span>
+            </button>
+
+            <!-- PayPal -->
+            <button class="um-method-btn" id="um-method-paypal" onclick="umSelectMethod('paypal')">
+              <div class="um-method-icon" style="width:56px;height:24px">
+                <span style="font-size:15px;font-weight:800;font-family:Arial,sans-serif;letter-spacing:-.3px;line-height:1">
+                  <span style="color:#003087">Pay</span><span style="color:#009cde">Pal</span>
+                </span>
+              </div>
+              PayPal
+            </button>
+
+            <!-- Apple Pay -->
+            <button class="um-method-btn" id="um-method-apple" onclick="umSelectMethod('apple')">
+              <div class="um-method-icon" style="width:56px;height:24px;gap:3px">
+                <span style="font-size:18px;line-height:1;color:#000">&#xF8FF;</span>
+                <span style="font-size:13px;font-weight:600;font-family:-apple-system,Arial,sans-serif;color:#000;line-height:1">Pay</span>
+              </div>
+              Apple Pay
+            </button>
+
+            <!-- Google Pay -->
+            <button class="um-method-btn" id="um-method-google" onclick="umSelectMethod('google')">
+              <div class="um-method-icon" style="width:72px;height:24px">
+                <span style="font-size:13px;font-weight:500;font-family:Arial,sans-serif;letter-spacing:-.2px;line-height:1">
+                  <span style="color:#4285F4">G</span><span style="color:#EA4335">o</span><span style="color:#FBBC05">o</span><span style="color:#4285F4">g</span><span style="color:#34A853">l</span><span style="color:#EA4335">e</span><span style="color:#5F6368;font-weight:600">&nbsp;Pay</span>
+                </span>
+              </div>
+              Google Pay
+            </button>
+
+
           </div>
         </div>
 
-        <div class="um-divider"></div>
+        <!-- STEP 2a: Card form -->
+        <div id="um-step-card" class="um-step" style="display:none">
+          <button class="um-back-btn" onclick="umGoBack()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span data-i18n="um_back">Back to payment methods</span>
+          </button>
+          <div class="um-section-title" data-i18n="um_card_details">Card details</div>
+          <!-- Test mode button -->
+          <div style="margin-bottom:10px">
+            <button type="button" onclick="umFillTestCard()" style="
+              display:inline-flex;align-items:center;gap:6px;
+              padding:5px 12px;border:1.5px dashed #e0a800;border-radius:8px;
+              background:#fffbea;color:#b07b00;font-size:11px;font-weight:600;
+              cursor:pointer;transition:all .15s
+            " title="Fill with test card data (4242 4242 4242 4242)">
+              🧪 Test mode — fill with fake card
+            </button>
+          </div>
+          <div class="um-card-brands">
+            <div class="um-brand um-brand-visa">VISA</div>
+            <div class="um-brand" style="padding:0;overflow:hidden;border-color:#f0f0f0">
+              <svg width="34" height="22" viewBox="0 0 34 22">
+                <rect width="34" height="22" rx="3" fill="white"/>
+                <circle cx="13" cy="11" r="7" fill="#EB001B"/>
+                <circle cx="21" cy="11" r="7" fill="#F79E1B"/>
+                <path d="M17 5.2a7 7 0 010 11.6A7 7 0 0117 5.2z" fill="#FF5F00"/>
+              </svg>
+            </div>
+            <div class="um-brand um-brand-amex">AMEX</div>
+            <div class="um-brand um-brand-twint">TWINT</div>
+            <div class="um-brand" style="color:#555">PostFinance</div>
+          </div>
+          <div class="um-field">
+            <label class="um-label">Card number</label>
+            <div style="position:relative">
+              <input class="um-card-input" id="um-card-number" type="text"
+                placeholder="1234  5678  9012  3456" maxlength="19" autocomplete="cc-number"
+                oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/(.{4})/g,'$1 ').trim().slice(0,19)"
+                style="padding-right:48px">
+              <svg style="position:absolute;right:13px;top:50%;transform:translateY(-50%);opacity:.25"
+                width="22" height="16" viewBox="0 0 22 16" fill="none">
+                <rect x=".5" y=".5" width="21" height="15" rx="2.5" stroke="#999"/>
+                <rect x="0" y="4" width="22" height="3" fill="#ccc"/>
+                <rect x="2" y="10" width="7" height="2" rx="1" fill="#ddd"/>
+              </svg>
+            </div>
+          </div>
+          <div class="um-card-row">
+            <div class="um-field" style="margin-bottom:0">
+              <label class="um-label">Name on card</label>
+              <input class="um-input" id="um-card-name" type="text" placeholder="MARIO ROSSI"
+                autocomplete="cc-name" oninput="this.value=this.value.toUpperCase()">
+            </div>
+            <div class="um-field" style="margin-bottom:0">
+              <label class="um-label">Expiry</label>
+              <input class="um-input" id="um-expiry" type="text" placeholder="MM/YY"
+                maxlength="5" autocomplete="cc-exp"
+                oninput="let v=this.value.replace(/\D/g,'');if(v.length>=2)v=v.slice(0,2)+'/'+v.slice(2);this.value=v">
+            </div>
+            <div class="um-field" style="margin-bottom:0">
+              <label class="um-label">CVV</label>
+              <input class="um-input" id="um-cvv" type="text" placeholder="•••"
+                maxlength="4" autocomplete="cc-csc"
+                oninput="this.value=this.value.replace(/\D/g,'')">
+            </div>
+          </div>
+        </div>
 
-        <!-- Payment info -->
-        <div class="um-section-title" data-i18n="um_payment_info">Payment</div>
-        <div class="um-card-brands">
-          <div class="um-brand um-brand-visa">VISA</div>
-          <div class="um-brand um-brand-mc">
-            <svg width="32" height="20" viewBox="0 0 32 20">
-              <rect width="32" height="20" rx="3" fill="white"/>
-              <circle cx="12" cy="10" r="7" fill="#EB001B"/>
-              <circle cx="20" cy="10" r="7" fill="#F79E1B"/>
-              <path d="M16 4.8a7 7 0 010 10.4A7 7 0 0116 4.8z" fill="#FF5F00"/>
+        <!-- STEP 2b: PayPal -->
+        <div id="um-step-paypal" class="um-step" style="display:none">
+          <button class="um-back-btn" onclick="umGoBack()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
+            <span data-i18n="um_back_short">← Back</span>
+          </button>
+          <div class="um-wallet-notice">
+            <div class="um-wallet-notice-icon">
+              <span style="font-size:28px;font-weight:800;font-family:Arial,sans-serif;letter-spacing:-.5px">
+                <span style="color:#003087">Pay</span><span style="color:#009cde">Pal</span>
+              </span>
+            </div>
+            <div class="um-wallet-notice-title" data-i18n="um_paypal_title">You'll be redirected to PayPal</div>
+            <div class="um-wallet-notice-sub" data-i18n="um_paypal_sub">Log in to your PayPal account to authorize the CHF 19/month subscription. You'll return here after confirmation.</div>
           </div>
-          <div class="um-brand um-brand-amex">AMEX</div>
-          <div class="um-brand um-brand-twint" style="font-size:9px">TWINT</div>
         </div>
-        <div class="um-field">
-          <label class="um-label" data-i18n="um_card_number">Card number</label>
-          <div style="position:relative">
-            <input class="um-card-input" id="um-card-number" type="text"
-              placeholder="1234 5678 9012 3456" maxlength="19" autocomplete="cc-number"
-              oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/(.{4})/g,'$1 ').trim().slice(0,19)"
-              style="padding-right:48px">
-            <svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);opacity:.3"
-              width="24" height="16" viewBox="0 0 24 16" fill="none">
-              <rect x=".5" y=".5" width="23" height="15" rx="2" stroke="#aaa"/>
-              <rect x="0" y="4" width="24" height="3" fill="#bbb"/>
-              <rect x="3" y="10" width="8" height="2" rx="1" fill="#ddd"/>
+
+        <!-- STEP 2c: Apple Pay -->
+        <div id="um-step-apple" class="um-step" style="display:none">
+          <button class="um-back-btn" onclick="umGoBack()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
+            <span data-i18n="um_back_short">← Back</span>
+          </button>
+          <div class="um-wallet-notice">
+            <div class="um-wallet-notice-icon">
+              <span style="font-size:38px;line-height:1;color:#000">&#xF8FF;</span>
+              <div style="font-size:16px;font-weight:600;font-family:-apple-system,Arial,sans-serif;color:#000;margin-top:2px">Pay</div>
+            </div>
+            <div class="um-wallet-notice-title" data-i18n="um_apple_title">Pay with Apple Pay</div>
+            <div class="um-wallet-notice-sub" data-i18n="um_apple_sub">Use Face ID, Touch ID, or your device passcode to authorize CHF 19/month. Available on Safari on iPhone, iPad and Mac.</div>
           </div>
         </div>
-        <div class="um-card-row">
-          <div class="um-field" style="margin-bottom:0">
-            <label class="um-label" data-i18n="um_card_name">Name on card</label>
-            <input class="um-input" id="um-card-name" type="text" placeholder="MARIO ROSSI"
-              autocomplete="cc-name" oninput="this.value=this.value.toUpperCase()">
-          </div>
-          <div class="um-field" style="margin-bottom:0">
-            <label class="um-label" data-i18n="um_expiry">Expiry</label>
-            <input class="um-input" id="um-expiry" type="text" placeholder="MM/YY"
-              maxlength="5" autocomplete="cc-exp"
-              oninput="let v=this.value.replace(/\D/g,'');if(v.length>=2)v=v.slice(0,2)+'/'+v.slice(2);this.value=v">
-          </div>
-          <div class="um-field" style="margin-bottom:0">
-            <label class="um-label">CVV</label>
-            <input class="um-input" id="um-cvv" type="text" placeholder="•••"
-              maxlength="4" autocomplete="cc-csc"
-              oninput="this.value=this.value.replace(/\D/g,'')">
+
+        <!-- STEP 2d: Google Pay -->
+        <div id="um-step-google" class="um-step" style="display:none">
+          <button class="um-back-btn" onclick="umGoBack()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span data-i18n="um_back_short">← Back</span>
+          </button>
+          <div class="um-wallet-notice">
+            <div class="um-wallet-notice-icon">
+              <div style="font-size:22px;font-weight:500;font-family:Arial,sans-serif;letter-spacing:-.3px;line-height:1.2">
+                <span style="color:#4285F4">G</span><span style="color:#EA4335">o</span><span style="color:#FBBC05">o</span><span style="color:#4285F4">g</span><span style="color:#34A853">l</span><span style="color:#EA4335">e</span>
+                <span style="color:#5F6368;font-weight:600;font-size:18px">&nbsp;Pay</span>
+              </div>
+            </div>
+            <div class="um-wallet-notice-title" data-i18n="um_google_title">Pay with Google Pay</div>
+            <div class="um-wallet-notice-sub" data-i18n="um_google_sub">Use your saved Google Pay payment method. A confirmation prompt will appear in your browser to authorize CHF 19/month.</div>
           </div>
         </div>
-      </div>
+
+
+
+      </div><!-- /um-form-body -->
 
       <!-- Footer fisso -->
       <div class="um-footer">
         <div class="um-err" id="um-err"></div>
-        <button class="um-submit" id="um-submit-btn" onclick="submitPayment()">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <rect x="1" y="4.5" width="14" height="9" rx="2" stroke="white" stroke-width="1.3"/>
-            <path d="M1 8h14" stroke="white" stroke-width="1.3"/>
-            <rect x="3" y="10" width="4" height="1.5" rx=".5" fill="white"/>
-          </svg>
-          <span data-i18n="um_pay_btn">Pay CHF 49 / month</span>
+        <button class="um-submit" id="um-submit-btn" onclick="submitPayment()" style="display:none">
+          🔒
+          <span id="um-submit-label">Pay CHF 19 / month</span>
         </button>
-        <div class="um-security">
-          <svg width="11" height="13" viewBox="0 0 11 13" fill="none">
-            <path d="M5.5 1L1 3v3.5C1 9.5 3 11.8 5.5 12.5 8 11.8 10 9.5 10 6.5V3L5.5 1z" stroke="#bbb" stroke-width="1"/>
-            <polyline points="3.5,6.5 5,8 7.5,5" stroke="#bbb" stroke-width="1" stroke-linecap="round"/>
+        <div class="um-security" id="um-security-line">
+          <svg width="10" height="12" viewBox="0 0 10 12" fill="none">
+            <path d="M5 1L1 2.8v3C1 8.5 2.8 10.5 5 11.2 7.2 10.5 9 8.5 9 5.8v-3L5 1z" stroke="#bbb" stroke-width=".9"/>
+            <polyline points="3,6 4.5,7.5 7,4.5" stroke="#bbb" stroke-width=".9" stroke-linecap="round"/>
           </svg>
-          <span data-i18n="um_secure">SSL secure · Data not stored</span>
+          <span data-i18n="um_security_line">SSL encrypted · No card data stored on our servers</span>
         </div>
       </div>
     </div>
 
   </div>
 </div>
+<!-- ═══════════════════════════════════════════════════════════════
+     SWISS TARIFF HUB — AI CHATBOT (rule-based, no external API)
+     ═══════════════════════════════════════════════════════════════ -->
+<style>
+:root {
+  --cb-bg:      #0d1117;
+  --cb-surface: #161b22;
+  --cb-border:  rgba(255,255,255,.08);
+  --cb-accent:  #3b82f6;
+  --cb-accent2: #06b6d4;
+  --cb-green:   #10b981;
+  --cb-text:    #e2e8f0;
+  --cb-muted:   #64748b;
+  --cb-bot-bg:  #1e2433;
+  --cb-w:       390px;
+  --cb-h:       570px;
+}
 
-</body>
-</html>
+/* ── FAB ───────────────────────────────────────────────────────── */
+#chatbot-fab {
+  position:fixed; bottom:28px; right:28px; z-index:10000;
+  width:58px; height:58px; border-radius:50%;
+  background:linear-gradient(135deg,#1e3a8a 0%,#0e7490 50%,#065f46 100%);
+  border:none; cursor:pointer;
+  box-shadow:0 4px 20px rgba(59,130,246,.4),0 0 0 0 rgba(59,130,246,.2);
+  display:flex; align-items:center; justify-content:center;
+  animation:fab-breathe 3.5s ease-in-out infinite;
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1);
+}
+#chatbot-fab:hover { transform:scale(1.1); }
+@keyframes fab-breathe {
+  0%,100%{box-shadow:0 4px 20px rgba(59,130,246,.4),0 0 0 0 rgba(59,130,246,.2)}
+  50%    {box-shadow:0 4px 28px rgba(59,130,246,.5),0 0 0 10px rgba(59,130,246,0)}
+}
+.fab-ico { position:absolute; transition:opacity .2s,transform .25s cubic-bezier(.34,1.56,.64,1); }
+#chatbot-fab.open .fab-ico-chat  { opacity:0; transform:scale(.4) rotate(80deg); }
+#chatbot-fab.open .fab-ico-close { opacity:1; transform:scale(1) rotate(0); }
+.fab-ico-close { opacity:0; transform:scale(.4) rotate(-80deg); }
+#chatbot-badge {
+  position:absolute; top:-3px; right:-3px;
+  min-width:18px; height:18px; padding:0 4px;
+  background:#ef4444; border:2px solid #f0f2f5; border-radius:9px;
+  font-size:9px; font-weight:700; color:#fff;
+  display:none; align-items:center; justify-content:center;
+  animation:pop .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes pop { from{transform:scale(0)} to{transform:scale(1)} }
+
+/* ── Window ────────────────────────────────────────────────────── */
+#chatbot-window {
+  position:fixed; bottom:100px; right:28px; z-index:9999;
+  width:var(--cb-w); height:var(--cb-h);
+  background:var(--cb-bg);
+  border:1px solid var(--cb-border); border-radius:20px;
+  display:flex; flex-direction:column; overflow:hidden;
+  box-shadow:0 24px 80px rgba(0,0,0,.65),0 0 0 1px rgba(255,255,255,.04),
+             inset 0 1px 0 rgba(255,255,255,.05);
+  transform:scale(.84) translateY(22px); transform-origin:bottom right;
+  opacity:0; pointer-events:none;
+  transition:transform .32s cubic-bezier(.34,1.56,.64,1),opacity .22s ease;
+}
+#chatbot-window.open { transform:scale(1) translateY(0); opacity:1; pointer-events:all; }
+
+/* ── Header ────────────────────────────────────────────────────── */
+#cb-header {
+  padding:15px 16px 13px; flex-shrink:0; position:relative; overflow:hidden;
+  background:linear-gradient(135deg,#0f172a,#1a2540);
+  border-bottom:1px solid var(--cb-border);
+  display:flex; align-items:center; gap:11px;
+}
+#cb-header::after {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(90deg,rgba(59,130,246,.05),rgba(6,182,212,.05),rgba(16,185,129,.05));
+  animation:shimmer 5s linear infinite;
+}
+@keyframes shimmer { 0%,100%{opacity:.5} 50%{opacity:1} }
+.cb-av {
+  width:38px; height:38px; border-radius:11px; flex-shrink:0; position:relative;
+  background:linear-gradient(135deg,#1e3a8a,#0e7490);
+  display:flex; align-items:center; justify-content:center;
+}
+.cb-av-ring {
+  position:absolute; inset:-4px; border-radius:15px;
+  border:1.5px solid transparent;
+  background:linear-gradient(135deg,#3b82f6,#06b6d4,#10b981) border-box;
+  -webkit-mask:linear-gradient(#fff 0 0) padding-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:destination-out; mask-composite:exclude;
+  animation:spin-ring 4s linear infinite;
+}
+@keyframes spin-ring { to{transform:rotate(360deg)} }
+.cb-av-label { font-size:14px; font-weight:700; color:white; letter-spacing:-.02em; }
+.cb-hinfo { flex:1; min-width:0; }
+.cb-hname { font-size:13px; font-weight:700; color:#f1f5f9; letter-spacing:-.01em; }
+.cb-hstatus { font-size:10px; color:var(--cb-green); display:flex; align-items:center; gap:4px; margin-top:1px; }
+.cb-hstatus-dot { width:5px; height:5px; border-radius:50%; background:var(--cb-green);
+  box-shadow:0 0 6px var(--cb-green); animation:blink 2.2s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+#cb-close {
+  width:28px; height:28px; border-radius:8px; flex-shrink:0; border:none; cursor:pointer;
+  background:rgba(255,255,255,.06); color:var(--cb-muted);
+  display:flex; align-items:center; justify-content:center;
+  transition:background .15s,color .15s;
+}
+#cb-close:hover { background:rgba(255,255,255,.13); color:#f1f5f9; }
+
+/* ── Canvas particles ──────────────────────────────────────────── */
+#cb-canvas { position:absolute; inset:0; pointer-events:none; opacity:.3; z-index:0; }
+#cb-messages,#cb-header,#cb-footer { position:relative; z-index:1; }
+
+/* ── Messages ──────────────────────────────────────────────────── */
+#cb-messages {
+  flex:1; overflow-y:auto; padding:14px 13px; display:flex;
+  flex-direction:column; gap:9px; scroll-behavior:smooth;
+}
+#cb-messages::-webkit-scrollbar { width:3px; }
+#cb-messages::-webkit-scrollbar-thumb { background:rgba(255,255,255,.09); border-radius:3px; }
+
+.cb-msg { display:flex; gap:7px; animation:msg-in .28s cubic-bezier(.34,1.2,.64,1) both; }
+@keyframes msg-in { from{opacity:0;transform:translateY(8px) scale(.95)} to{opacity:1;transform:none} }
+.cb-msg.user { flex-direction:row-reverse; }
+
+.cb-bubble {
+  max-width:84%; padding:9px 13px; border-radius:15px;
+  font-size:12.5px; line-height:1.6; color:var(--cb-text);
+}
+.cb-msg.bot  .cb-bubble {
+  background:var(--cb-bot-bg); border:1px solid rgba(255,255,255,.07);
+  border-bottom-left-radius:3px;
+}
+.cb-msg.user .cb-bubble {
+  background:linear-gradient(135deg,#1e3a8a,#0e7490);
+  border-bottom-right-radius:3px; color:#fff;
+}
+.cb-bubble strong { color:#93c5fd; font-weight:600; }
+.cb-bubble .cb-msg.user strong { color:#bfdbfe; }
+.cb-bubble code {
+  background:rgba(255,255,255,.1); padding:1px 5px; border-radius:4px;
+  font-family:'SF Mono',monospace; font-size:11px; color:#a5f3fc;
+}
+.cb-bubble pre {
+  background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.09);
+  border-radius:8px; padding:10px; overflow-x:auto; margin-top:7px;
+  font-size:11px; color:#a5f3fc;
+}
+.cb-bubble pre code { background:none; padding:0; }
+.cb-bubble h2 { font-size:12px; color:#93c5fd; margin:8px 0 4px; font-weight:700; letter-spacing:.02em; }
+.cb-bubble ul { margin:4px 0 0 0; padding-left:0; list-style:none; }
+.cb-bubble ul li { padding:2px 0; }
+.cb-bubble ul li::before { content:'›  '; color:var(--cb-accent2); font-weight:700; }
+
+/* API card */
+.cb-api-card {
+  display:flex; align-items:center; gap:9px;
+  background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.22);
+  border-radius:9px; padding:9px 11px; margin-top:7px; cursor:pointer;
+  transition:background .15s,border-color .15s,transform .1s; text-decoration:none;
+}
+.cb-api-card:hover { background:rgba(59,130,246,.16); border-color:rgba(59,130,246,.45); transform:translateY(-1px); }
+.cb-api-icon {
+  width:28px; height:28px; border-radius:7px;
+  background:linear-gradient(135deg,#1e3a8a,#0e7490);
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.cb-api-label { font-size:11px; font-weight:600; color:#93c5fd; }
+.cb-api-url   { font-size:10px; color:var(--cb-muted); font-family:monospace;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:230px; }
+
+/* Typing */
+.cb-typing {
+  display:flex; align-items:center; gap:4px; padding:11px 13px;
+  background:var(--cb-bot-bg); border:1px solid rgba(255,255,255,.07);
+  border-radius:15px; border-bottom-left-radius:3px; width:fit-content;
+}
+.cb-typing span {
+  width:6px; height:6px; border-radius:50%;
+  animation:tdot 1.2s ease-in-out infinite;
+}
+.cb-typing span:nth-child(1){background:var(--cb-accent)}
+.cb-typing span:nth-child(2){background:var(--cb-accent2);animation-delay:.18s}
+.cb-typing span:nth-child(3){background:var(--cb-green);animation-delay:.36s}
+@keyframes tdot { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-5px);opacity:1} }
+
+/* Timestamp */
+.cb-ts { font-size:9px; color:var(--cb-muted); text-align:center; opacity:.55; margin:2px 0; }
+
+/* Chips */
+.cb-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:5px; }
+.cb-chip {
+  background:rgba(59,130,246,.09); border:1px solid rgba(59,130,246,.22);
+  border-radius:100px; padding:4px 11px; font-size:11px; color:#93c5fd;
+  cursor:pointer; transition:background .14s,border-color .14s,transform .1s;
+  white-space:nowrap;
+}
+.cb-chip:hover { background:rgba(59,130,246,.2); border-color:rgba(59,130,246,.5); transform:translateY(-1px); }
+
+/* ── Footer ────────────────────────────────────────────────────── */
+#cb-footer {
+  padding:11px 12px; border-top:1px solid var(--cb-border);
+  background:rgba(13,17,23,.85); display:flex; gap:8px;
+  align-items:flex-end; flex-shrink:0;
+}
+#cb-input {
+  flex:1; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1);
+  border-radius:11px; padding:8px 11px; font-size:12.5px; color:var(--cb-text);
+  outline:none; resize:none; max-height:90px; min-height:36px;
+  font-family:system-ui,sans-serif; line-height:1.4;
+  transition:border-color .15s,background .15s;
+}
+#cb-input::placeholder { color:var(--cb-muted); }
+#cb-input:focus { border-color:rgba(59,130,246,.5); background:rgba(255,255,255,.09); }
+#cb-send {
+  width:36px; height:36px; border-radius:10px; flex-shrink:0; border:none; cursor:pointer;
+  background:linear-gradient(135deg,#1e3a8a,#0e7490);
+  display:flex; align-items:center; justify-content:center;
+  transition:transform .15s cubic-bezier(.34,1.56,.64,1),opacity .15s;
+}
+#cb-send:hover { transform:scale(1.08); }
+#cb-send:disabled { opacity:.35; cursor:not-allowed; transform:none; }
+
+@media(max-width:480px) {
+  #chatbot-window { --cb-w:calc(100vw - 20px); right:10px; bottom:85px; --cb-h:470px; }
+  #chatbot-fab    { bottom:18px; right:18px; }
+}
+</style>
+
+<!-- FAB -->
+<button id="chatbot-fab" onclick="cbToggle()" title="Swiss Tariff Hub Assistant">
+  <span id="chatbot-badge"></span>
+  <span class="fab-ico fab-ico-chat">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z" fill="white" opacity=".85"/>
+      <path d="M7 9h10M7 13h7" stroke="#0e7490" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+  </span>
+  <span class="fab-ico fab-ico-close">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M14 4L4 14M4 4l10 10" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </span>
+</button>
+
+<!-- Window -->
+<div id="chatbot-window">
+  <canvas id="cb-canvas"></canvas>
+  <div id="cb-header">
+    <div class="cb-av">
+      <div class="cb-av-ring"></div>
+      <span class="cb-av-label">⚡</span>
+    </div>
+    <div class="cb-hinfo">
+      <div class="cb-hname">Swiss Tariff Hub AI</div>
+      <div class="cb-hstatus"><div class="cb-hstatus-dot"></div><span id="cb-status-txt">Online · Dynamic Tariffs Expert</span></div>
+    </div>
+    <button id="cb-close" onclick="cbToggle()">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <path d="M10 3L3 10M3 3l7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+  <div id="cb-messages"></div>
+  <div id="cb-footer">
+    <textarea id="cb-input" rows="1" placeholder="Scrivi un messaggio…"
+      onkeydown="cbKey(event)" oninput="cbResize(this)"></textarea>
+    <button id="cb-send" onclick="cbSend()">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+        <path d="M13.5 7.5L1.5 1.5l2 6-2 6z" fill="white"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ── detect page language from html[lang] or i18n system ─────── */
+function getPageLang() {
+  // try the site's own language system first
+  try { const l = (window._currentLang||document.documentElement.lang||'en').toLowerCase().slice(0,2);
+        return ['it','de','fr','en'].includes(l) ? l : 'en'; } catch(e){ return 'en'; }
+}
+
+/* ── i18n strings for the chatbot UI itself ──────────────────── */
+const CB_UI = {
+  it: { placeholder:'Scrivi un messaggio…', status:'Online · Esperto Tariffe Dinamiche',
+        chips:['Cos\'è Swiss Tariff Hub?','Piani Free vs Pro','API CKW','Tutti i provider','Orari aggiornamento','Come registrarsi'] },
+  de: { placeholder:'Nachricht schreiben…', status:'Online · Experte für dynamische Tarife',
+        chips:['Was ist Swiss Tariff Hub?','Free vs Pro Plan','CKW API','Alle Anbieter','Aktualisierungszeiten','Wie registrieren'] },
+  fr: { placeholder:'Écrire un message…', status:'En ligne · Expert Tarifs Dynamiques',
+        chips:['Qu\'est-ce que STH ?','Plans Free vs Pro','API CKW','Tous les fournisseurs','Horaires de mise à jour','Comment s\'inscrire'] },
+  en: { placeholder:'Type a message…', status:'Online · Dynamic Tariffs Expert',
+        chips:['What is Swiss Tariff Hub?','Free vs Pro plan','CKW API','All providers','Update schedule','How to register'] },
+};
+
+/* ── state ───────────────────────────────────────────────────── */
+let cbOpen=false, cbLoading=false, cbHistory=[], cbUnread=0, cbInited=false;
+let cbLang = getPageLang();
+
+/* ── particles ───────────────────────────────────────────────── */
+function initParticles(){
+  const cv=document.getElementById('cb-canvas'); if(!cv)return;
+  const ctx=cv.getContext('2d'); let W,H;
+  const cols=['rgba(59,130,246,','rgba(6,182,212,','rgba(16,185,129,'];
+  const pts=Array.from({length:30},(_,i)=>({
+    x:Math.random()*420, y:Math.random()*580,
+    vx:(Math.random()-.5)*.28, vy:(Math.random()-.5)*.28,
+    r:Math.random()*1.4+.4, c:cols[i%3], a:Math.random()*.45+.1
+  }));
+  function resize(){ const r=cv.parentElement.getBoundingClientRect(); W=cv.width=r.width; H=cv.height=r.height; }
+  resize();
+  (function draw(){
+    ctx.clearRect(0,0,W,H);
+    pts.forEach(p=>{ p.x+=p.vx; p.y+=p.vy;
+      if(p.x<0||p.x>W)p.vx*=-1; if(p.y<0||p.y>H)p.vy*=-1;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=p.c+p.a+')'; ctx.fill(); });
+    for(let i=0;i<pts.length;i++) for(let j=i+1;j<pts.length;j++){
+      const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y, d=Math.sqrt(dx*dx+dy*dy);
+      if(d<75){ ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y);
+        ctx.strokeStyle='rgba(59,130,246,'+(0.1*(1-d/75))+')'; ctx.lineWidth=.4; ctx.stroke(); }
+    }
+    requestAnimationFrame(draw);
+  })();
+}
+
+/* ── toggle ──────────────────────────────────────────────────── */
+window.cbToggle=function(){
+  cbOpen=!cbOpen;
+  document.getElementById('chatbot-fab').classList.toggle('open',cbOpen);
+  document.getElementById('chatbot-window').classList.toggle('open',cbOpen);
+  if(cbOpen){
+    cbLang=getPageLang();
+    if(!cbInited){ cbInit(); cbInited=true; }
+    cbUnread=0;
+    const b=document.getElementById('chatbot-badge'); b.style.display='none';
+    // update UI lang
+    document.getElementById('cb-input').placeholder = (CB_UI[cbLang]||CB_UI.en).placeholder;
+    document.getElementById('cb-status-txt').textContent = (CB_UI[cbLang]||CB_UI.en).status;
+    setTimeout(()=>document.getElementById('cb-input').focus(),320);
+  }
+};
+
+/* ── welcome ─────────────────────────────────────────────────── */
+function cbInit(){
+  initParticles();
+  const ui = CB_UI[cbLang]||CB_UI.en;
+  const ts = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  // welcome via API (lingua corretta)
+  cbHistoryAdd('user','__init__');
+  _doSend(true);
+}
+
+/* ── message helpers ─────────────────────────────────────────── */
+function cbHistoryAdd(role,content){ cbHistory.push({role,content}); }
+
+function cbAddBubble(role,html,ts){
+  const msgs=document.getElementById('cb-messages');
+  if(ts){ const d=document.createElement('div'); d.className='cb-ts'; d.textContent=ts; msgs.appendChild(d); }
+  const wrap=document.createElement('div'); wrap.className='cb-msg '+role;
+  const bubble=document.createElement('div'); bubble.className='cb-bubble';
+  bubble.innerHTML=html; wrap.appendChild(bubble); msgs.appendChild(wrap);
+  msgs.scrollTop=msgs.scrollHeight; return bubble;
+}
+
+function cbAddChips(qs){
+  const msgs=document.getElementById('cb-messages');
+  const wrap=document.createElement('div'); wrap.className='cb-chips';
+  qs.forEach(q=>{ const c=document.createElement('button'); c.className='cb-chip';
+    c.textContent=q; c.onclick=()=>{ wrap.remove(); cbSendText(q); }; wrap.appendChild(c); });
+  msgs.appendChild(wrap); msgs.scrollTop=msgs.scrollHeight;
+}
+
+function cbShowTyping(){
+  const msgs=document.getElementById('cb-messages');
+  const w=document.createElement('div'); w.className='cb-msg bot'; w.id='cb-typing';
+  const t=document.createElement('div'); t.className='cb-typing';
+  t.innerHTML='<span></span><span></span><span></span>';
+  w.appendChild(t); msgs.appendChild(w); msgs.scrollTop=msgs.scrollHeight;
+}
+function cbHideTyping(){ const e=document.getElementById('cb-typing'); if(e)e.remove(); }
+
+/* ── render ──────────────────────────────────────────────────── */
+function cbRender(md){
+  let h = md
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    // headers ## → h2
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    // bold
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    // inline code
+    .replace(/`([^`\n]+)`/g,'<code>$1</code>')
+    // code blocks
+    .replace(/```[\w]*\n?([\s\S]*?)```/g,'<pre><code>$1</code></pre>')
+    // URLs → API card or plain link
+    .replace(/(https?:\/\/[^\s<"]+)/g,function(url){
+      const isApi=/api|tariff|tariffe|tarif|cloudhub/i.test(url);
+      if(isApi){
+        const name = url.includes('ckw')?'CKW':url.includes('ekz')?'EKZ':
+                     url.includes('aem')?'AEM':url.includes('groupe')?'Groupe E':
+                     url.includes('primeo')?'Primeo':'EVU';
+        return '<a href="'+url+'" target="_blank" rel="noopener" class="cb-api-card">'
+          +'<div class="cb-api-icon"><svg width="13" height="13" viewBox="0 0 13 13" fill="none">'
+          +'<path d="M6.5 1L1 3.8v5.4l5.5 2.8 5.5-2.8V3.8L6.5 1z" fill="rgba(255,255,255,.15)" stroke="white" stroke-width=".9"/>'
+          +'</svg></div>'
+          +'<div><div class="cb-api-label">'+name+' — Real Source API</div>'
+          +'<div class="cb-api-url">'+url+'</div></div></a>';
+      }
+      const s=url.length>42?url.slice(0,42)+'…':url;
+      return '<a href="'+url+'" target="_blank" rel="noopener" style="color:#60a5fa">'+s+'</a>';
+    })
+    // bullet items (- or •)
+    .replace(/^[-•] (.+)$/gm,'<li>$1</li>')
+    .replace(/(<li>.*<\/li>(\n|$))+/g,m=>'<ul>'+m+'</ul>')
+    // newlines
+    .replace(/\n/g,'<br>');
+  return h;
+}
+
+/* ── typewriter ──────────────────────────────────────────────── */
+async function cbTypewriter(text){
+  const msgs=document.getElementById('cb-messages');
+  const wrap=document.createElement('div'); wrap.className='cb-msg bot';
+  const bubble=document.createElement('div'); bubble.className='cb-bubble';
+  wrap.appendChild(bubble); msgs.appendChild(wrap);
+  const chars=[...text];
+  const speed=chars.length>400?5:chars.length>150?9:14;
+  let disp='';
+  const cursor='<span style="opacity:.5;animation:blink 1s infinite">▋</span>';
+  for(let i=0;i<chars.length;i++){
+    disp+=chars[i];
+    if(i%4===0||i===chars.length-1){
+      bubble.innerHTML=cbRender(disp)+(i<chars.length-1?cursor:'');
+      msgs.scrollTop=msgs.scrollHeight;
+    }
+    if(i%4===0) await new Promise(r=>setTimeout(r,speed));
+  }
+  bubble.innerHTML=cbRender(text);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+/* ── send ────────────────────────────────────────────────────── */
+window.cbSend=function(){
+  const inp=document.getElementById('cb-input');
+  const txt=inp.value.trim(); if(!txt||cbLoading)return;
+  inp.value=''; cbResize(inp); cbSendText(txt);
+};
+window.cbKey=function(e){ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();cbSend();} };
+window.cbResize=function(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,90)+'px'; };
+
+function cbSendText(txt){
+  if(cbLoading)return;
+  cbLang=getPageLang();
+  const ts=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  cbAddBubble('user',cbRender(txt),ts);
+  cbHistoryAdd('user',txt);
+  _doSend(false);
+}
+
+async function _doSend(isInit){
+  cbLoading=true;
+  document.getElementById('cb-send').disabled=true;
+  cbShowTyping();
+  const minWait=new Promise(r=>setTimeout(r,isInit?400:700));
+
+  try{
+    const res=await fetch('/api/v1/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:cbHistory, lang:cbLang})
+    });
+    await minWait; cbHideTyping();
+
+    if(!res.ok) throw new Error(res.status);
+    const data=await res.json();
+    const reply=data.reply||'…';
+    cbHistoryAdd('assistant',reply);
+
+    if(isInit){
+      // welcome: show immediately then chips
+      const ts=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      cbAddBubble('bot',cbRender(reply),ts);
+      cbAddChips((CB_UI[cbLang]||CB_UI.en).chips);
+    } else {
+      await cbTypewriter(reply);
+    }
+
+    // badge if closed
+    if(!cbOpen){ cbUnread++; const b=document.getElementById('chatbot-badge');
+      b.textContent=cbUnread; b.style.display='flex'; }
+
+  } catch(err){
+    await minWait; cbHideTyping();
+    const fallback={
+      it:'⚠️ Servizio temporaneamente non disponibile. Scrivi a **support@tariffhub.ch** per assistenza!',
+      de:'⚠️ Dienst vorübergehend nicht verfügbar. Schreiben Sie an **support@tariffhub.ch**!',
+      fr:'⚠️ Service temporairement indisponible. Écrivez à **support@tariffhub.ch** !',
+      en:'⚠️ Service temporarily unavailable. Write to **support@tariffhub.ch** for help!',
+    };
+    cbAddBubble('bot',cbRender(fallback[cbLang]||fallback.en),null);
+  }
+
+  cbLoading=false;
+  document.getElementById('cb-send').disabled=false;
+  if(!isInit) document.getElementById('cb-input').focus();
+}
+
+})();
+</script>

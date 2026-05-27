@@ -348,8 +348,8 @@ class AilAdapter(BaseAdapter):
 
         Mapping:
           grid_price     = col1 / 100
-          energy_price   = (col2 + col3) / 100
-          residual_price = col4 / 100
+          energy_price   = col2 / 100
+          residual_price = (col3 + col4) / 100
         """
         bands: dict[str, dict] = {}
         table = soup.find("table")
@@ -378,8 +378,8 @@ class AilAdapter(BaseAdapter):
                 continue
 
             grid     = round(col1 / 100.0, 8)
-            energy   = round(((col2 or 0.0) + (col3 or 0.0)) / 100.0, 8)
-            residual = round((col4 or 0.0) / 100.0, 8) if col4 is not None else None
+            energy   = round((col2 or 0.0) / 100.0, 8)
+            residual = round(((col3 or 0.0) + (col4 or 0.0)) / 100.0, 8) if col3 is not None or col4 is not None else None
 
             bands[band] = {"grid": grid, "energy": energy, "residual": residual}
             self._log.debug(

@@ -24,6 +24,7 @@ from adapters.aem import AemAdapter
 from adapters.ekz import EkzAdapter
 from adapters.groupe_e import GroupeEAdapter
 from adapters.ail import AilAdapter          # ← aggiungi questa riga
+from adapters.ega import EsitAdapter
 
 _REGISTRY = {
     "CkwAdapter":           CkwAdapter,
@@ -32,6 +33,7 @@ _REGISTRY = {
     "EkzAdapter":           EkzAdapter,
     "GroupeEAdapter":       GroupeEAdapter,
     "AilAdapter":           AilAdapter,      # ← aggiungi questa riga
+    "EsitAdapter":          EsitAdapter,
 }
 
 def get_adapter(tariff_config: dict) -> BaseAdapter:

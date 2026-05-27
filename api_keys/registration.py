@@ -35,15 +35,10 @@ log = logging.getLogger("registration")
 
 # ── Costanti ──────────────────────────────────────────────────────────────────
 
-DEFAULT_RATE_LIMIT_DAY = 100          # richieste free al giorno
-PRO_RATE_LIMIT_DAY     = 2000         # richieste pro al giorno
+DEFAULT_RATE_LIMIT_DAY = 100          # richieste gratuite al giorno
 KEY_PREFIX             = "stk_"      # prefisso visibile delle key
 WARNING_THRESHOLD_80   = 0.80        # notifica al 80% del rate limit
 WARNING_THRESHOLD_100  = 1.00        # notifica al 100%
-
-PLAN_FREE = "free"
-PLAN_PRO  = "pro"
-VALID_PLANS = {PLAN_FREE, PLAN_PRO}
 
 
 # ── Timezone helper ───────────────────────────────────────────────────────────
@@ -114,12 +109,12 @@ class ApiKey(Base):
     # Lingua preferita dell'utente (dalla lingua selezionata al momento della registrazione)
     preferred_lang  = Column(String(5), default="en")
 
-    # Piano: "free" (default) o "pro"
-    # Controlla accesso a endpoint avanzati e rate limit applicato
-    plan            = Column(String(10), nullable=False, default=PLAN_FREE)
+    # Piano: "free" | "pro"
+    plan            = Column(String(10), default="free", nullable=False)
 
-    # Rate limit per minuto (throttle aggressivo per free)
-    rate_limit_min  = Column(Integer, default=4)   # free: 4/min, pro: 30/min
+    # Tariffa scelta dall'utente free come default (es. "ckw_home_dynamic")
+    # None = non ancora scelta → gli endpoint external restituiscono 400 con istruzioni
+    free_tariff_id  = Column(String(100), nullable=True)
 
     __table_args__ = (
         Index("ix_api_keys_email",      "email"),
@@ -217,9 +212,7 @@ def register_new_key(
         key_prefix     = "",            # popolato all'approvazione
         status         = "pending",
         preferred_lang = preferred_lang,
-        plan           = PLAN_FREE,
         rate_limit_day = DEFAULT_RATE_LIMIT_DAY,
-        rate_limit_min = 4,
     )
     session.add(new_record)
     session.commit()
@@ -348,32 +341,38 @@ def update_key(
     rate_limit_day: Optional[int] = None,
     notes: Optional[str] = None,
     plan: Optional[str] = None,
-) -> ApiKey:
-    """Aggiorna rate limit, note e/o piano di una key."""
+    free_tariff_id: Optional[str] = None,
+) -> tuple["ApiKey", bool, bool]:
+    """Aggiorna rate limit, note, piano e/o tariffa free di una key.
+    Returns: (record, upgraded_to_pro, downgraded_to_free)
+    """
     record = session.get(ApiKey, key_id)
     if not record:
         raise ValueError("not_found")
 
+    upgraded   = False
+    downgraded = False
     if rate_limit_day is not None:
         record.rate_limit_day = rate_limit_day
     if notes is not None:
         record.notes = notes
     if plan is not None:
-        if plan not in VALID_PLANS:
-            raise ValueError(f"invalid_plan:{plan}")
+        old_plan = record.plan or "free"
         record.plan = plan
-        # Aggiusta automaticamente rate limit e throttle al cambio piano
-        if plan == PLAN_PRO:
-            record.rate_limit_day = PRO_RATE_LIMIT_DAY
-            record.rate_limit_min = 30
-        else:
-            record.rate_limit_day = DEFAULT_RATE_LIMIT_DAY
-            record.rate_limit_min = 4
+        if old_plan != "pro" and plan == "pro":
+            upgraded = True
+        elif old_plan == "pro" and plan == "free":
+            downgraded = True
+            # Hard downgrade: ripristina rate limit free se non è stato esplicitamente impostato
+            if rate_limit_day is None:
+                record.rate_limit_day = DEFAULT_RATE_LIMIT_DAY
+    if free_tariff_id is not None:
+        record.free_tariff_id = free_tariff_id
 
     session.add(record)
     session.commit()
     session.refresh(record)
-    return record
+    return record, upgraded, downgraded
 
 
 # ── Verifica key (middleware) ─────────────────────────────────────────────────

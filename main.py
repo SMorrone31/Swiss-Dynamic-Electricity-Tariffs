@@ -31,7 +31,7 @@ from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from database import (
@@ -47,6 +47,51 @@ _templates = _Jinja2Templates(
 )
 
 from schemas import make_day_range_utc
+
+
+# ── Limiti piano free/pro ─────────────────────────────────────────────────────
+
+def _plan_info(request: Request) -> tuple[str, str | None]:
+    """
+    Ritorna (plan, free_tariff_id) dallo stato della request.
+    Impostato dal middleware dopo verifica API key.
+    Se non presente (chiamata interna) → ("pro", None) per non bloccare.
+    """
+    plan           = getattr(request.state, "plan",           "pro")
+    free_tariff_id = getattr(request.state, "free_tariff_id", None)
+    return plan, free_tariff_id
+
+
+def _require_free_tariff_chosen(free_tariff_id: str | None) -> None:
+    """Solleva 400 se l'utente free non ha ancora scelto la sua tariffa."""
+    if not free_tariff_id:
+        raise HTTPException(
+            400,
+            {
+                "error":   "no_default_tariff",
+                "message": "Free plan: select your default tariff first via POST /api/v1/me/tariff",
+                "hint":    "Login to the dashboard and choose your tariff, or upgrade to Pro for full access.",
+            },
+        )
+
+
+def _enforce_free_tariff(request_tariff: str | None, free_tariff_id: str | None) -> str:
+    """
+    Per piano free: se il tariff_id richiesto non è quello scelto → 403.
+    Ritorna il tariff_id valido.
+    """
+    _require_free_tariff_chosen(free_tariff_id)
+    if request_tariff and request_tariff != free_tariff_id:
+        raise HTTPException(
+            403,
+            {
+                "error":   "plan_restriction",
+                "message": f"Free plan: you can only access tariff '{free_tariff_id}'. Upgrade to Pro for all tariffs.",
+                "your_tariff": free_tariff_id,
+                "requested":   request_tariff,
+            },
+        )
+    return free_tariff_id
 
 
 # ── Lifespan (avvio/spegnimento) ──────────────────────────────────────────────
@@ -279,7 +324,8 @@ register_routes(app)
 # ── API 1: lista tariffe ──────────────────────────────────────────────────────
 
 @app.get("/api/v1/tariffs")
-def get_tariffs():
+def get_tariffs(request: Request):
+    plan, free_tariff_id = _plan_info(request)
     def expand_zip_ranges(raw: list) -> list[int]:
         """
         Normalizza zip_ranges in lista di interi, qualunque sia il formato nel JSON:
@@ -311,6 +357,12 @@ def get_tariffs():
 
     with SessionLocal() as session:
         tariffs = get_active_tariffs(session)
+
+    # Piano free: restituisce solo la tariffa scelta
+    if plan == "free":
+        _require_free_tariff_chosen(free_tariff_id)
+        tariffs = [t for t in tariffs if t.tariff_id == free_tariff_id]
+
     return [
         {
             "tariff_id":                  t.tariff_id,
@@ -336,10 +388,20 @@ def get_tariffs():
 
 @app.get("/api/v1/prices")
 def get_prices_endpoint(
+    request:    Request,
     tariff_id:  str = Query(..., description="Tariff ID"),
     start_time: str = Query(..., description="Date/time start UTC (es. 2026-03-16T00:00:00Z)"),
     end_time:   Optional[str] = Query(None, description="Date/time end UTC (optional, default: +1 day)"),
 ):
+    plan, free_tariff_id = _plan_info(request)
+
+    # Piano free: solo la tariffa scelta + solo oggi
+    if plan == "free":
+        tariff_id = _enforce_free_tariff(tariff_id, free_tariff_id)
+        from schemas import today_ch as _today_ch
+        today_iso = _today_ch().isoformat()
+        start_time = f"{today_iso}T00:00:00Z"
+        end_time   = None  # default +1 day = solo oggi
     # zoneinfo gestisce DST automaticamente per qualsiasi anno futuro
     try:
         import zoneinfo; tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
@@ -490,6 +552,7 @@ def _prices_for_date(tariff_id: str, target_date) -> dict:
 
 @app.get("/api/v1/prices/today")
 def get_today_prices(
+    request:   Request,
     zip_code:  Optional[int] = Query(None, description="CAP svizzero, es. 6810"),
     tariff_id: Optional[str] = Query(None, description="Tariff ID diretto, es. aem_tariffa_dinamica"),
 ):
@@ -498,6 +561,7 @@ def get_today_prices(
     Usa zip_code OPPURE tariff_id — non entrambi.
     """
     from schemas import today_ch as _today_ch
+    plan, free_tariff_id = _plan_info(request)
 
     if zip_code and not tariff_id:
         tariff_id = _find_tariff_for_zip(zip_code)
@@ -516,6 +580,10 @@ def get_today_prices(
              "message": "Provide either zip_code or tariff_id"}
         )
 
+    # Piano free: solo la tariffa scelta
+    if plan == "free":
+        tariff_id = _enforce_free_tariff(tariff_id, free_tariff_id)
+
     return _prices_for_date(tariff_id, _today_ch())
   
   
@@ -524,13 +592,22 @@ def get_today_prices(
 
 @app.get("/api/v1/prices/all")
 def get_all_prices_endpoint(
+    request:    Request,
     start_time: str = Query(..., description="Date/time start UTC (es. 2026-03-17T00:00:00Z)"),
     end_time:   Optional[str] = Query(None, description="Date/time end UTC (optional, default: +1 day)"),
 ):
     """
     Restituisce i prezzi di TUTTE le tariffe attive in un unico JSON.
-    {tariff_id: {energy_price_utc: [...], grid_price_utc: [...], residual_price_utc: [...]}}
+    Richiede piano Pro.
     """
+    plan, _ = _plan_info(request)
+    if plan != "pro":
+        raise HTTPException(
+            403,
+            {"error": "pro_required",
+             "message": "GET /api/v1/prices/all requires a Pro plan. Upgrade at swiss-tariff-hub.ch.",
+             "upgrade_url": "https://swiss-tariff-hub.ch/#upgrade"},
+        )
     try:
         import zoneinfo; tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
     except ImportError:
@@ -583,7 +660,12 @@ def get_all_prices_endpoint(
 
 # ── Summary / health endpoints ────────────────────────────────────────────────
 @app.get("/api/v1/summary/daily")
-def get_daily_summary(tariff_id: str = Query(...), days: int = Query(5, ge=1, le=30)):
+def get_daily_summary(request: Request, tariff_id: str = Query(...), days: int = Query(5, ge=1, le=30)):
+    plan, free_tariff_id = _plan_info(request)
+    # Piano free: solo tariffa scelta, solo oggi (days=1)
+    if plan == "free":
+        tariff_id = _enforce_free_tariff(tariff_id, free_tariff_id)
+        days = 1
     try:
         import zoneinfo; tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
     except ImportError:
@@ -636,7 +718,15 @@ def get_daily_summary(tariff_id: str = Query(...), days: int = Query(5, ge=1, le
 _summary_cache: dict = {}
 
 @app.get("/api/v1/summary/monthly")
-def get_monthly_summary(tariff_id: str = Query(...), months: int = Query(3, ge=1, le=6)):
+def get_monthly_summary(request: Request, tariff_id: str = Query(...), months: int = Query(3, ge=1, le=6)):
+    plan, _ = _plan_info(request)
+    if plan != "pro":
+        raise HTTPException(
+            403,
+            {"error": "pro_required",
+             "message": "GET /api/v1/summary/monthly requires a Pro plan.",
+             "upgrade_url": "https://swiss-tariff-hub.ch/#upgrade"},
+        )
     import time
     cache_key = f"monthly:{tariff_id}:{months}"
     cached = _summary_cache.get(cache_key)
@@ -1064,9 +1154,10 @@ def health():
 # ── Smart summary ─────────────────────────────────────────────────────────────
 
 @app.get("/api/v1/smart")
-def get_smart_summary(date_str: Optional[str] = Query(None)):
+def get_smart_summary(request: Request, date_str: Optional[str] = Query(None)):
     import time as _time
     from schemas import today_ch as _today_ch
+    plan, free_tariff_id = _plan_info(request)
     target_date = date.fromisoformat(date_str) if date_str else _today_ch()
     cache_key = f"smart:{target_date}"
     cached = _summary_cache.get(cache_key)
@@ -1161,6 +1252,12 @@ def get_smart_summary(date_str: Optional[str] = Query(None)):
             })
 
     data = {"date": target_date.isoformat(), "tariffs": result_tariffs}
+
+    # Piano free: filtra solo la tariffa scelta
+    if plan == "free":
+        _require_free_tariff_chosen(free_tariff_id)
+        data["tariffs"] = [t for t in data["tariffs"] if t["tariff_id"] == free_tariff_id]
+
     _summary_cache[cache_key] = {"ts": _time.time(), "data": data}
     return data
 
@@ -1169,8 +1266,10 @@ def get_smart_summary(date_str: Optional[str] = Query(None)):
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request):
+    import os
     from datetime import date
     return _templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "today":   date.today().isoformat(),
+        "request":          request,
+        "today":            date.today().isoformat(),
+        "dashboard_secret": os.getenv("DASHBOARD_SECRET", ""),
     })

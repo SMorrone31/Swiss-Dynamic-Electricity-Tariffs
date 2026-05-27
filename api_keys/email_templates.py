@@ -159,6 +159,18 @@ def _t(lang: str, key: str) -> str:
             "admin_field_vat":      "VAT",
             "admin_field_country":  "Country",
             "admin_approve_btn":    "Review in admin panel",
+
+            "pro_subject":   "Welcome to Pro — Swiss Tariff Hub",
+            "pro_heading":   "Your Pro plan is now active",
+            "pro_body":      "Your account has been upgraded to the <strong>Pro plan</strong>. Your new daily limit is <strong>{limit} requests/day</strong>.",
+            "pro_features":  "What's included in Pro:",
+            "pro_feat1":     "5,000 API requests / day",
+            "pro_feat2":     "Priority data updates",
+            "pro_feat3":     "Full historical data access",
+            "pro_feat4":     "Dedicated support",
+            "pro_pdf_note":  "Your payment receipt is attached as a PDF.",
+            "pro_pdf_note_vat": "Your payment receipt and invoice are attached as PDFs.",
+            "pro_footer":    "Thank you for supporting Swiss Tariff Hub.",
         },
         "de": {
             "reg_subject":        "Ihre API-Key-Anfrage — Swiss Tariff Hub",
@@ -215,6 +227,18 @@ def _t(lang: str, key: str) -> str:
             "admin_field_vat":      "MwSt-Nr.",
             "admin_field_country":  "Land",
             "admin_approve_btn":    "Im Admin-Panel prüfen",
+
+            "pro_subject":   "Willkommen bei Pro — Swiss Tariff Hub",
+            "pro_heading":   "Ihr Pro-Plan ist jetzt aktiv",
+            "pro_body":      "Ihr Konto wurde auf den <strong>Pro-Plan</strong> aktualisiert. Ihr neues Tageslimit beträgt <strong>{limit} Anfragen/Tag</strong>.",
+            "pro_features":  "Im Pro-Plan enthalten:",
+            "pro_feat1":     "5.000 API-Anfragen / Tag",
+            "pro_feat2":     "Priorisierte Datenaktualisierungen",
+            "pro_feat3":     "Vollständiger Zugang zu historischen Daten",
+            "pro_feat4":     "Dedizierter Support",
+            "pro_pdf_note":  "Ihre Zahlungsquittung ist als PDF beigef\u00fcgt.",
+            "pro_pdf_note_vat": "Ihre Zahlungsquittung und Rechnung sind als PDFs beigef\u00fcgt.",
+            "pro_footer":    "Vielen Dank f\u00fcr Ihre Unterst\u00fctzung von Swiss Tariff Hub.",
         },
         "fr": {
             "reg_subject":        "Votre demande de clé API — Swiss Tariff Hub",
@@ -271,6 +295,18 @@ def _t(lang: str, key: str) -> str:
             "admin_field_vat":      "N° TVA",
             "admin_field_country":  "Pays",
             "admin_approve_btn":    "Examiner dans le panneau admin",
+
+            "pro_subject":   "Bienvenue sur Pro — Swiss Tariff Hub",
+            "pro_heading":   "Votre plan Pro est maintenant actif",
+            "pro_body":      "Votre compte a été mis à niveau vers le <strong>plan Pro</strong>. Votre nouvelle limite quotidienne est de <strong>{limit} requêtes/jour</strong>.",
+            "pro_features":  "Inclus dans le plan Pro :",
+            "pro_feat1":     "5 000 requêtes API / jour",
+            "pro_feat2":     "Mises à jour prioritaires des données",
+            "pro_feat3":     "Accès complet aux données historiques",
+            "pro_feat4":     "Support dédié",
+            "pro_pdf_note":  "Votre re\u00e7u de paiement est joint en PDF.",
+            "pro_pdf_note_vat": "Votre re\u00e7u de paiement et votre facture sont joints en PDF.",
+            "pro_footer":    "Merci de soutenir Swiss Tariff Hub.",
         },
         "it": {
             "reg_subject":        "La tua richiesta di chiave API — Swiss Tariff Hub",
@@ -327,6 +363,18 @@ def _t(lang: str, key: str) -> str:
             "admin_field_vat":      "P.IVA",
             "admin_field_country":  "Paese",
             "admin_approve_btn":    "Esamina nel pannello admin",
+
+            "pro_subject":   "Benvenuto nel piano Pro — Swiss Tariff Hub",
+            "pro_heading":   "Il tuo piano Pro è ora attivo",
+            "pro_body":      "Il tuo account è stato aggiornato al <strong>piano Pro</strong>. Il tuo nuovo limite giornaliero è di <strong>{limit} richieste/giorno</strong>.",
+            "pro_features":  "Cosa include il piano Pro:",
+            "pro_feat1":     "5.000 richieste API / giorno",
+            "pro_feat2":     "Aggiornamenti dati prioritari",
+            "pro_feat3":     "Accesso completo ai dati storici",
+            "pro_feat4":     "Supporto dedicato",
+            "pro_pdf_note":  "La tua ricevuta di pagamento \u00e8 allegata in PDF.",
+            "pro_pdf_note_vat": "La tua ricevuta di pagamento e la fattura sono allegate in PDF.",
+            "pro_footer":    "Grazie per supportare Swiss Tariff Hub.",
         },
     }
     lang_data = T.get(lang, T["en"])
@@ -390,6 +438,7 @@ def send_key_approved(
     approved_at=None,
     key_prefix: str = "",
 ) -> bool:
+    """Email di approvazione chiave FREE — nessun PDF allegato."""
     subject   = _t(lang, "approved_subject")
     limit_str = _t(lang, "approved_limit_val").format(limit=rate_limit)
     body = f"""
@@ -399,37 +448,10 @@ def send_key_approved(
     <p class="warn">&#9888; {_t(lang, "approved_body")}</p>
     <p>{_t(lang, "approved_usage")}</p>
     <p><strong>{_t(lang, "approved_limit")}</strong> {limit_str}</p>
-    <p style="margin-top:16px;font-size:13px;color:#555">
-        &#128196; {_t(lang, "approved_pdf_note")}
-    </p>
     """
     html = _html_wrap(_t(lang, "approved_heading"), body, _t(lang, "approved_footer"))
-
-    pdf_bytes = None
-    try:
-        from generate_subscription_pdf import generate_subscription_pdf
-        from datetime import datetime, timezone
-        at = approved_at or datetime.now(timezone.utc)
-        pdf_bytes = generate_subscription_pdf(
-            full_name=full_name, email=email,
-            key_prefix=key_prefix or raw_key[:12],
-            rate_limit=rate_limit, approved_at=at,
-            company=company, lang=lang,
-        )
-    except Exception as e:
-        log.error(f"[email] Errore generazione PDF per {email}: {e}")
-
-    filename_map = {
-        "en": "subscription.pdf",
-        "de": "abonnement.pdf",
-        "fr": "abonnement.pdf",
-        "it": "abbonamento.pdf",
-    }
-    return _send(
-        email, subject, html,
-        attachment_bytes=pdf_bytes,
-        attachment_filename=filename_map.get(lang, "subscription.pdf"),
-    )
+    # Piano free: nessun PDF allegato
+    return _send(email, subject, html)
 
 
 # ── Email: registrazione rifiutata ────────────────────────────────────────────
@@ -545,3 +567,192 @@ def send_admin_new_registration(record) -> bool:
     """
     html = _html_wrap(_t(lang, "admin_newreg_heading"), body)
     return _send(admin_email, subject, html)
+
+
+# ── Email: upgrade a Pro ──────────────────────────────────────────────────────
+
+def send_pro_upgrade(
+    email:          str,
+    full_name:      str,
+    key_prefix:     str,
+    rate_limit:     int,
+    pro_since,
+    company:        Optional[str] = None,
+    vat_number:     Optional[str] = None,
+    address_line1:  Optional[str] = None,
+    address_line2:  Optional[str] = None,
+    country:        str = "CH",
+    payment_method: str = "Card",
+    lang:           str = "en",
+) -> bool:
+    """
+    Invia email di conferma upgrade Pro.
+    Allegati:
+      - receipt PDF (sempre)
+      - invoice PDF (solo se vat_number e' presente)
+    """
+    from datetime import datetime, timezone
+
+    subject   = _t(lang, "pro_subject")
+    limit_str = f"{rate_limit:,}"
+
+    has_vat = bool(vat_number and vat_number.strip())
+    if has_vat:
+        pdf_note = _t(lang, "pro_pdf_note_vat")
+    else:
+        pdf_note = _t(lang, "pro_pdf_note")
+
+    body = f"""
+    <p>{_t(lang, "pro_body").format(limit=limit_str)}</p>
+    <p><strong>{_t(lang, "pro_features")}</strong></p>
+    <ul style="font-size:13px;line-height:2;color:#333;padding-left:20px">
+      <li>{_t(lang, "pro_feat1")}</li>
+      <li>{_t(lang, "pro_feat2")}</li>
+      <li>{_t(lang, "pro_feat3")}</li>
+      <li>{_t(lang, "pro_feat4")}</li>
+    </ul>
+    <p style="margin-top:16px;font-size:13px;color:#555">
+        &#128196; {pdf_note}
+    </p>
+    """
+    html = _html_wrap(_t(lang, "pro_heading"), body, _t(lang, "pro_footer"))
+
+    receipt_bytes  = None
+    invoice_bytes  = None
+    try:
+        from generate_invoce_pdf import generate_payment_pdfs
+        at = pro_since if pro_since else datetime.now(timezone.utc)
+        receipt_bytes, invoice_bytes = generate_payment_pdfs(
+            full_name      = full_name,
+            email          = email,
+            pro_since      = at,
+            payment_method = payment_method,
+            company        = company,
+            vat_number     = vat_number,
+            address_line1  = address_line1,
+            address_line2  = address_line2,
+            country        = country or "CH",
+            lang           = lang,
+        )
+    except Exception as e:
+        log.error(f"[email] Errore generazione PDF pro per {email}: {e}")
+
+    # Nomi file localizzati
+    receipt_names = {"en": "receipt.pdf", "de": "quittung.pdf",
+                     "fr": "recu.pdf",    "it": "ricevuta.pdf"}
+    invoice_names = {"en": "invoice.pdf", "de": "rechnung.pdf",
+                     "fr": "facture.pdf", "it": "fattura.pdf"}
+
+    # Costruisce email con 1 o 2 allegati PDF
+    cfg = _smtp_config()
+    if not cfg["user"] or not cfg["password"]:
+        log.warning("[email] SMTP non configurato — email non inviata")
+        return False
+
+    try:
+        import smtplib
+        from email import encoders
+        from email.mime.base import MIMEBase
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+
+        msg = MIMEMultipart("mixed")
+        alt = MIMEMultipart("alternative")
+        alt.attach(MIMEText(html, "html", "utf-8"))
+        msg.attach(alt)
+
+        def _attach_pdf(pdf_bytes: bytes, filename: str) -> None:
+            part = MIMEBase("application", "pdf")
+            part.set_payload(pdf_bytes)
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
+            msg.attach(part)
+
+        if receipt_bytes:
+            _attach_pdf(receipt_bytes, receipt_names.get(lang, "receipt.pdf"))
+        if invoice_bytes:
+            _attach_pdf(invoice_bytes, invoice_names.get(lang, "invoice.pdf"))
+
+        msg["Subject"] = subject
+        msg["From"]    = cfg["from"]
+        msg["To"]      = email
+
+        with smtplib.SMTP(cfg["host"], cfg["port"], timeout=15) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(cfg["user"], cfg["password"])
+            server.sendmail(cfg["from"], [email], msg.as_string())
+
+        log.info(f"[email] Pro upgrade inviata a {email} (receipt={receipt_bytes is not None}, invoice={invoice_bytes is not None})")
+        return True
+
+    except Exception as e:
+        log.error(f"[email] Errore invio pro upgrade a {email}: {e}")
+        return False
+
+# ── Email: downgrade da Pro a Free (hard) ────────────────────────────────────
+
+def send_pro_downgrade(
+    email:      str,
+    full_name:  str,
+    rate_limit: int,
+    lang:       str = "en",
+) -> bool:
+    """
+    Invia email di notifica downgrade Pro → Free.
+    Chiamata dall'admin quando imposta manualmente il piano a free.
+    """
+    T = {
+        "en": {
+            "subject":  "Your plan has been updated — Swiss Tariff Hub",
+            "heading":  "Plan changed to Free",
+            "body":     (
+                "Your account has been updated to the <strong>Free plan</strong>. "
+                "Your daily API request limit is now <strong>{limit} requests/day</strong>."
+            ),
+            "note":     "Access to Pro features (full history, all providers, /prices/all) has been removed.",
+            "contact":  "If you believe this is an error or have questions, please contact us at support@tariffhub.ch.",
+            "footer":   "Swiss Tariff Hub — support@tariffhub.ch",
+        },
+        "de": {
+            "subject":  "Ihr Plan wurde aktualisiert — Swiss Tariff Hub",
+            "heading":  "Plan auf Free umgestellt",
+            "body":     (
+                "Ihr Konto wurde auf den <strong>Free-Plan</strong> umgestellt. "
+                "Ihr neues Tageslimit betr\u00e4gt <strong>{limit} Anfragen/Tag</strong>."
+            ),
+            "note":     "Der Zugang zu Pro-Funktionen (vollst\u00e4ndiger Verlauf, alle Anbieter, /prices/all) wurde entfernt.",
+            "contact":  "Bei Fragen wenden Sie sich an support@tariffhub.ch.",
+            "footer":   "Swiss Tariff Hub — support@tariffhub.ch",
+        },
+        "fr": {
+            "subject":  "Votre plan a \u00e9t\u00e9 mis \u00e0 jour — Swiss Tariff Hub",
+            "heading":  "Plan pass\u00e9 \u00e0 Free",
+            "body":     (
+                "Votre compte a \u00e9t\u00e9 mis \u00e0 jour vers le <strong>plan Free</strong>. "
+                "Votre limite journali\u00e8re est maintenant de <strong>{limit} requ\u00eates/jour</strong>."
+            ),
+            "note":     "L\u2019acc\u00e8s aux fonctionnalit\u00e9s Pro (historique complet, tous les fournisseurs, /prices/all) a \u00e9t\u00e9 supprim\u00e9.",
+            "contact":  "Pour toute question, contactez-nous \u00e0 support@tariffhub.ch.",
+            "footer":   "Swiss Tariff Hub — support@tariffhub.ch",
+        },
+        "it": {
+            "subject":  "Il tuo piano \u00e8 stato aggiornato — Swiss Tariff Hub",
+            "heading":  "Piano cambiato a Free",
+            "body":     (
+                "Il tuo account \u00e8 stato aggiornato al <strong>piano Free</strong>. "
+                "Il tuo limite giornaliero \u00e8 ora di <strong>{limit} richieste/giorno</strong>."
+            ),
+            "note":     "L\u2019accesso alle funzionalit\u00e0 Pro (storico completo, tutti i provider, /prices/all) \u00e8 stato rimosso.",
+            "contact":  "Se credi che ci sia un errore o hai domande, contattaci a support@tariffhub.ch.",
+            "footer":   "Swiss Tariff Hub — support@tariffhub.ch",
+        },
+    }
+    s = T.get(lang, T["en"])
+    body = f"""
+    <p>{s["body"].format(limit=rate_limit)}</p>
+    <p style="margin-top:12px;color:#c0392b;font-size:13px">&#9888; {s["note"]}</p>
+    <p style="margin-top:16px;font-size:13px;color:#555">{s["contact"]}</p>
+    """
+    html = _html_wrap(s["heading"], body, s["footer"])
+    return _send(email, s["subject"], html)

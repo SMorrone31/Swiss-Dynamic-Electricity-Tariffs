@@ -25,11 +25,14 @@ Include:
 
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import Cookie, Depends, HTTPException, Request, Response
+log = logging.getLogger("admin_routes")
+
+from fastapi import Cookie, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, EmailStr, field_validator
 
@@ -44,6 +47,9 @@ PUBLIC_PATHS = {
     "/api/v1/validate-key",
     "/api/v1/check-key-status",
     "/api/v1/check-email",
+    "/api/v1/upgrade-to-pro",   # autenticato via api_key nel body JSON
+    "/api/v1/me/tariff",        # autenticato via api_key nel body JSON
+    "/api/v1/chat",             # chatbot rule-based — pubblico, no API key
     "/docs",
     "/redoc",
     "/openapi.json",
@@ -52,8 +58,12 @@ PUBLIC_PATHS = {
     "/admin/logout",
     "/admin/setup-totp",
 }
- 
-# Endpoint dati: accessibili senza key MA se la key è presente viene verificata e contata
+
+# Endpoint interni: usati SOLO dalla dashboard, protetti da X-Dashboard-Secret
+# Non contano come richieste API utente, non richiedono API key
+INTERNAL_PREFIXES = ("/internal/",)
+
+# Endpoint dati pubblici per API key utenti (ora richiedono key obbligatoria)
 DATA_PATHS = {
     "/api/v1/tariffs",
     "/api/v1/smart",
@@ -61,16 +71,25 @@ DATA_PATHS = {
     "/api/v1/summary/monthly",
     "/api/v1/latest",
     "/api/v1/metrics",
-    "/api/v1/prices/all"
-    "api/v1/prices"
+    "/api/v1/prices/all",
+    "/api/v1/prices",
 }
 
 DATA_PREFIXES = (
-    "/api/v1/prices",   # /api/v1/prices, /api/v1/prices/today, /api/v1/prices/all
+    "/api/v1/prices",
+    "/api/v1/summary/",
 )
- 
+
 # Prefissi pubblici (es. /admin/... gestito internamente)
 PUBLIC_PREFIXES = ("/admin",)
+
+
+def _get_dashboard_secret() -> str:
+    return os.getenv("DASHBOARD_SECRET", "")
+
+
+def is_internal(path: str) -> bool:
+    return path.startswith("/internal/")
 
 
 def is_public(path: str) -> bool:
@@ -80,7 +99,6 @@ def is_public(path: str) -> bool:
         return True
     if path.startswith("/api/v1/admin/"):
         return True
-    # Endpoint dati — pubblici (protetti solo dalla logica business, non da API key)
     if path.startswith("/api/v1/summary/"):
         return True
     if path.startswith("/api/v1/latest"):
@@ -88,10 +106,10 @@ def is_public(path: str) -> bool:
     if path.startswith("/api/v1/health"):
         return True
     return False
-  
- 
+
+
 def is_data_path(path: str) -> bool:
-    """Endpoint dati: semi-pubblici. Se key presente viene contata, altrimenti passa."""
+    """Endpoint dati esterni: richiedono API key."""
     if path in DATA_PATHS:
         return True
     for prefix in DATA_PREFIXES:
@@ -104,87 +122,104 @@ def is_data_path(path: str) -> bool:
 
 async def api_key_middleware(request: Request, call_next):
     """
-    Middleware aggiornato — verifica le API key dal DB invece di .env statico.
-    L'ADMIN_KEY bypassa tutto (per uso interno/debug).
+    Middleware aggiornato — tre livelli:
+
+    1. /internal/* → richiede X-Dashboard-Secret (usato dalla dashboard stessa)
+       Non conta come richiesta API utente.
+
+    2. Percorsi pubblici (/, /admin/*, /api/v1/health, zip-map, ecc.) → liberi.
+
+    3. /api/v1/* dati → richiedono API key obbligatoria (X-API-Key).
+       Il piano free/pro viene verificato nei singoli endpoint.
     """
     path = request.url.path
- 
-    # Percorsi sempre pubblici
+
+    # ── 1. Endpoint interni (dashboard) ──────────────────────────────────────
+    if is_internal(path):
+        secret = _get_dashboard_secret()
+        incoming = request.headers.get("X-Dashboard-Secret", "")
+        # Admin key bypassa anche gli internal (per debug)
+        admin_key = os.getenv("ADMIN_KEY", "")
+        if (secret and incoming == secret) or (admin_key and incoming == admin_key):
+            return await call_next(request)
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    # ── 2. Percorsi sempre pubblici ───────────────────────────────────────────
     if is_public(path):
         return await call_next(request)
- 
+
     raw_key = request.headers.get("X-API-Key", "").strip()
- 
+
     # ADMIN_KEY bypassa tutto
     admin_key = os.getenv("ADMIN_KEY", "")
     if admin_key and raw_key == admin_key:
         return await call_next(request)
- 
-    # Endpoint dati semi-pubblici: se no key passa, se key presente verifica e conta
+
+    # ── 3. Endpoint dati esterni → API key obbligatoria ───────────────────────
     if is_data_path(path):
         if not raw_key:
-            return await call_next(request)  # nessuna key → accesso libero (per ora)
-        # Key presente → verifica e conta
+            return JSONResponse(
+                {"error": "Missing API key", "hint": "Add X-API-Key header"},
+                status_code=401,
+            )
         from database import init_db
         from api_keys.registration import verify_api_key
         SessionLocal = init_db()
         with SessionLocal() as session:
             record, outcome = verify_api_key(session, raw_key)
         if outcome == "ok":
+            # Inietta piano e free_tariff_id nello stato della request
+            request.state.plan           = getattr(record, "plan", "free") or "free"
+            request.state.free_tariff_id = getattr(record, "free_tariff_id", None)
+            request.state.api_key_record = record
             return await call_next(request)
         if outcome == "rate_limit":
             return JSONResponse(
-                {"error": "Rate limit exceeded", "limit": record.rate_limit_day if record else 500,
-                 "used": record.requests_today if record else 0, "resets": "midnight CET/CEST"},
-                status_code=429
+                {"error": "Rate limit exceeded",
+                 "limit": record.rate_limit_day if record else 500,
+                 "used":  record.requests_today if record else 0,
+                 "resets": "midnight CET/CEST",
+                 "hint":   "Upgrade to Pro for higher limits"},
+                status_code=429,
             )
         if outcome == "suspended":
-            return JSONResponse({"error": "API key suspended"}, status_code=403)
+            return JSONResponse({"error": "API key suspended", "hint": "Contact support"}, status_code=403)
         if outcome in ("revoked", "not_found"):
             return JSONResponse({"error": "Invalid or revoked API key"}, status_code=401)
-        return await call_next(request)
- 
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    # ── 4. Tutto il resto → API key obbligatoria ──────────────────────────────
     if not raw_key:
         return JSONResponse(
             {"error": "Missing API key", "hint": "Add X-API-Key header"},
-            status_code=401
+            status_code=401,
         )
- 
-    # Verifica nel DB
+
     from database import init_db
     from api_keys.registration import verify_api_key
- 
     SessionLocal = init_db()
     with SessionLocal() as session:
         record, outcome = verify_api_key(session, raw_key)
- 
+
     if outcome == "ok":
+        request.state.plan           = getattr(record, "plan", "free") or "free"
+        request.state.free_tariff_id = getattr(record, "free_tariff_id", None)
+        request.state.api_key_record = record
         return await call_next(request)
- 
     if outcome == "rate_limit":
         return JSONResponse(
-            {
-                "error":    "Rate limit exceeded",
-                "limit":    record.rate_limit_day if record else 500,
-                "used":     record.requests_today if record else 0,
-                "resets":   "midnight CET/CEST",
-                "hint":     "Contact us to upgrade your plan",
-            },
-            status_code=429
+            {"error": "Rate limit exceeded",
+             "limit": record.rate_limit_day if record else 500,
+             "used":  record.requests_today if record else 0,
+             "resets": "midnight CET/CEST",
+             "hint":   "Upgrade to Pro for higher limits"},
+            status_code=429,
         )
- 
     if outcome == "suspended":
-        return JSONResponse(
-            {"error": "API key suspended", "hint": "Contact support"},
-            status_code=403
-        )
- 
+        return JSONResponse({"error": "API key suspended", "hint": "Contact support"}, status_code=403)
     if outcome in ("revoked", "not_found"):
-        return JSONResponse(
-            {"error": "Invalid or revoked API key"},
-            status_code=401
-        )
- 
+        return JSONResponse({"error": "Invalid or revoked API key"}, status_code=401)
+
     return JSONResponse({"error": "Unauthorized"}, status_code=401)
  
 
@@ -253,6 +288,7 @@ class SuspendRequest(BaseModel):
 class UpdateKeyRequest(BaseModel):
     rate_limit_day: Optional[int] = None
     notes:          Optional[str] = None
+    plan:           Optional[str] = None   # "free" | "pro"
 
 
 # ── Helper: require admin session ─────────────────────────────────────────────
@@ -263,6 +299,366 @@ def _require_admin(request: Request, admin_session: Optional[str] = Cookie(defau
     if not validate_session(admin_session, ip):
         raise HTTPException(status_code=401, detail="Not authenticated")
     return True
+
+
+# ── Chatbot rule-based engine ─────────────────────────────────────────────────
+
+class _ChatMsg(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    messages: list[_ChatMsg]
+    lang: Optional[str] = None   # hint lingua dal frontend (opzionale)
+
+
+def _detect_lang(text: str, hint: Optional[str]) -> str:
+    """Rileva la lingua dal testo o usa l'hint."""
+    if hint and hint in ("it", "de", "fr", "en"):
+        return hint
+    t = text.lower()
+    # Segnali italiani
+    it_signals = ["che cos", "cosa", "come funziona", "come si", "vorrei", "puoi",
+                  "dimmi", "grazie", "ciao", "aiuto", "spiegami", "quando",
+                  "quanto costa", "perché", "quali", "mostra", "hai", "ho"]
+    de_signals = ["was ist", "wie", "kannst", "bitte", "danke", "hallo", "zeig",
+                  "welche", "kostet", "warum", "können", "ich"]
+    fr_signals = ["qu'est", "comment", "pouvez", "merci", "bonjour", "montrez",
+                  "quels", "coûte", "pourquoi", "quel", "une", "des", "les"]
+    it_count = sum(1 for s in it_signals if s in t)
+    de_count = sum(1 for s in de_signals if s in t)
+    fr_count = sum(1 for s in fr_signals if s in t)
+    if it_count >= de_count and it_count >= fr_count and it_count > 0:
+        return "it"
+    if de_count > fr_count and de_count > 0:
+        return "de"
+    if fr_count > 0:
+        return "fr"
+    return "en"
+
+
+# ── Knowledge base ────────────────────────────────────────────────────────────
+
+_PROVIDERS = {
+    "ckw": {
+        "name": "CKW (Zentralschweiz)",
+        "tariff_ids": ["ckw_home_dynamic", "ckw_business_dynamic"],
+        "api_url": "https://e-ckw-public-data.de-c1.eu1.cloudhub.io/api/v1/netzinformationen/energie/dynamische-preise",
+        "region": {"it": "Svizzera Centrale", "de": "Zentralschweiz", "fr": "Suisse centrale", "en": "Central Switzerland"},
+    },
+    "ekz": {
+        "name": "EKZ",
+        "tariff_ids": ["ekz_energie_dynamisch_netz_400d"],
+        "api_url": "https://api.tariffs.ekz.ch",
+        "region": {"it": "Zurigo", "de": "Zürich", "fr": "Zurich", "en": "Zurich"},
+    },
+    "ekz_einsiedeln": {
+        "name": "EKZ Einsiedeln",
+        "tariff_ids": ["ekz_einsiedeln_energie_dynamisch_netz_400d"],
+        "api_url": "https://api.tariffs.ekz.ch",
+        "region": {"it": "Einsiedeln (Svitto)", "de": "Einsiedeln (Schwyz)", "fr": "Einsiedeln (Schwyz)", "en": "Einsiedeln (Schwyz)"},
+    },
+    "aem": {
+        "name": "AEM (Azienda Elettrica di Massagno)",
+        "tariff_ids": ["aem_tariffa_dinamica"],
+        "api_url": "https://servizi.aemsa.ch/tariffe",
+        "region": {"it": "Massagno, Ticino", "de": "Massagno, Tessin", "fr": "Massagno, Tessin", "en": "Massagno, Ticino"},
+    },
+    "groupe_e": {
+        "name": "Groupe E",
+        "tariff_ids": ["groupe_e_vario"],
+        "api_url": "https://api.tariffs.groupe-e.ch/v2/tariffs",
+        "region": {"it": "Friborgo / Romandia", "de": "Freiburg / Romandie", "fr": "Fribourg / Romandie", "en": "Fribourg / Romandy"},
+    },
+    "primeo": {
+        "name": "Primeo Energie",
+        "tariff_ids": ["primeo_netzdynamisch"],
+        "api_url": "https://tarife.primeo-energie.ch/api/v1/tariffs",
+        "region": {"it": "Basilea / nord-ovest", "de": "Basel / Nordwestschweiz", "fr": "Bâle / nord-ouest", "en": "Basel / NW Switzerland"},
+    },
+    "avag": {
+        "name": "AVAG (Aare Versorgungs AG)",
+        "tariff_ids": ["avag_primeo_netzdynamisch"],
+        "api_url": "https://tarife.primeo-energie.ch/api/v1/tariffs",
+        "region": {"it": "Canton Berna", "de": "Kanton Bern", "fr": "Canton de Berne", "en": "Canton Bern"},
+    },
+    "elag": {
+        "name": "ELAG (Elektra Gretzenbach AG)",
+        "tariff_ids": ["elag_primeo_netzdynamisch"],
+        "api_url": "https://tarife.primeo-energie.ch/api/v1/tariffs",
+        "region": {"it": "Gretzenbach, Soletta", "de": "Gretzenbach, Solothurn", "fr": "Gretzenbach, Soleure", "en": "Gretzenbach, Solothurn"},
+    },
+    "ail": {
+        "name": "AIL (Aziende industriali di Lugano)",
+        "tariff_ids": ["ail_tariffa_dinamica"],
+        "api_url": None,
+        "web_url": "https://www.ail.ch/privati/elettricita/prodotti/Tariffa-dinamica/tariffa-dinamica.html",
+        "region": {"it": "Lugano, Ticino", "de": "Lugano, Tessin", "fr": "Lugano, Tessin", "en": "Lugano, Ticino"},
+    },
+    "ega": {
+        "name": "EGA (Elektra Aettenschwil)",
+        "tariff_ids": ["ega_einheitstarif_netz_dinamisch"],
+        "api_url": None,
+        "web_url": "https://esit.code-fabrik.ch/doc_scalar",
+        "region": {"it": "Aettenschwil, Argovia", "de": "Aettenschwil, Aargau", "fr": "Aettenschwil, Argovie", "en": "Aettenschwil, Aargau"},
+    },
+}
+
+_ENDPOINTS = [
+    {"path": "GET /api/v1/prices/today?tariff_id=X",    "desc": {"it": "96 slot prezzi del giorno corrente", "de": "96 Preisslots für heute", "fr": "96 créneaux de prix pour aujourd'hui", "en": "96 price slots for today"}},
+    {"path": "GET /api/v1/prices/tomorrow?tariff_id=X", "desc": {"it": "Prezzi domani (disponibili dopo ~17:30 UTC)", "de": "Preise morgen (ab ~17:30 UTC)", "fr": "Prix demain (disponibles après ~17:30 UTC)", "en": "Tomorrow's prices (available after ~17:30 UTC)"}},
+    {"path": "GET /api/v1/prices/all",                   "desc": {"it": "Tutte le tariffe, tutti gli slot (solo Pro)", "de": "Alle Tarife, alle Slots (nur Pro)", "fr": "Tous les tarifs, tous les créneaux (Pro uniquement)", "en": "All tariffs, all slots (Pro only)"}},
+    {"path": "GET /api/v1/tariffs",                      "desc": {"it": "Lista di tutte le tariffe disponibili", "de": "Liste aller verfügbaren Tarife", "fr": "Liste de tous les tarifs disponibles", "en": "List of all available tariffs"}},
+    {"path": "GET /api/v1/health",                       "desc": {"it": "Stato del sistema e uptime", "de": "Systemstatus und Uptime", "fr": "État du système et uptime", "en": "System health and uptime"}},
+]
+
+_T = {
+    "it": {
+        "unknown":       "Non ho trovato una risposta precisa a questa domanda. Per assistenza dettagliata scrivi a **support@tariffhub.ch** — risponderemo entro 24 ore! 📧",
+        "greeting":      "👋 Ciao! Sono l'assistente di **Swiss Tariff Hub**.\nPosso aiutarti con informazioni su tariffe dinamiche svizzere, piani, endpoint API e provider. Come posso aiutarti?",
+        "about":         "**Swiss Tariff Hub** è un servizio B2B che aggrega le tariffe elettriche dinamiche dei principali fornitori svizzeri (EVU) in un'unica API REST normalizzata.\n\n📊 **Formato dati**: slot da 15 minuti in UTC con tre componenti di prezzo: `energy_price_utc`, `grid_price_utc`, `residual_price_utc` (CHF/kWh)\n\n🗺️ **Dashboard**: mappa interattiva della Svizzera, visualizzatore tariffe Smart, console di test API\n\n🌍 **Lingue supportate**: IT, DE, FR, EN",
+        "plans":         "## Piani disponibili\n\n**Piano Free** — gratuito\n- 500 richieste/giorno\n- Accesso a 1 tariffa a scelta\n- Endpoint base\n- Storico limitato\n\n**Piano Pro** — CHF 19/mese\n- 2.000 richieste/giorno\n- Tutte le tariffe svizzere\n- Storico illimitato\n- Tutti gli endpoint\n- Fatturazione mensile, disdici quando vuoi\n\n👉 Registrati gratuitamente su `/register`, poi passa a Pro dalla dashboard.",
+        "providers":     "## Provider supportati ({n} totali)\n",
+        "provider_row":  "- **{name}** — {region}\n  Tariff ID: `{ids}`\n  API reale: {url}\n",
+        "provider_no_api": "  ⚠️ Nessuna API pubblica disponibile\n",
+        "provider_web_link": "  🌐 Sito ufficiale / documentazione: {url}\n",
+        "endpoints":     "## Endpoint STH disponibili\n",
+        "endpoint_row":  "- `{path}` — {desc}\n",
+        "update_times":  "⏰ **Orari aggiornamento dati:**\n- CKW: ogni giorno alle **11:05 UTC**\n- Tutti gli altri provider: ogni giorno alle **17:30 UTC**\n\nI dati del giorno successivo (domani) sono tipicamente disponibili dopo le 17:30 UTC.",
+        "dst":           "🕐 **Gestione cambio ora (DST):**\nIl sistema usa `Europe/Zurich` per calcolare gli slot correttamente:\n- Giorno normale: **96 slot** (24h × 4)\n- Domenica di primavera (−1h): **92 slot**\n- Domenica d'autunno (+1h): **100 slot**",
+        "data_format":   "📐 **Formato dati API:**\nOgni risposta contiene slot da **15 minuti in UTC** con:\n```\nenergy_price_utc   → prezzo energia (CHF/kWh)\ngrid_price_utc     → prezzo rete (CHF/kWh)\nresidual_price_utc → componenti residue (CHF/kWh)\n```\nI timestamp sono in formato ISO 8601 UTC.",
+        "register":      "**Registrazione gratuita** in pochi secondi:\n1. Vai su `/register` nella dashboard\n2. Inserisci nome, email e azienda\n3. Ricevi la tua API key via email dopo l'approvazione\n\nNessuna carta di credito richiesta per il piano Free. Il piano Pro (CHF 19/mese) si attiva direttamente dalla dashboard.",
+        "contact":       "📧 **Contatti Swiss Tariff Hub:**\nEmail: **support@tariffhub.ch**\n\nRispondiamo entro 24 ore nei giorni lavorativi.",
+        "pricing_detail":"💰 **Dettaglio prezzi:**\n- Piano Free: **gratuito** (500 req/giorno)\n- Piano Pro: **CHF 19/mese** — fatturazione mensile, nessun vincolo\n- Nessuna commissione per slot, nessun costo a consumo\n- Puoi disdire in qualsiasi momento prima della prossima scadenza",
+        "security":      "🔒 **Sicurezza & Autenticazione:**\nL'accesso alle API avviene tramite **API key** nell'header HTTP:\n```\nAuthorization: Bearer stk_xxxxxxxxxxxx\n```\nLe chiavi sono hashate (SHA-256) nel database. Nessun dato sensibile è memorizzato in chiaro.",
+    },
+    "de": {
+        "unknown":       "Ich konnte auf diese Frage keine genaue Antwort finden. Für detaillierte Hilfe schreiben Sie an **support@tariffhub.ch** — wir antworten innerhalb von 24 Stunden! 📧",
+        "greeting":      "👋 Hallo! Ich bin der Assistent von **Swiss Tariff Hub**.\nIch helfe Ihnen mit Informationen zu dynamischen Schweizer Stromtarifen, Plänen, API-Endpunkten und Anbietern.",
+        "about":         "**Swiss Tariff Hub** ist ein B2B-Dienst, der dynamische Stromtarife der wichtigsten Schweizer Energieversorger (EVU) in einer einheitlichen normalisierten REST-API aggregiert.\n\n📊 **Datenformat**: 15-Minuten-Slots in UTC mit drei Preiskomponenten: `energy_price_utc`, `grid_price_utc`, `residual_price_utc` (CHF/kWh)\n\n🗺️ **Dashboard**: Interaktive Schweizer Karte, Smart-Tarifanzeige, API-Testkonsole\n\n🌍 **Sprachen**: IT, DE, FR, EN",
+        "plans":         "## Verfügbare Pläne\n\n**Free-Plan** — kostenlos\n- 500 Anfragen/Tag\n- Zugang zu 1 Tarif nach Wahl\n- Basis-Endpunkte\n\n**Pro-Plan** — CHF 19/Monat\n- 2.000 Anfragen/Tag\n- Alle Schweizer Tarife\n- Unbegrenzte Historie\n- Alle Endpunkte\n- Monatliche Abrechnung, jederzeit kündbar\n\n👉 Registrierung unter `/register`, dann Pro-Upgrade im Dashboard.",
+        "providers":     "## Unterstützte Anbieter ({n} gesamt)\n",
+        "provider_row":  "- **{name}** — {region}\n  Tariff-ID: `{ids}`\n  Echtzeit-API: {url}\n",
+        "provider_no_api": "  ⚠️ Keine öffentliche API verfügbar\n",
+        "provider_web_link": "  🌐 Offizielle Website / Dokumentation: {url}\n",
+        "endpoints":     "## Verfügbare STH-Endpunkte\n",
+        "endpoint_row":  "- `{path}` — {desc}\n",
+        "update_times":  "⏰ **Datenaktualisierungszeiten:**\n- CKW: täglich um **11:05 UTC**\n- Alle anderen Anbieter: täglich um **17:30 UTC**",
+        "dst":           "🕐 **Sommerzeit-Behandlung (DST):**\nDas System verwendet `Europe/Zurich`:\n- Normaler Tag: **96 Slots**\n- Frühjahr (−1h): **92 Slots**\n- Herbst (+1h): **100 Slots**",
+        "data_format":   "📐 **API-Datenformat:**\nJede Antwort enthält **15-Minuten-Slots in UTC** mit:\n```\nenergy_price_utc   → Energiepreis (CHF/kWh)\ngrid_price_utc     → Netzpreis (CHF/kWh)\nresidual_price_utc → Restkomponenten (CHF/kWh)\n```",
+        "register":      "**Kostenlose Registrierung** in wenigen Sekunden:\n1. Gehen Sie zu `/register` im Dashboard\n2. Name, E-Mail und Unternehmen eingeben\n3. API-Key per E-Mail nach Genehmigung erhalten\n\nKeine Kreditkarte für den Free-Plan erforderlich.",
+        "contact":       "📧 **Kontakt Swiss Tariff Hub:**\nE-Mail: **support@tariffhub.ch**\n\nWir antworten innerhalb von 24 Stunden an Werktagen.",
+        "pricing_detail":"💰 **Preisdetails:**\n- Free-Plan: **kostenlos** (500 Anfragen/Tag)\n- Pro-Plan: **CHF 19/Monat** — monatliche Abrechnung, keine Bindung\n- Jederzeit vor dem nächsten Abrechnungsdatum kündbar",
+        "security":      "🔒 **Sicherheit & Authentifizierung:**\nAPI-Zugang über **API-Key** im HTTP-Header:\n```\nAuthorization: Bearer stk_xxxxxxxxxxxx\n```\nKeys werden SHA-256-gehasht gespeichert.",
+    },
+    "fr": {
+        "unknown":       "Je n'ai pas trouvé de réponse précise à cette question. Pour une aide détaillée, écrivez à **support@tariffhub.ch** — nous répondrons dans les 24 heures ! 📧",
+        "greeting":      "👋 Bonjour ! Je suis l'assistant de **Swiss Tariff Hub**.\nJe peux vous aider avec les tarifs dynamiques suisses, les plans, les endpoints API et les fournisseurs.",
+        "about":         "**Swiss Tariff Hub** est un service B2B qui agrège les tarifs d'électricité dynamiques des principaux fournisseurs suisses (EVU) dans une API REST unifiée et normalisée.\n\n📊 **Format des données** : créneaux de 15 minutes en UTC avec trois composantes : `energy_price_utc`, `grid_price_utc`, `residual_price_utc` (CHF/kWh)\n\n🗺️ **Dashboard** : carte interactive de la Suisse, visualiseur Smart, console de test API\n\n🌍 **Langues** : IT, DE, FR, EN",
+        "plans":         "## Plans disponibles\n\n**Plan Free** — gratuit\n- 500 requêtes/jour\n- Accès à 1 tarif au choix\n- Endpoints de base\n\n**Plan Pro** — CHF 19/mois\n- 2 000 requêtes/jour\n- Tous les tarifs suisses\n- Historique illimité\n- Tous les endpoints\n- Facturation mensuelle, résiliable à tout moment\n\n👉 Inscription gratuite sur `/register`, puis upgrade Pro depuis le dashboard.",
+        "providers":     "## Fournisseurs supportés ({n} au total)\n",
+        "provider_row":  "- **{name}** — {region}\n  Tariff ID : `{ids}`\n  API réelle : {url}\n",
+        "provider_no_api": "  ⚠️ Pas d'API publique disponible\n",
+        "provider_web_link": "  🌐 Site officiel / documentation : {url}\n",
+        "endpoints":     "## Endpoints STH disponibles\n",
+        "endpoint_row":  "- `{path}` — {desc}\n",
+        "update_times":  "⏰ **Horaires de mise à jour :**\n- CKW : tous les jours à **11:05 UTC**\n- Tous les autres fournisseurs : tous les jours à **17:30 UTC**",
+        "dst":           "🕐 **Gestion du changement d'heure (DST) :**\nLe système utilise `Europe/Zurich` :\n- Jour normal : **96 créneaux**\n- Printemps (−1h) : **92 créneaux**\n- Automne (+1h) : **100 créneaux**",
+        "data_format":   "📐 **Format des données API :**\nChaque réponse contient des **créneaux de 15 minutes en UTC** avec :\n```\nenergy_price_utc   → prix énergie (CHF/kWh)\ngrid_price_utc     → prix réseau (CHF/kWh)\nresidual_price_utc → composantes résiduelles (CHF/kWh)\n```",
+        "register":      "**Inscription gratuite** en quelques secondes :\n1. Allez sur `/register` dans le dashboard\n2. Saisissez nom, e-mail et entreprise\n3. Recevez votre clé API par e-mail après approbation\n\nAucune carte de crédit requise pour le plan Free.",
+        "contact":       "📧 **Contact Swiss Tariff Hub :**\nE-mail : **support@tariffhub.ch**\n\nNous répondons dans les 24 heures les jours ouvrables.",
+        "pricing_detail":"💰 **Détail des tarifs :**\n- Plan Free : **gratuit** (500 req/jour)\n- Plan Pro : **CHF 19/mois** — facturation mensuelle, sans engagement\n- Résiliable à tout moment avant la prochaine date de facturation",
+        "security":      "🔒 **Sécurité & Authentification :**\nAccès API via **clé API** dans l'en-tête HTTP :\n```\nAuthorization: Bearer stk_xxxxxxxxxxxx\n```\nLes clés sont stockées hashées (SHA-256).",
+    },
+    "en": {
+        "unknown":       "I couldn't find a precise answer to this question. For detailed assistance, write to **support@tariffhub.ch** — we'll reply within 24 hours! 📧",
+        "greeting":      "👋 Hi! I'm the Swiss Tariff Hub assistant.\nI can help you with Swiss dynamic electricity tariffs, plans, API endpoints and providers. How can I help?",
+        "about":         "**Swiss Tariff Hub** is a B2B service that aggregates dynamic electricity tariffs from major Swiss energy utilities (EVUs) into a single normalized REST API.\n\n📊 **Data format**: 15-minute UTC slots with three price components: `energy_price_utc`, `grid_price_utc`, `residual_price_utc` (CHF/kWh)\n\n🗺️ **Dashboard**: interactive Swiss map, Smart tariff viewer, API test console\n\n🌍 **Languages**: IT, DE, FR, EN",
+        "plans":         "## Available Plans\n\n**Free Plan** — free\n- 500 requests/day\n- Access to 1 tariff of your choice\n- Basic endpoints\n\n**Pro Plan** — CHF 19/month\n- 2,000 requests/day\n- All Swiss tariffs\n- Unlimited history\n- All endpoints\n- Monthly billing, cancel anytime\n\n👉 Register for free at `/register`, then upgrade to Pro from the dashboard.",
+        "providers":     "## Supported Providers ({n} total)\n",
+        "provider_row":  "- **{name}** — {region}\n  Tariff ID: `{ids}`\n  Real API: {url}\n",
+        "provider_no_api": "  ⚠️ No public API available\n",
+        "provider_web_link": "  🌐 Official website / documentation: {url}\n",
+        "endpoints":     "## Available STH Endpoints\n",
+        "endpoint_row":  "- `{path}` — {desc}\n",
+        "update_times":  "⏰ **Data update schedule:**\n- CKW: daily at **11:05 UTC**\n- All other providers: daily at **17:30 UTC**\n\nNext-day prices are typically available after 17:30 UTC.",
+        "dst":           "🕐 **Daylight Saving Time (DST) handling:**\nThe system uses `Europe/Zurich` timezone:\n- Normal day: **96 slots**\n- Spring forward (−1h): **92 slots**\n- Autumn back (+1h): **100 slots**",
+        "data_format":   "📐 **API data format:**\nEach response contains **15-minute UTC slots** with:\n```\nenergy_price_utc   → energy price (CHF/kWh)\ngrid_price_utc     → grid price (CHF/kWh)\nresidual_price_utc → residual components (CHF/kWh)\n```\nTimestamps are ISO 8601 UTC.",
+        "register":      "**Free registration** in seconds:\n1. Go to `/register` in the dashboard\n2. Enter name, email and company\n3. Receive your API key by email after approval\n\nNo credit card required for the Free plan. The Pro plan (CHF 19/month) is activated directly from the dashboard.",
+        "contact":       "📧 **Contact Swiss Tariff Hub:**\nEmail: **support@tariffhub.ch**\n\nWe reply within 24 hours on business days.",
+        "pricing_detail":"💰 **Pricing details:**\n- Free plan: **free** (500 req/day)\n- Pro plan: **CHF 19/month** — monthly billing, no lock-in\n- Cancel anytime before the next billing date",
+        "security":      "🔒 **Security & Authentication:**\nAPI access via **API key** in HTTP header:\n```\nAuthorization: Bearer stk_xxxxxxxxxxxx\n```\nKeys are SHA-256 hashed in the database.",
+    },
+}
+
+
+def _cb_t(lang: str, key: str) -> str:
+    return _T.get(lang, _T["en"]).get(key, _T["en"].get(key, ""))
+
+
+def _build_providers_response(lang: str, filter_key: Optional[str] = None) -> str:
+    items = _PROVIDERS.items() if not filter_key else [(filter_key, _PROVIDERS[filter_key])]
+    n = len(_PROVIDERS) if not filter_key else 1
+    out = _cb_t(lang, "providers").format(n=n)
+    for key, p in items:
+        region = p["region"].get(lang, p["region"]["en"])
+        ids = ", ".join(p["tariff_ids"])
+        if p["api_url"]:
+            row = _cb_t(lang, "provider_row").format(
+                name=p["name"], region=region, ids=ids, url=p["api_url"]
+            )
+        else:
+            web_url = p.get("web_url")
+            row = f"- **{p['name']}** — {region}\n  Tariff ID: `{ids}`\n"
+            if web_url:
+                row += _cb_t(lang, "provider_web_link").format(url=web_url)
+            else:
+                row += _cb_t(lang, "provider_no_api")
+        out += row
+    return out.strip()
+
+
+def _build_endpoints_response(lang: str) -> str:
+    out = _cb_t(lang, "endpoints")
+    for ep in _ENDPOINTS:
+        desc = ep["desc"].get(lang, ep["desc"]["en"])
+        out += _cb_t(lang, "endpoint_row").format(path=ep["path"], desc=desc)
+    return out.strip()
+
+
+def _chatbot_reply(messages: list[dict], hint_lang: Optional[str]) -> str:
+    """Engine rule-based: analizza l'ultimo messaggio utente e risponde."""
+    # Prendi tutti i messaggi utente per contesto lingua
+    user_msgs = [m["content"] for m in messages if m["role"] == "user"]
+    if not user_msgs:
+        return _cb_t("it", "greeting")
+
+    last = user_msgs[-1].strip()
+    lang = _detect_lang(last, hint_lang)
+    t = last.lower()
+
+    # ── Saluti ────────────────────────────────────────────────────────────────
+    greet_words = ["ciao", "salve", "buongiorno", "buonasera", "hello", "hi",
+                   "hallo", "bonjour", "hey", "salut", "guten tag", "good morning"]
+    if any(t.startswith(w) or t == w for w in greet_words) and len(t) < 30:
+        return _cb_t(lang, "greeting")
+
+    # ── Chi siete / cosa è STH ────────────────────────────────────────────────
+    about_kw = ["cos'è", "cosa è", "che cos", "che cosa", "cos e", "what is",
+                "was ist", "qu'est", "qu est", "swiss tariff hub", "sth",
+                "cosa fa", "what does", "was macht", "à quoi", "a cosa serve",
+                "descri", "presentati", "presentate", "tell me about", "erzähl",
+                "parlez"]
+    if any(k in t for k in about_kw):
+        return _cb_t(lang, "about")
+
+    # ── Piani e prezzi ────────────────────────────────────────────────────────
+    plan_kw = ["piano", "piani", "plan", "pläne", "plans", "free", "pro",
+               "costo", "costa", "kostet", "coûte", "price", "preis", "prix",
+               "quanto", "how much", "wie viel", "combien", "abbonamento",
+               "subscription", "abonnement", "upgrade", "differenza", "difference",
+               "unterschied", "différence", "19 chf", "chf 19"]
+    if any(k in t for k in plan_kw):
+        # Se chiede specificamente il dettaglio prezzi
+        if any(k in t for k in ["quanto", "how much", "wie viel", "combien", "costo", "kostet", "coûte", "19"]):
+            return _cb_t(lang, "pricing_detail")
+        return _cb_t(lang, "plans")
+
+    # ── Provider specifici ─────────────────────────────────────────────────────
+    provider_map = {
+        "ckw":          "ckw",
+        "ekz einsiedeln": "ekz_einsiedeln",
+        "ekz":          "ekz",
+        "aem":          "aem",
+        "massagno":     "aem",
+        "groupe e":     "groupe_e",
+        "groupe-e":     "groupe_e",
+        "groupe_e":     "groupe_e",
+        "primeo":       "primeo",
+        "avag":         "avag",
+        "aare":         "avag",
+        "elag":         "elag",
+        "gretzenbach":  "elag",
+        "ail":          "ail",
+        "lugano":       "ail",
+        "ega":          "ega",
+        "aettenschwil": "ega",
+    }
+    matched_provider = None
+    for kw, pk in provider_map.items():
+        if kw in t:
+            matched_provider = pk
+            break
+
+    # ── API / URL / endpoint ──────────────────────────────────────────────────
+    api_kw = ["api", "url", "endpoint", "link", "indirizzo", "address",
+              "adresse", "adres", "curl", "request", "richiesta", "anfrage",
+              "requête", "http", "https", "tariff_id", "mostra api", "show api",
+              "zeig api", "montrer api"]
+    wants_api = any(k in t for k in api_kw)
+
+    if matched_provider and wants_api:
+        return _build_providers_response(lang, matched_provider)
+
+    if matched_provider:
+        return _build_providers_response(lang, matched_provider)
+
+    # ── Tutti i provider ──────────────────────────────────────────────────────
+    all_prov_kw = ["provider", "fornitori", "fornitore", "anbieter", "fournisseur",
+                   "evu", "tutti", "all", "alle", "tous", "lista", "list", "elenco",
+                   "welche", "quali", "quels", "which", "supported"]
+    if any(k in t for k in all_prov_kw):
+        return _build_providers_response(lang)
+
+    # ── Endpoint API ──────────────────────────────────────────────────────────
+    if wants_api and not matched_provider:
+        return _build_endpoints_response(lang)
+
+    # ── Registrazione ─────────────────────────────────────────────────────────
+    reg_kw = ["registra", "register", "registrierung", "inscription", "accesso",
+              "access", "zugang", "accès", "chiave", "key", "api key", "come si accede",
+              "how to", "wie kann", "comment", "iniziare", "start", "anfangen",
+              "commencer", "inizia", "begin"]
+    if any(k in t for k in reg_kw):
+        return _cb_t(lang, "register")
+
+    # ── Sicurezza ─────────────────────────────────────────────────────────────
+    sec_kw = ["sicurezza", "security", "sicherheit", "sécurité", "auth",
+              "autenticazione", "authentication", "header", "bearer", "token",
+              "hash", "sha", "protetto", "protect"]
+    if any(k in t for k in sec_kw):
+        return _cb_t(lang, "security")
+
+    # ── Orari aggiornamento ────────────────────────────────────────────────────
+    update_kw = ["aggiornamento", "aggiorna", "update", "aktualisierung", "mise à jour",
+                 "quando", "when", "wann", "quand", "orario", "schedule", "zeitplan",
+                 "horaire", "11:05", "17:30", "utc", "fetch", "domani", "tomorrow",
+                 "morgen", "demain"]
+    if any(k in t for k in update_kw):
+        return _cb_t(lang, "update_times")
+
+    # ── Formato dati / DST ────────────────────────────────────────────────────
+    fmt_kw = ["formato", "format", "slot", "15 min", "15min", "kwh", "chf/kwh",
+              "energy_price", "grid_price", "residual", "struttura", "structure",
+              "aufbau", "json", "response", "risposta"]
+    if any(k in t for k in fmt_kw):
+        return _cb_t(lang, "data_format")
+
+    dst_kw = ["dst", "ora legale", "sommerzeit", "heure d'été", "daylight",
+              "92 slot", "100 slot", "96 slot", "transizione", "transition",
+              "primavera", "autunno", "spring", "autumn", "frühling", "herbst"]
+    if any(k in t for k in dst_kw):
+        return _cb_t(lang, "dst")
+
+    # ── Contatti ──────────────────────────────────────────────────────────────
+    contact_kw = ["contatto", "contatti", "contact", "kontakt", "email", "mail",
+                  "support", "assistenza", "hilfe", "aide", "help", "scrivere",
+                  "write", "schreiben", "écrire"]
+    if any(k in t for k in contact_kw):
+        return _cb_t(lang, "contact")
+
+    # ── Fallback ──────────────────────────────────────────────────────────────
+    return _cb_t(lang, "unknown")
 
 
 # ── Funzione per registrare tutte le route su un'app FastAPI ─────────────────
@@ -331,6 +727,17 @@ def register_routes(app):
                 )
             raise HTTPException(400, str(e))
 
+    # ── POST /api/v1/chat — Chatbot rule-based ────────────────────────────────
+    @app.post("/api/v1/chat")
+    async def chat_endpoint(req: ChatRequest):
+        """
+        Chatbot rule-based pubblica. Risponde in IT/DE/FR/EN.
+        Nessuna API key esterna richiesta.
+        """
+        messages = [{"role": m.role, "content": m.content} for m in req.messages]
+        reply = _chatbot_reply(messages, req.lang)
+        return JSONResponse({"reply": reply})
+
     # ── POST /api/v1/validate-key ─────────────────────────────────────────────
     @app.post("/api/v1/validate-key")
     async def validate_key(req: ValidateKeyRequest):
@@ -382,6 +789,7 @@ def register_routes(app):
                     "requests_total":   record.requests_total,
                     "plan":             getattr(record, "plan", "free"),
                     "rate_limit_min":   getattr(record, "rate_limit_min", 4),
+                    "free_tariff_id":   getattr(record, "free_tariff_id", None),
                 },
             }
 
@@ -448,7 +856,437 @@ def register_routes(app):
                 "rate_limit_day": record.rate_limit_day,
                 "requests_total": record.requests_total,
                 "plan":           getattr(record, "plan", "free"),
+                "free_tariff_id": getattr(record, "free_tariff_id", None),
             }
+
+    # ── POST /api/v1/upgrade-to-pro ───────────────────────────────────────────
+    @app.post("/api/v1/upgrade-to-pro")
+    async def upgrade_to_pro(req: ValidateKeyRequest):
+        """
+        Endpoint chiamato dal form di pagamento nel frontend (loggato).
+        Simula pagamento riuscito, upgrada piano a Pro, invia receipt + invoice PDF.
+
+        Richiede: {api_key: "stk_..."}
+        Returns: {success: bool, plan: "pro", message: str}
+        """
+        from database import init_db
+        from api_keys.registration import ApiKey, _hash_key, update_key
+
+        PRO_RATE_LIMIT = 2000   # richieste/giorno piano Pro
+
+        if not req.api_key.strip():
+            raise HTTPException(400, "api_key required")
+
+        SessionLocal = init_db()
+        with SessionLocal() as session:
+            key_hash = _hash_key(req.api_key.strip())
+            record   = session.query(ApiKey).filter(
+                ApiKey.api_key_hash == key_hash
+            ).first()
+
+            if not record:
+                raise HTTPException(404, "Key not found")
+            if record.status != "active":
+                raise HTTPException(403, f"Key status: {record.status}")
+
+            current_plan = getattr(record, "plan", "free") or "free"
+            if current_plan == "pro":
+                return {"success": True, "plan": "pro", "already_pro": True,
+                        "message": "Account already on Pro plan."}
+
+            # Esegui upgrade — imposta anche rate_limit_day Pro
+            record, upgraded, _downgraded = update_key(
+                session, record.id,
+                plan="pro",
+                rate_limit_day=PRO_RATE_LIMIT,
+            )
+
+        # Invia email con receipt + fattura PDF in background (non blocca la risposta)
+        if upgraded:
+            import threading
+            def _send_email():
+                try:
+                    from api_keys.email_templates import send_pro_upgrade
+                    from datetime import datetime, timezone as tz
+                    send_pro_upgrade(
+                        email          = record.email,
+                        full_name      = record.full_name,
+                        key_prefix     = record.key_prefix,
+                        rate_limit     = record.rate_limit_day,
+                        pro_since      = record.approved_at or datetime.now(tz.utc),
+                        company        = record.company,
+                        vat_number     = getattr(record, "vat_number", None),
+                        address_line1  = None,
+                        address_line2  = None,
+                        country        = getattr(record, "country", "CH") or "CH",
+                        payment_method = "Card",
+                        lang           = record.preferred_lang or "en",
+                    )
+                    log.info(f"[upgrade-to-pro] Email Pro inviata a {record.email}")
+                except Exception as e:
+                    import traceback
+                    log.error(f"[upgrade-to-pro] Email non inviata per {record.email}: {e}\n{traceback.format_exc()}")
+            threading.Thread(target=_send_email, daemon=True).start()
+
+        return {
+            "success":        True,
+            "plan":           "pro",
+            "already_pro":    False,
+            "rate_limit_day": record.rate_limit_day,
+            "message":        "Upgrade successful.",
+        }
+
+    # ── POST /api/v1/me/tariff ────────────────────────────────────────────────
+    @app.post("/api/v1/me/tariff")
+    async def set_free_tariff(req: ValidateKeyRequest, tariff_id: str = Query(...)):
+        """
+        Salva la tariffa default scelta dall'utente free.
+        Può essere chiamato una sola volta — successivamente può essere
+        cambiato solo da admin o se l'utente upgrada a Pro.
+        Richiede: header X-API-Key + ?tariff_id=...
+        """
+        from database import init_db, get_active_tariffs
+        from api_keys.registration import ApiKey, _hash_key, update_key
+
+        if not req.api_key.strip():
+            raise HTTPException(400, "api_key required")
+
+        SessionLocal = init_db()
+        with SessionLocal() as session:
+            key_hash = _hash_key(req.api_key.strip())
+            record   = session.query(ApiKey).filter(
+                ApiKey.api_key_hash == key_hash
+            ).first()
+            if not record or record.status != "active":
+                raise HTTPException(401, "Invalid or inactive key")
+
+            # Verifica che il tariff_id esista
+            active_ids = {t.tariff_id for t in get_active_tariffs(session)}
+            if tariff_id not in active_ids:
+                raise HTTPException(404, f"Tariff '{tariff_id}' not found or inactive")
+
+            update_key(session, record.id, free_tariff_id=tariff_id)
+
+        return {"success": True, "free_tariff_id": tariff_id}
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # ENDPOINT INTERNI — /internal/*
+    # Protetti da X-Dashboard-Secret. Usati SOLO dalla dashboard.
+    # Non richiedono API key utente. Non contano nel rate limit.
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    @app.get("/internal/tariffs")
+    def internal_tariffs():
+        """Lista completa tariffe — usata dalla dashboard per mappa e grafici."""
+        import json as _json
+        from database import init_db, get_active_tariffs
+
+        def expand_zip_ranges(raw: list) -> list:
+            result = []
+            for z in raw:
+                if isinstance(z, int):
+                    result.append(z)
+                elif isinstance(z, list) and len(z) == 2:
+                    result.extend(range(int(z[0]), int(z[1]) + 1))
+                elif isinstance(z, str):
+                    z = z.strip()
+                    if "-" in z:
+                        parts = z.split("-")
+                        try: result.extend(range(int(parts[0]), int(parts[1]) + 1))
+                        except ValueError: pass
+                    else:
+                        try: result.append(int(z))
+                        except ValueError: pass
+            return sorted(set(result))
+
+        SessionLocal = init_db()
+        with SessionLocal() as session:
+            tariffs = get_active_tariffs(session)
+        return [
+            {
+                "tariff_id":                   t.tariff_id,
+                "tariff_name":                 t.tariff_name,
+                "provider_name":               t.provider_name,
+                "zip_ranges":                  expand_zip_ranges(
+                    _json.loads(t.full_config_json).get("zip_ranges", [])
+                ),
+                "daily_update_time_utc":       t.daily_update_time_utc,
+                "datetime_available_from_utc": (
+                    t.datetime_available_from.isoformat() if t.datetime_available_from else None
+                ),
+                "valid_until_utc":             (t.valid_until.isoformat() if t.valid_until else None),
+                "sgr_compliant":               t.sgr_compliant,
+                "dynamic_elements":            _json.loads(t.dynamic_elements_json),
+                "time_resolution_minutes":     t.time_resolution_minutes,
+            }
+            for t in tariffs
+        ]
+
+    @app.get("/internal/prices/all")
+    def internal_prices_all(
+        start_time: str = Query(...),
+        end_time:   Optional[str] = Query(None),
+    ):
+        """Prezzi di tutte le tariffe — usato dalla dashboard per mappa e grafici."""
+        from datetime import datetime, timedelta, timezone
+        from database import init_db, get_active_tariffs, get_prices
+
+        try:
+            import zoneinfo; tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
+        except ImportError:
+            import pytz; tz_ch = pytz.timezone("Europe/Zurich")
+
+        try:
+            start_utc = datetime.fromisoformat(start_time.replace("Z", "+00:00")).astimezone(timezone.utc)
+        except ValueError:
+            raise HTTPException(400, f"Invalid start_time: {start_time!r}")
+
+        if end_time:
+            try:
+                end_utc = datetime.fromisoformat(end_time.replace("Z", "+00:00")).astimezone(timezone.utc)
+            except ValueError:
+                raise HTTPException(400, f"Invalid end_time: {end_time!r}")
+        else:
+            end_utc = start_utc + timedelta(days=1)
+
+        start_ld = start_utc.astimezone(tz_ch).date()
+        end_ld   = end_utc.astimezone(tz_ch).date()
+        start_db = datetime(start_ld.year, start_ld.month, start_ld.day, tzinfo=tz_ch).astimezone(timezone.utc)
+        end_db   = datetime(end_ld.year, end_ld.month, end_ld.day, tzinfo=tz_ch).astimezone(timezone.utc)
+        if end_db <= start_db:
+            end_db = (datetime(end_ld.year, end_ld.month, end_ld.day, tzinfo=tz_ch) + timedelta(days=1)).astimezone(timezone.utc)
+        end_ld_filter = start_ld + timedelta(days=1) if end_ld <= start_ld else end_ld
+
+        result = {}
+        SessionLocal = init_db()
+        with SessionLocal() as session:
+            for tariff in get_active_tariffs(session):
+                slots = get_prices(session, tariff.tariff_id, start_db, end_db)
+                slots = [s for s in slots if start_ld <= s.slot_start_utc.astimezone(tz_ch).date() < end_ld_filter]
+                if not slots: continue
+                energy_s, grid_s, residual_s = [], [], []
+                for s in slots:
+                    dt = s.slot_start_utc
+                    if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
+                    ts = dt.isoformat()
+                    if s.energy_price   is not None: energy_s.append({ts: s.energy_price})
+                    if s.grid_price     is not None: grid_s.append({ts: s.grid_price})
+                    if s.residual_price is not None: residual_s.append({ts: s.residual_price})
+                td: dict = {"slot_count": len(slots)}
+                if energy_s:   td["energy_price_utc"]   = energy_s
+                if grid_s:     td["grid_price_utc"]     = grid_s
+                if residual_s: td["residual_price_utc"] = residual_s
+                result[tariff.tariff_id] = td
+
+        if not result:
+            raise HTTPException(404, "No data for this range.")
+        return {"start_time": start_db.isoformat(), "end_time": end_db.isoformat(), "tariffs": result}
+
+    @app.get("/internal/smart")
+    def internal_smart(date_str: Optional[str] = Query(None)):
+        """Smart summary per la dashboard — nessuna restrizione di piano."""
+        import time as _time
+        from datetime import date, datetime, timedelta, timezone
+        from database import init_db, get_active_tariffs, get_prices, PriceSlotDB
+
+        try:
+            import zoneinfo; tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
+        except ImportError:
+            import pytz; tz_ch = pytz.timezone("Europe/Zurich")
+
+        from schemas import today_ch as _today_ch
+        target_date = date.fromisoformat(date_str) if date_str else _today_ch()
+
+        now_utc = datetime.now(timezone.utc)
+        local_midnight = datetime(target_date.year, target_date.month, target_date.day, tzinfo=tz_ch)
+        start_utc  = local_midnight.astimezone(timezone.utc)
+        end_utc    = (local_midnight + timedelta(days=1)).astimezone(timezone.utc)
+        month_start = datetime(target_date.year, target_date.month, 1, tzinfo=timezone.utc)
+
+        SessionLocal = init_db()
+        with SessionLocal() as session:
+            tariffs = get_active_tariffs(session)
+            from adapters import list_available_adapters
+            available = set(list_available_adapters())
+            result_tariffs = []
+            for t in tariffs:
+                day_slots = get_prices(session, t.tariff_id, start_utc, end_utc)
+                if not day_slots:
+                    result_tariffs.append({
+                        "tariff_id": t.tariff_id, "provider_name": t.provider_name,
+                        "tariff_name": t.tariff_name, "has_data": False,
+                        "adapter_ready": t.adapter_class in available,
+                    }); continue
+
+                slots_data = []
+                for s in day_slots:
+                    dt = s.slot_start_utc
+                    if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
+                    total = sum(p for p in [s.energy_price, s.grid_price, s.residual_price] if p)
+                    if total > 0:
+                        slots_data.append({"ts": dt, "total": total,
+                            "grid": s.grid_price or 0, "energy": s.energy_price or 0,
+                            "residual": s.residual_price or 0})
+                if not slots_data: continue
+
+                day_avg = sum(s["total"] for s in slots_data) / len(slots_data)
+                month_slots = (
+                    session.query(PriceSlotDB.energy_price, PriceSlotDB.grid_price, PriceSlotDB.residual_price)
+                    .filter(PriceSlotDB.tariff_id == t.tariff_id,
+                            PriceSlotDB.slot_start_utc >= month_start,
+                            PriceSlotDB.slot_start_utc < end_utc).all()
+                )
+                month_totals = [sum(p for p in [e, g, r] if p) for e, g, r in month_slots
+                                if sum(p for p in [e, g, r] if p) > 0]
+                month_avg = sum(month_totals) / len(month_totals) if month_totals else day_avg
+                current_slot = next((s for s in reversed(slots_data) if s["ts"] <= now_utc), None)
+                if not current_slot: current_slot = slots_data[0]
+                ratio  = current_slot["total"] / month_avg if month_avg > 0 else 1
+                signal = "green" if ratio < 0.85 else "red" if ratio >= 1.15 else "yellow"
+                sorted_asc  = sorted(slots_data, key=lambda x: x["total"])
+                sorted_desc = sorted(slots_data, key=lambda x: x["total"], reverse=True)
+
+                def fmt_slot(s):
+                    local_t = s["ts"].astimezone(tz_ch)
+                    return {"time": local_t.strftime("%H:%M"),
+                            "total_rp": round(s["total"]*100, 2),
+                            "grid_rp":  round(s["grid"]*100, 2),
+                            "energy_rp": round(s["energy"]*100, 2),
+                            "residual_rp": round(s["residual"]*100, 2)}
+
+                hourly = {}
+                for s in slots_data:
+                    h = s["ts"].astimezone(tz_ch).hour
+                    hourly.setdefault(h, []).append(s["total"])
+                hourly_avg = [
+                    round(sum(hourly[h])/len(hourly[h])*100, 2) if h in hourly else None
+                    for h in range(24)
+                ]
+                result_tariffs.append({
+                    "tariff_id": t.tariff_id, "provider_name": t.provider_name,
+                    "tariff_name": t.tariff_name, "has_data": True,
+                    "adapter_ready": t.adapter_class in available,
+                    "signal": signal,
+                    "current_price_rp": round(current_slot["total"]*100, 2),
+                    "day_avg_rp":  round(day_avg*100, 2),
+                    "month_avg_rp": round(month_avg*100, 2),
+                    "best_slots":  [fmt_slot(s) for s in sorted_asc[:3]],
+                    "worst_slots": [fmt_slot(s) for s in sorted_desc[:2]],
+                    "hourly_rp":   hourly_avg,
+                })
+
+        return {"date": target_date.isoformat(), "tariffs": result_tariffs}
+
+    @app.get("/internal/summary/daily")
+    def internal_summary_daily(tariff_id: str = Query(...), days: int = Query(5, ge=1, le=30)):
+        """Daily summary per dashboard — nessuna restrizione."""
+        from datetime import datetime, timedelta, timezone
+        from database import init_db, get_prices, PriceSlotDB
+        from collections import defaultdict
+
+        try:
+            import zoneinfo; tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
+        except ImportError:
+            import pytz; tz_ch = pytz.timezone("Europe/Zurich")
+
+        from schemas import today_ch as _today_ch
+        today_local = _today_ch()
+
+        SessionLocal = init_db()
+        with SessionLocal() as session:
+            from database import Tariff
+            if not session.get(Tariff, tariff_id):
+                raise HTTPException(404, f"Tariff '{tariff_id}' not found")
+            cutoff = datetime.now(timezone.utc) - timedelta(days=days + 1)
+            rows = (
+                session.query(PriceSlotDB.slot_start_utc, PriceSlotDB.energy_price,
+                              PriceSlotDB.grid_price, PriceSlotDB.residual_price)
+                .filter(PriceSlotDB.tariff_id == tariff_id, PriceSlotDB.slot_start_utc >= cutoff)
+                .order_by(PriceSlotDB.slot_start_utc).all()
+            )
+        if not rows:
+            raise HTTPException(404, "No data available")
+
+        by_date: dict = defaultdict(list)
+        for (dt, energy, grid, residual) in rows:
+            if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
+            local_date = dt.astimezone(tz_ch).date()
+            if local_date > today_local: continue
+            total = sum(p for p in [energy, grid, residual] if p)
+            if total > 0: by_date[local_date.isoformat()].append((total, dt))
+
+        result = []
+        for d in sorted(sorted(by_date.keys(), reverse=True)[:days]):
+            slots = by_date[d]
+            if not slots: continue
+            avg = sum(t for t, _ in slots) / len(slots)
+            min_val, min_dt = min(slots, key=lambda x: x[0])
+            max_val, max_dt = max(slots, key=lambda x: x[0])
+            result.append({
+                "date": d, "slot_count": len(slots),
+                "avg_rp": round(avg * 100, 2),
+                "min_rp": round(min_val * 100, 2), "min_time": min_dt.strftime("%H:%M"),
+                "max_rp": round(max_val * 100, 2), "max_time": max_dt.strftime("%H:%M"),
+            })
+        return result
+
+    @app.get("/internal/summary/monthly")
+    def internal_summary_monthly(tariff_id: str = Query(...), months: int = Query(3, ge=1, le=6)):
+        """Monthly summary per dashboard — nessuna restrizione."""
+        import time
+        from datetime import datetime, timedelta, timezone
+        from database import init_db, PriceSlotDB
+        from collections import defaultdict
+
+        cache_key = f"internal_monthly:{tariff_id}:{months}"
+        _internal_cache = getattr(internal_summary_monthly, "_cache", {})
+        cached = _internal_cache.get(cache_key)
+        if cached and time.time() - cached["ts"] < 300:
+            return cached["data"]
+
+        SessionLocal = init_db()
+        with SessionLocal() as session:
+            from database import Tariff
+            if not session.get(Tariff, tariff_id):
+                raise HTTPException(404, f"Tariff '{tariff_id}' not found")
+            cutoff = datetime.now(timezone.utc) - timedelta(days=months * 32)
+            rows = (
+                session.query(PriceSlotDB.slot_start_utc, PriceSlotDB.energy_price,
+                              PriceSlotDB.grid_price, PriceSlotDB.residual_price)
+                .filter(PriceSlotDB.tariff_id == tariff_id, PriceSlotDB.slot_start_utc >= cutoff)
+                .order_by(PriceSlotDB.slot_start_utc).all()
+            )
+        if not rows:
+            raise HTTPException(404, "No data available")
+
+        by_month: dict = defaultdict(list)
+        for (dt, energy, grid, residual) in rows:
+            if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
+            month_key = dt.strftime("%Y-%m")
+            total = sum(p for p in [energy, grid, residual] if p)
+            if total > 0: by_month[month_key].append((total, dt))
+
+        now = datetime.now(timezone.utc)
+        result = []
+        for m in sorted(sorted(by_month.keys(), reverse=True)[:months]):
+            slots = by_month[m]
+            if not slots: continue
+            avg = sum(t for t, _ in slots) / len(slots)
+            min_val, min_dt = min(slots, key=lambda x: x[0])
+            max_val, max_dt = max(slots, key=lambda x: x[0])
+            result.append({
+                "month": m, "month_label": datetime.strptime(m, "%Y-%m").strftime("%B %Y"),
+                "is_current": m == now.strftime("%Y-%m"),
+                "days_with_data": len({dt.date() for _, dt in slots}),
+                "slot_count": len(slots),
+                "avg_rp": round(avg * 100, 2),
+                "min_rp": round(min_val * 100, 2), "min_date": min_dt.strftime("%d/%m %H:%M"),
+                "max_rp": round(max_val * 100, 2), "max_date": max_dt.strftime("%d/%m %H:%M"),
+            })
+        if not hasattr(internal_summary_monthly, "_cache"):
+            internal_summary_monthly._cache = {}
+        internal_summary_monthly._cache[cache_key] = {"ts": time.time(), "data": result}
+        return result
 
     # ── GET /admin ────────────────────────────────────────────────────────────
     @app.get("/admin", response_class=HTMLResponse)
@@ -673,7 +1511,49 @@ def register_routes(app):
         SessionLocal = init_db()
         try:
             with SessionLocal() as session:
-                record = update_key(session, key_id, req.rate_limit_day, req.notes)
+                record, upgraded_to_pro, downgraded_to_free = update_key(
+                    session, key_id, req.rate_limit_day, req.notes, req.plan
+                )
+
+            # Email upgrade a Pro — in thread background
+            if upgraded_to_pro:
+                import threading
+                def _send_upgrade():
+                    try:
+                        from api_keys.email_templates import send_pro_upgrade
+                        send_pro_upgrade(
+                            email          = record.email,
+                            full_name      = record.full_name,
+                            key_prefix     = record.key_prefix,
+                            rate_limit     = record.rate_limit_day,
+                            pro_since      = record.approved_at,
+                            company        = record.company,
+                            vat_number     = getattr(record, "vat_number", None),
+                            country        = getattr(record, "country", "CH"),
+                            lang           = record.preferred_lang or "en",
+                        )
+                    except Exception as e:
+                        import traceback
+                        log.error(f"[admin_update] Email Pro non inviata per {record.email}: {e}\n{traceback.format_exc()}")
+                threading.Thread(target=_send_upgrade, daemon=True).start()
+
+            # Email downgrade a Free — in thread background
+            if downgraded_to_free:
+                import threading
+                def _send_downgrade():
+                    try:
+                        from api_keys.email_templates import send_pro_downgrade
+                        send_pro_downgrade(
+                            email      = record.email,
+                            full_name  = record.full_name,
+                            rate_limit = record.rate_limit_day,
+                            lang       = record.preferred_lang or "en",
+                        )
+                    except Exception as e:
+                        import traceback
+                        log.error(f"[admin_update] Email downgrade non inviata per {record.email}: {e}\n{traceback.format_exc()}")
+                threading.Thread(target=_send_downgrade, daemon=True).start()
+
             return _key_to_dict(record)
 
         except ValueError as e:
@@ -724,6 +1604,8 @@ def _key_to_dict(k) -> dict:
         "suspended_at":     k.suspended_at.isoformat() if k.suspended_at else None,
         "notes":            k.notes,
         "preferred_lang":   k.preferred_lang,
+        "plan":             getattr(k, "plan", "free") or "free",
+        "pro_since":        k.approved_at.isoformat() if k.approved_at and getattr(k, "plan", "free") == "pro" else None,
         "warning_80_sent":  k.warning_80_sent,
         "warning_100_sent": k.warning_100_sent,
     }
