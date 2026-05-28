@@ -894,6 +894,9 @@
       .view-tab{padding:6px 10px;font-size:11px}
       .view-tab-badge{display:none}
       .lang-btns{display:none}
+      /* Mostra globo lingua su tablet */
+      #h-lang-mobile{display:block!important}
+      #h-lang-mobile-panel.open{display:flex!important;flex-direction:column}
       /* Main layout */
       main{padding:1rem}
       /* Data view */
@@ -982,6 +985,18 @@
       /* Smart lock pill */
       .smart-lock-pill{flex-wrap:wrap}
       .smart-lock-btn{width:100%;text-align:center}
+      /* Dropdown utente: non esca dallo schermo */
+      #h-user-dropdown{
+        right:0;left:auto;
+        width:calc(100vw - 24px);max-width:320px;
+        border-radius:12px
+      }
+      /* Lingua: mostrala nel dropdown invece che nell'header */
+      .lang-btns{display:none}
+      .hdd-lang-row{display:flex!important}
+      /* Bottone globo lingua per non loggati */
+      #h-lang-mobile{display:block!important}
+      #h-lang-mobile-panel.open{display:flex!important;flex-direction:column}
     }
 
     /* ── Mobile XS (≤380px) ── */
@@ -1134,6 +1149,23 @@
         </div>
       </div>
       <div class="hdd-footer">
+        <!-- Riga lingua — visibile solo su mobile (display:none di default, flex su ≤600px) -->
+        <div class="hdd-lang-row" style="display:none;align-items:center;justify-content:space-between;padding:8px 10px 4px">
+          <span class="hdd-label" style="display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,.4)">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M6 1c-1.5 2-1.5 8 0 10M6 1c1.5 2 1.5 8 0 10M1 6h10" stroke="currentColor" stroke-width="1.1"/>
+            </svg>
+            Language
+          </span>
+          <div style="display:flex;gap:3px;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);border-radius:7px;padding:2px">
+            <button onclick="setLang('en');toggleUserDropdown()" class="lang-btn" id="dd-lang-en">EN</button>
+            <button onclick="setLang('de');toggleUserDropdown()" class="lang-btn" id="dd-lang-de">DE</button>
+            <button onclick="setLang('fr');toggleUserDropdown()" class="lang-btn" id="dd-lang-fr">FR</button>
+            <button onclick="setLang('it');toggleUserDropdown()" class="lang-btn" id="dd-lang-it">IT</button>
+          </div>
+        </div>
+        <div class="hdd-sep" style="margin:4px 10px 8px"></div>
         <button id="hdd-change-tariff-btn" onclick="_showFreeTariffModal(true);toggleUserDropdown()"
           style="display:none;width:100%;margin-bottom:6px;padding:8px 12px;
                  border:1px solid #c5d8f0;border-radius:8px;background:#f4f8ff;
@@ -1167,6 +1199,53 @@
     </svg>
     Logout
   </button>
+
+  <!-- Bottone lingua per utenti non loggati su mobile -->
+  <div id="h-lang-mobile" style="display:none;position:relative">
+    <button id="h-lang-mobile-btn"
+      onclick="var p=document.getElementById('h-lang-mobile-panel');p.classList.toggle('open');event.stopPropagation()"
+      style="width:32px;height:32px;border-radius:8px;border:0.5px solid rgba(255,255,255,.15);
+             background:rgba(255,255,255,.07);color:rgba(255,255,255,.6);
+             display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;flex-shrink:0">
+      🌐
+    </button>
+    <div id="h-lang-mobile-panel"
+      style="position:fixed;top:56px;right:12px;
+             background:#161b27;border:0.5px solid rgba(255,255,255,.15);
+             border-radius:12px;padding:6px;z-index:99999;
+             box-shadow:0 12px 40px rgba(0,0,0,.55);min-width:150px;
+             display:none;flex-direction:column;gap:2px">
+      <button onclick="setLang('en');document.getElementById('h-lang-mobile-panel').classList.remove('open')"
+        style="padding:10px 16px;background:transparent;border:none;color:rgba(255,255,255,.8);
+               font-size:13px;font-weight:500;cursor:pointer;border-radius:8px;text-align:left;
+               display:flex;align-items:center;gap:8px;transition:background .15s;width:100%"
+        onmouseover="this.style.background='rgba(255,255,255,.1)'" onmouseout="this.style.background='transparent'">
+        <span>🇬🇧</span> English
+      </button>
+      <button onclick="setLang('de');document.getElementById('h-lang-mobile-panel').classList.remove('open')"
+        style="padding:10px 16px;background:transparent;border:none;color:rgba(255,255,255,.8);
+               font-size:13px;font-weight:500;cursor:pointer;border-radius:8px;text-align:left;
+               display:flex;align-items:center;gap:8px;transition:background .15s;width:100%"
+        onmouseover="this.style.background='rgba(255,255,255,.1)'" onmouseout="this.style.background='transparent'">
+        <span>🇩🇪</span> Deutsch
+      </button>
+      <button onclick="setLang('fr');document.getElementById('h-lang-mobile-panel').classList.remove('open')"
+        style="padding:10px 16px;background:transparent;border:none;color:rgba(255,255,255,.8);
+               font-size:13px;font-weight:500;cursor:pointer;border-radius:8px;text-align:left;
+               display:flex;align-items:center;gap:8px;transition:background .15s;width:100%"
+        onmouseover="this.style.background='rgba(255,255,255,.1)'" onmouseout="this.style.background='transparent'">
+        <span>🇫🇷</span> Français
+      </button>
+      <button onclick="setLang('it');document.getElementById('h-lang-mobile-panel').classList.remove('open')"
+        style="padding:10px 16px;background:transparent;border:none;color:rgba(255,255,255,.8);
+               font-size:13px;font-weight:500;cursor:pointer;border-radius:8px;text-align:left;
+               display:flex;align-items:center;gap:8px;transition:background .15s;width:100%"
+        onmouseover="this.style.background='rgba(255,255,255,.1)'" onmouseout="this.style.background='transparent'">
+        <span>🇮🇹</span> Italiano
+      </button>
+    </div>
+  </div>
+
   <span class="h-time" id="header-time"></span>
 
 </header>
@@ -5401,6 +5480,9 @@ function showApiContent() {
     if (wrap) wrap.style.display = 'block';
     const _lb = document.getElementById('h-logout-btn');
     if (_lb) _lb.style.display = 'flex';
+    // Su mobile/tablet: nascondi globo lingua (la lingua è nel dropdown utente)
+    const _lm = document.getElementById('h-lang-mobile');
+    if (_lm) _lm.style.setProperty('display','none','important');
     _populateUserDropdown(info);
   }
 
@@ -5686,6 +5768,12 @@ document.addEventListener('click', function(e) {
   const wrap = document.getElementById('h-dropdown-wrap');
   const dd   = document.getElementById('h-user-dropdown');
   if (wrap && dd && !wrap.contains(e.target)) dd.classList.remove('open');
+  // Chiude anche panel lingua mobile
+  const lmBtn   = document.getElementById('h-lang-mobile-btn');
+  const lmPanel = document.getElementById('h-lang-mobile-panel');
+  if (lmPanel && lmBtn && !lmBtn.contains(e.target) && !lmPanel.contains(e.target)) {
+    lmPanel.classList.remove('open');
+  }
 });
 
 function apiLogout() {
@@ -5704,6 +5792,9 @@ function apiLogout() {
   if (wrap) wrap.style.display = 'none';
   const dd = document.getElementById('h-user-dropdown');
   if (dd) dd.classList.remove('open');
+  // Su mobile: rimostra globo lingua
+  const _lm = document.getElementById('h-lang-mobile');
+  if (_lm) _lm.style.removeProperty('display');
   _updateHomeAuthBox();
   _resetPlansUI();
   _updateSmartAccess();
@@ -6626,8 +6717,12 @@ setInterval(() => { if (activeTariff) loadMonthly(activeTariff); }, 300000);
 #cb-send:disabled { opacity:.35; cursor:not-allowed; transform:none; }
 
 @media(max-width:480px) {
-  #chatbot-window { --cb-w:calc(100vw - 20px); right:10px; bottom:85px; --cb-h:470px; }
+  #chatbot-window { --cb-w:calc(100vw - 20px); right:10px; left:10px; bottom:85px; --cb-h:470px; }
   #chatbot-fab    { bottom:18px; right:18px; }
+}
+@media(max-width:360px) {
+  #chatbot-window { --cb-w:calc(100vw - 12px); right:6px; left:6px; bottom:80px; --cb-h:420px; }
+  #chatbot-fab    { bottom:14px; right:14px; width:52px; height:52px; }
 }
 </style>
 
