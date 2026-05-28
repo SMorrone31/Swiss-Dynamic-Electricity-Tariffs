@@ -7,21 +7,26 @@ di API key management.
 Lingua scelta in base al campo preferred_lang dell'utente per le email
 all'utente, e in base a EMAIL_LANG nel .env per le email admin.
 
-Usa Brevo SMTP relay — funziona su Render free tier (porta 587).
+Usa Brevo Transactional Email API (HTTPS porta 443) — funziona su Render
+free tier (SMTP è bloccato su Render free, l'API HTTP non lo è).
 
 Variabili d'ambiente richieste:
-  SMTP_HOST      smtp-relay.brevo.com
-  SMTP_PORT      587
-  SMTP_USER      a9b617001@smtp-brevo.com   (login Brevo)
-  SMTP_PASSWORD  la password/API key Brevo
+  BREVO_API_KEY  la API key Brevo (Settings → SMTP & API → API Keys)
   SMTP_FROM      Swiss Tariff Hub <tuamail@gmail.com>
+
+Variabili legacy SMTP (ignorate su Render, tenute per compatibilità locale):
+  SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASSWORD
 """
 
 from __future__ import annotations
 
+import base64
+import json
 import logging
 import os
 import smtplib
+import urllib.request
+import urllib.error
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
@@ -31,19 +36,20 @@ from typing import Optional
 log = logging.getLogger("email_templates")
 
 
-# ── SMTP config ───────────────────────────────────────────────────────────────
+# ── Config ────────────────────────────────────────────────────────────────────
 
-def _smtp_config() -> dict:
-    return {
-        "host":     os.getenv("SMTP_HOST", "smtp-relay.brevo.com"),
-        "port":     int(os.getenv("SMTP_PORT", "587")),
-        "user":     os.getenv("SMTP_USER", ""),
-        "password": os.getenv("SMTP_PASSWORD", ""),
-        "from":     os.getenv("SMTP_FROM", os.getenv("SMTP_USER", "")),
-    }
+def _from_address() -> tuple[str, str]:
+    """Ritorna (nome, email) dal campo SMTP_FROM es. 'Swiss Tariff Hub <foo@bar.com>'"""
+    raw = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
+    if "<" in raw and raw.endswith(">"):
+        name, addr = raw.split("<", 1)
+        return name.strip(), addr.rstrip(">").strip()
+    return "Swiss Tariff Hub", raw.strip()
 
 
-def _send(
+# ── Invio via Brevo HTTP API (funziona su Render free) ───────────────────────
+
+def _send_via_brevo_api(
     to: str,
     subject: str,
     html_body: str,
@@ -51,14 +57,69 @@ def _send(
     attachment_bytes: Optional[bytes] = None,
     attachment_filename: str = "subscription.pdf",
 ) -> bool:
-    """
-    Invia una email via Brevo SMTP relay.
-    Ritorna True se ok, False se fallisce.
-    """
-    cfg = _smtp_config()
-    if not cfg["user"] or not cfg["password"]:
-        log.warning("[email] SMTP non configurato — email non inviata")
+    api_key = os.getenv("BREVO_API_KEY", "")
+    if not api_key:
         return False
+
+    sender_name, sender_email = _from_address()
+
+    payload: dict = {
+        "sender":      {"name": sender_name, "email": sender_email},
+        "to":          [{"email": to}],
+        "subject":     subject,
+        "htmlContent": html_body,
+    }
+    if text_body:
+        payload["textContent"] = text_body
+    if attachment_bytes:
+        payload["attachment"] = [{
+            "name":    attachment_filename,
+            "content": base64.b64encode(attachment_bytes).decode(),
+        }]
+
+    data = json.dumps(payload).encode("utf-8")
+    req  = urllib.request.Request(
+        "https://api.brevo.com/v3/smtp/email",
+        data    = data,
+        headers = {
+            "api-key":      api_key,
+            "Content-Type": "application/json",
+            "Accept":       "application/json",
+        },
+        method = "POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            resp.read()
+        return True
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")
+        log.error(f"[email] Brevo API error {e.code}: {body}")
+        return False
+    except Exception as e:
+        log.error(f"[email] Brevo API exception: {e}")
+        return False
+
+
+# ── Invio via SMTP legacy (sviluppo locale) ───────────────────────────────────
+
+def _send_via_smtp(
+    to: str,
+    subject: str,
+    html_body: str,
+    text_body: str = "",
+    attachment_bytes: Optional[bytes] = None,
+    attachment_filename: str = "subscription.pdf",
+) -> bool:
+    host     = os.getenv("SMTP_HOST", "smtp-relay.brevo.com")
+    port     = int(os.getenv("SMTP_PORT", "587"))
+    user     = os.getenv("SMTP_USER", "")
+    password = os.getenv("SMTP_PASSWORD", "")
+    if not user or not password:
+        return False
+
+    sender_name, sender_email = _from_address()
+    from_str = f"{sender_name} <{sender_email}>"
 
     try:
         if attachment_bytes:
@@ -71,10 +132,7 @@ def _send(
             part = MIMEBase("application", "pdf")
             part.set_payload(attachment_bytes)
             encoders.encode_base64(part)
-            part.add_header(
-                "Content-Disposition",
-                f'attachment; filename="{attachment_filename}"',
-            )
+            part.add_header("Content-Disposition", f'attachment; filename="{attachment_filename}"')
             msg.attach(part)
         else:
             msg = MIMEMultipart("alternative")
@@ -83,27 +141,51 @@ def _send(
             msg.attach(MIMEText(html_body, "html", "utf-8"))
 
         msg["Subject"] = subject
-        msg["From"]    = cfg["from"]
+        msg["From"]    = from_str
         msg["To"]      = to
 
-        port = cfg["port"]
         if port == 465:
-            with smtplib.SMTP_SSL(cfg["host"], port, timeout=15) as server:
-                server.login(cfg["user"], cfg["password"])
-                server.sendmail(cfg["from"], [to], msg.as_string())
+            with smtplib.SMTP_SSL(host, port, timeout=15) as server:
+                server.login(user, password)
+                server.sendmail(from_str, [to], msg.as_string())
         else:
-            with smtplib.SMTP(cfg["host"], port, timeout=15) as server:
+            with smtplib.SMTP(host, port, timeout=15) as server:
                 server.ehlo()
                 server.starttls()
-                server.login(cfg["user"], cfg["password"])
-                server.sendmail(cfg["from"], [to], msg.as_string())
+                server.login(user, password)
+                server.sendmail(from_str, [to], msg.as_string())
 
-        log.info(f"[email] Inviata a {to}: {subject}")
         return True
-
     except Exception as e:
-        log.error(f"[email] Errore invio a {to}: {e}")
+        log.error(f"[email] SMTP error a {to}: {e}")
         return False
+
+
+# ── Entry point unificato ─────────────────────────────────────────────────────
+
+def _send(
+    to: str,
+    subject: str,
+    html_body: str,
+    text_body: str = "",
+    attachment_bytes: Optional[bytes] = None,
+    attachment_filename: str = "subscription.pdf",
+) -> bool:
+    """
+    Prova prima Brevo API (HTTPS — funziona su Render free).
+    Fallback su SMTP se BREVO_API_KEY non è impostata (sviluppo locale).
+    """
+    if os.getenv("BREVO_API_KEY"):
+        ok = _send_via_brevo_api(to, subject, html_body, text_body, attachment_bytes, attachment_filename)
+        if ok:
+            log.info(f"[email] Inviata via API a {to}: {subject}")
+            return True
+        log.warning("[email] Brevo API fallita, provo SMTP...")
+
+    ok = _send_via_smtp(to, subject, html_body, text_body, attachment_bytes, attachment_filename)
+    if ok:
+        log.info(f"[email] Inviata via SMTP a {to}: {subject}")
+    return ok
 
 
 # ── Traduzioni soggetti e testi ───────────────────────────────────────────────
