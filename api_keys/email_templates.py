@@ -86,11 +86,17 @@ def _send(
         msg["From"]    = cfg["from"]
         msg["To"]      = to
 
-        with smtplib.SMTP(cfg["host"], cfg["port"], timeout=15) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(cfg["user"], cfg["password"])
-            server.sendmail(cfg["from"], [to], msg.as_string())
+        port = cfg["port"]
+        if port == 465:
+            with smtplib.SMTP_SSL(cfg["host"], port, timeout=15) as server:
+                server.login(cfg["user"], cfg["password"])
+                server.sendmail(cfg["from"], [to], msg.as_string())
+        else:
+            with smtplib.SMTP(cfg["host"], port, timeout=15) as server:
+                server.ehlo()
+                server.starttls()
+                server.login(cfg["user"], cfg["password"])
+                server.sendmail(cfg["from"], [to], msg.as_string())
 
         log.info(f"[email] Inviata a {to}: {subject}")
         return True

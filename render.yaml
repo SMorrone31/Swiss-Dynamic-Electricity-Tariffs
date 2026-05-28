@@ -11,20 +11,30 @@ services:
         fromDatabase:
           name: swiss-tariff-db
           property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: ADMIN_KEY
+        sync: false
+      - key: TOTP_SECRET
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
       - key: ALERT_EMAIL
         sync: false
       - key: EMAIL_LANG
         value: it
       - key: SMTP_HOST
-        value: smtp.gmail.com
+        value: smtp-relay.brevo.com
       - key: SMTP_PORT
         value: "587"
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASSWORD
         sync: false
-      - key: PYTHON_VERSION
-        value: "3.11.0"
+      - key: SMTP_FROM
+        sync: false
+      - key: APP_URL
+        sync: false
 
 databases:
   - name: swiss-tariff-db

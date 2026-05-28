@@ -731,11 +731,16 @@ def register_routes(app):
     @app.post("/api/v1/chat")
     async def chat_endpoint(req: ChatRequest):
         """
-        Chatbot rule-based pubblica. Risponde in IT/DE/FR/EN.
-        Nessuna API key esterna richiesta.
+        Chatbot TF-IDF locale (chatbot_engine.py).
+        Risponde in IT/DE/FR/EN. Nessuna API key esterna richiesta.
         """
+        import sys as _sys, os as _os
+        _here = _os.path.dirname(_os.path.abspath(__file__))
+        if _here not in _sys.path:
+            _sys.path.insert(0, _here)
+        from chatbot_engine import smart_reply
         messages = [{"role": m.role, "content": m.content} for m in req.messages]
-        reply = _chatbot_reply(messages, req.lang)
+        reply = smart_reply(messages, req.lang)
         return JSONResponse({"reply": reply})
 
     # ── POST /api/v1/validate-key ─────────────────────────────────────────────

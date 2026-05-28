@@ -1919,6 +1919,7 @@ const T = {
     most_expensive_hour: 'Most expensive slot',
     viewing_day: 'Viewing',
     no_data_today: 'No price data available for this day',
+    data_available_later: 'Prices are updated daily \u2014 check back after 17:30 UTC',
     no_data_tariff: 'No data available for this tariff yet',
     loading_data: 'Loading prices\u2026',
     daily_profile: 'Daily price profile (Rp/kWh)',
@@ -2174,6 +2175,7 @@ const T = {
     most_expensive_hour: 'Teuerster Slot',
     viewing_day: 'Tag',
     no_data_today: 'Keine Preisdaten f\u00fcr diesen Tag verf\u00fcgbar',
+    data_available_later: 'Preise werden t\u00e4glich aktualisiert \u2014 nach 17:30 UTC verf\u00fcgbar',
     no_data_tariff: 'Noch keine Daten f\u00fcr diesen Tarif',
     loading_data: 'Preise werden geladen\u2026',
     daily_profile: 'Tagespreisprofil (Rp/kWh)',
@@ -2429,6 +2431,7 @@ const T = {
     most_expensive_hour: 'Cr\u00e9neau le plus cher',
     viewing_day: 'Jour',
     no_data_today: 'Aucune donn\u00e9e de prix pour ce jour',
+    data_available_later: 'Les prix sont mis \u00e0 jour quotidiennement \u2014 disponibles apr\u00e8s 17h30 UTC',
     no_data_tariff: 'Aucune donn\u00e9e disponible pour ce tarif',
     loading_data: 'Chargement des prix\u2026',
     daily_profile: 'Profil de prix journalier (Rp/kWh)',
@@ -2685,6 +2688,7 @@ const T = {
     most_expensive_hour: 'Fascia pi\u00f9 cara',
     viewing_day: 'Visualizzando',
     no_data_today: 'Nessun dato disponibile per questo giorno',
+    data_available_later: 'I prezzi vengono aggiornati ogni giorno \u2014 disponibili dopo le 17:30 UTC',
     no_data_tariff: 'Nessun dato ancora disponibile per questa tariffa',
     loading_data: 'Caricamento prezzi\u2026',
     daily_profile: 'Profilo prezzi giornaliero (Rp/kWh)',
@@ -2935,12 +2939,14 @@ const T = {
 };
 
 let lang = 'en';
+window._currentLang = lang;  // esposto al chatbot (IIFE separato)
 
 function t(key) { return T[lang][key] || T.en[key] || key; }
 function locale() { return lang==='de'?'de-CH':lang==='fr'?'fr-CH':lang==='it'?'it-CH':'en-GB'; }
 
 function setLang(l) {
   lang = l;
+  window._currentLang = l;  // sincronizza con il chatbot
   // Bottoni lingua
   document.querySelectorAll('.lang-btn').forEach(b =>
     b.classList.toggle('active', b.textContent === l.toUpperCase())
@@ -3204,8 +3210,30 @@ async function loadDaySummary(tariffId) {
     const lockAttr = locked ? ' title="' + (t('day_lock_tip')||'Log in for history') + '"' : '';
     return `<button class="day-btn${todayCls}${activeCls}${lockCls}"${lockAttr} ${locked ? '' : `onclick="selectDay('${d.date}',this)"`}>${label}${locked ? ' 🔒' : ''}</button>`;
   }).join('');
-  // Carica sempre oggi (ultimo disponibile)
-  if (dailySummary.length) await loadDayChart(tariffId, dailySummary[dailySummary.length-1].date);
+  // Carica l'ultimo giorno disponibile, solo se non è bloccato
+  if (dailySummary.length) {
+    const lastDay = dailySummary[dailySummary.length - 1];
+    const isLastToday = lastDay.date === '{{ today }}';
+    if (_lockPast && !isLastToday) {
+      // Il giorno più recente è passato e siamo guest/free senza storico: mostra placeholder
+      const placeholder = document.getElementById('chart-placeholder');
+      const canvas = document.getElementById('priceChart');
+      if (canvas) canvas.style.display = 'none';
+      if (placeholder) {
+        placeholder.style.display = 'flex';
+        placeholder.innerHTML = `<div style="text-align:center">
+          <svg width="220" height="80" viewBox="0 0 220 80" style="opacity:.1;display:block;margin:0 auto 12px">
+            <polyline points="0,70 20,55 40,60 60,30 80,45 100,20 120,35 140,50 160,25 180,40 200,30 220,45"
+              fill="none" stroke="#888" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div style="font-size:14px;font-weight:500;color:#999;margin-bottom:4px">${t('no_data_today') || 'No data yet for today'}</div>
+          <div style="font-size:12px;color:#bbb">${t('data_available_later') || 'Prices are updated daily — check back later'}</div>
+        </div>`;
+      }
+    } else {
+      await loadDayChart(tariffId, lastDay.date);
+    }
+  }
 }
 
 async function selectDay(dateStr, btn) {
@@ -4089,15 +4117,22 @@ function updateChartLocale() {
       new Date(activeDate + 'T12:00:00Z').toLocaleDateString(locale(), {weekday:'long', day:'numeric', month:'long'});
   }
   if (dailySummary.length) {
+    const _plan2    = _getUserPlan();
+    const _firstId2 = _allTariffs[0]?.tariff_id;
+    const _lockPast2 = _plan2 === 'guest' || (_plan2 === 'free' && activeTariff !== _firstId2);
     document.getElementById('day-btns').innerHTML = dailySummary.map(d => {
-      const isToday = d.date === '{{ today }}';
-      const label = isToday
+      const isToday  = d.date === '{{ today }}';
+      const isPast   = !isToday;
+      const locked   = _lockPast2 && isPast;
+      const label    = isToday
         ? t('today')
         : new Date(d.date + 'T12:00:00Z').toLocaleDateString(locale(), {weekday:'short', day:'numeric', month:'short'});
-      const isActive = d.date === activeDate;
-      const todayCls = isToday ? ' today-pill' : '';
-      const activeCls = isActive ? ' active' : '';
-      return `<button class="day-btn${todayCls}${activeCls}" onclick="selectDay('${d.date}', this)">${label}</button>`;
+      const isActive  = d.date === activeDate;
+      const todayCls  = isToday  ? ' today-pill' : '';
+      const activeCls = isActive ? ' active'     : '';
+      const lockCls   = locked   ? ' locked'     : '';
+      const lockAttr  = locked   ? ' title="' + (t('day_lock_tip') || 'Log in for history') + '"' : '';
+      return `<button class="day-btn${todayCls}${activeCls}${lockCls}"${lockAttr} ${locked ? '' : `onclick="selectDay('${d.date}',this)"`}>${label}${locked ? ' \uD83D\uDD12' : ''}</button>`;
     }).join('');
   }
   // ... resto invariato
