@@ -731,52 +731,25 @@ def send_pro_upgrade(
     invoice_names = {"en": "invoice.pdf", "de": "rechnung.pdf",
                      "fr": "facture.pdf", "it": "fattura.pdf"}
 
-    # Costruisce email con 1 o 2 allegati PDF
-    cfg = _smtp_config()
-    if not cfg["user"] or not cfg["password"]:
-        log.warning("[email] SMTP non configurato — email non inviata")
-        return False
-
-    try:
-        import smtplib
-        from email import encoders
-        from email.mime.base import MIMEBase
-        from email.mime.multipart import MIMEMultipart
-        from email.mime.text import MIMEText
-
-        msg = MIMEMultipart("mixed")
-        alt = MIMEMultipart("alternative")
-        alt.attach(MIMEText(html, "html", "utf-8"))
-        msg.attach(alt)
-
-        def _attach_pdf(pdf_bytes: bytes, filename: str) -> None:
-            part = MIMEBase("application", "pdf")
-            part.set_payload(pdf_bytes)
-            encoders.encode_base64(part)
-            part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
-            msg.attach(part)
-
-        if receipt_bytes:
-            _attach_pdf(receipt_bytes, receipt_names.get(lang, "receipt.pdf"))
-        if invoice_bytes:
-            _attach_pdf(invoice_bytes, invoice_names.get(lang, "invoice.pdf"))
-
-        msg["Subject"] = subject
-        msg["From"]    = cfg["from"]
-        msg["To"]      = email
-
-        with smtplib.SMTP(cfg["host"], cfg["port"], timeout=15) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(cfg["user"], cfg["password"])
-            server.sendmail(cfg["from"], [email], msg.as_string())
-
+    # Invia con allegato principale (ricevuta); se disponibile anche fattura, seconda chiamata
+    ok = _send(
+        to                  = email,
+        subject             = subject,
+        html_body           = html,
+        attachment_bytes    = receipt_bytes,
+        attachment_filename = receipt_names.get(lang, "receipt.pdf"),
+    )
+    if ok and invoice_bytes:
+        _send(
+            to                  = email,
+            subject             = subject + " — invoice",
+            html_body           = html,
+            attachment_bytes    = invoice_bytes,
+            attachment_filename = invoice_names.get(lang, "invoice.pdf"),
+        )
+    if ok:
         log.info(f"[email] Pro upgrade inviata a {email} (receipt={receipt_bytes is not None}, invoice={invoice_bytes is not None})")
-        return True
-
-    except Exception as e:
-        log.error(f"[email] Errore invio pro upgrade a {email}: {e}")
-        return False
+    return ok
 
 # ── Email: downgrade da Pro a Free (hard) ────────────────────────────────────
 
