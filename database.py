@@ -253,8 +253,11 @@ def _migrate_api_keys_columns(engine) -> None:
 
     # Colonne da aggiungere: (nome, DDL SQLite/PG compatibile)
     migrations = [
-        ("plan",      "VARCHAR(10)  DEFAULT 'free' NOT NULL"),
-        ("pro_since", "TIMESTAMP"),
+        ("plan",          "VARCHAR(10)  DEFAULT 'free' NOT NULL"),
+        ("pro_since",     "TIMESTAMP"),
+        ("free_tariff_id","VARCHAR(100)"),
+        ("session_token", "VARCHAR(64)"),
+        ("tariff_choice_locked", "BOOLEAN DEFAULT FALSE"),
     ]
 
     dialect = engine.dialect.name

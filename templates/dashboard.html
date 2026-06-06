@@ -91,6 +91,30 @@
       border:0.5px solid rgba(255,255,255,.1);
       border-radius:10px;padding:3px;flex-shrink:0
     }
+    #h-lang-mobile{display:none}
+    .hlm-trigger-btn{
+      display:flex;align-items:center;gap:7px;
+      padding:7px 16px;
+      background:transparent;
+      border:1.5px solid rgba(255,255,255,.25);
+      border-radius:10px;
+      color:white;
+      font-size:12px;font-weight:600;
+      cursor:pointer;
+      white-space:nowrap;
+      letter-spacing:.01em;
+      transition:background .15s,border-color .15s
+    }
+    .hlm-trigger-btn:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.4)}
+    /* Pill login header: compatta su mobile */
+
+    /* Badge tariffe live nel logo — visibile solo su mobile/tablet */
+    .h-live-badge{display:none;align-items:center;gap:4px;
+      background:rgba(52,211,153,.12);border:0.5px solid rgba(52,211,153,.25);
+      border-radius:99px;padding:2px 7px;font-size:10px;font-weight:600;
+      color:#34d399;white-space:nowrap;flex-shrink:0}
+    #h-live-dot{width:5px;height:5px;border-radius:50%;background:#34d399;
+      box-shadow:0 0 6px #34d399;animation:nb-pulse 2s infinite;flex-shrink:0}
     .lang-btn{
       display:flex;align-items:center;gap:4px;
       font-size:11px;font-weight:500;
@@ -214,30 +238,17 @@
        RESPONSIVE HEADER
        ══════════════════════════════════════════════════════════════ */
 
-    /* ── Tablet (≤900px): comprimi header ── */
-    @media(max-width:900px){
-      header{padding:0 14px;gap:8px}
-      .h-logo-sub{display:none}
-      .h-sep{display:none}
-      .h-badge-wrap{display:none}
-      .h-status-text{display:none}  /* nasconde "tariffs live" */
-      .view-tab{padding:0 10px;font-size:11px}
-      .view-tab-badge{display:none}
-      .lang-btns .lang-btn{padding:3px 6px;font-size:9px}
-    }
-
-    /* ── Mobile (≤768px): bottom tab bar, header semplificato ── */
-    @media(max-width:768px){
+    /* ── Mobile + Tablet (<=900px): layout identico a telefono ── */
+    @media(max-width:1100px){
       header{height:52px;padding:0 14px;gap:8px}
       .h-logo-main{font-size:12px}
       .h-logo-sub{display:none}
       .h-sep{display:none}
       .h-badge-wrap{display:none}
-      .h-status{display:none}  /* tutto lo status sparisce */
+      .h-status{display:none}
       .view-tabs{display:none}
       .lang-btns{display:none}
       #bottom-tab-bar{display:block}
-      /* Padding bottom per non coprire contenuto — regola !important per non essere sovrascritta */
       main,#home-view .home-wrap{
         padding-bottom:calc(54px + env(safe-area-inset-bottom) + 16px)!important
       }
@@ -248,10 +259,13 @@
       }
       #h-lang-mobile{display:block!important}
       #h-lang-mobile-panel.open{display:flex!important;flex-direction:column}
-      .hdd-lang-row{display:flex!important}
+      .h-live-badge{display:flex!important}
+      /* Bottone login: solo icona su mobile per non sforare */
+      #header-auth-pill .hlm-txt{display:none}
+      .hlm-trigger-btn{padding:6px 8px!important;gap:0!important}
     }
 
-    /* ── Mobile piccolo (≤420px) ── */
+    /* ── Mobile piccolo (<=420px) ── */
     @media(max-width:420px){
       header{padding:0 10px;gap:6px}
       .h-logo-main{font-size:11px}
@@ -357,6 +371,129 @@
     #developer-view{display:none}
 
     /* ── HOME PAGE ── */
+    /* ══ NEW HOME STYLES ══════════════════════════════════════════════════ */
+    .home-wrap{max-width:900px;margin:0 auto;padding:40px 24px 80px}
+
+    /* Hero */
+    .hw-hero{text-align:center;padding:60px 0 48px;max-width:680px;margin:0 auto}
+    .hw-hero-badge{display:inline-flex;align-items:center;gap:7px;
+      background:rgba(24,95,165,.08);border:1px solid rgba(24,95,165,.15);
+      border-radius:99px;padding:5px 14px;font-size:12px;font-weight:600;
+      color:#185fa5;margin-bottom:24px;letter-spacing:.02em}
+    .hw-hero-dot{width:6px;height:6px;border-radius:50%;background:#34d399;
+      box-shadow:0 0 8px #34d399;animation:nb-pulse 2s infinite;flex-shrink:0}
+    .hw-hero-h1{font-size:clamp(28px,5vw,48px);font-weight:800;color:#0f172a;
+      line-height:1.18;letter-spacing:-.5px;margin-bottom:18px}
+    .hw-hero-h1 em{font-style:normal;color:#185fa5}
+    .hw-hero-p{font-size:16px;color:#64748b;line-height:1.7;margin-bottom:32px;max-width:560px;margin-left:auto;margin-right:auto}
+    .hw-hero-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+    .hw-btn-primary{padding:13px 28px;background:#185fa5;color:white;border:none;
+      border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;
+      box-shadow:0 2px 12px rgba(24,95,165,.3);transition:all .18s;letter-spacing:.01em}
+    .hw-btn-primary:hover{background:#1470c0;transform:translateY(-1px);box-shadow:0 4px 20px rgba(24,95,165,.4)}
+    .hw-btn-ghost{padding:13px 24px;background:transparent;color:#0f172a;
+      border:1.5px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:600;
+      cursor:pointer;transition:all .18s}
+    .hw-btn-ghost:hover{background:#f8fafc;border-color:#cbd5e1}
+
+    /* Stats */
+    .hw-stats{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;
+      gap:0;background:white;border:1px solid #e2e8f0;border-radius:16px;
+      padding:20px 32px;margin-bottom:56px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+    .hw-stat{display:flex;flex-direction:column;align-items:center;padding:8px 24px}
+    .hw-stat-n{font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-.3px;line-height:1}
+    .hw-stat-l{font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-top:4px;white-space:nowrap}
+    .hw-stat-sep{width:1px;height:36px;background:#e2e8f0;flex-shrink:0}
+
+    /* Providers */
+    .hw-providers{text-align:center;margin-bottom:60px}
+    .hw-providers-label{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px}
+    .hw-providers-grid{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+    .hw-provider{padding:7px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:99px;
+      font-size:13px;font-weight:600;color:#334155;transition:all .15s}
+    .hw-provider:hover{background:#185fa5;color:white;border-color:#185fa5}
+    .hw-provider-soon{color:#94a3b8;border-style:dashed}
+    .hw-provider-soon span{font-size:10px;font-weight:500;margin-left:4px}
+
+    /* Section header */
+    .hw-section-header{text-align:center;margin-bottom:36px}
+    .hw-section-label{font-size:11px;font-weight:700;color:#185fa5;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+    .hw-section-title{font-size:clamp(20px,3vw,28px);font-weight:800;color:#0f172a;letter-spacing:-.3px;line-height:1.25}
+
+    /* Features */
+    .hw-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:64px}
+    .hw-feature{display:flex;gap:16px;background:white;border:1px solid #e2e8f0;border-radius:16px;
+      padding:20px;transition:box-shadow .18s,transform .18s}
+    .hw-feature:hover{box-shadow:0 4px 20px rgba(0,0,0,.08);transform:translateY(-2px)}
+    .hw-feature-icon{width:44px;height:44px;border-radius:12px;background:#eff6ff;color:#185fa5;
+      display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .hw-feature-body{}
+    .hw-feature-title{font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px}
+    .hw-feature-desc{font-size:13px;color:#64748b;line-height:1.6}
+
+    /* Plans */
+    .hw-plans{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:64px}
+    .hw-plan{background:white;border:1.5px solid #e2e8f0;border-radius:20px;padding:28px;position:relative}
+    .hw-plan-featured{border-color:#185fa5;box-shadow:0 0 0 4px rgba(24,95,165,.08)}
+    .hw-plan-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);
+      background:#185fa5;color:white;font-size:11px;font-weight:700;
+      padding:4px 14px;border-radius:99px;letter-spacing:.04em;white-space:nowrap}
+    .hw-plan-top{margin-bottom:20px}
+    .hw-plan-name{font-size:14px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+    .hw-plan-price{font-size:36px;font-weight:900;color:#0f172a;letter-spacing:-.5px;line-height:1}
+    .hw-plan-period{font-size:14px;font-weight:500;color:#94a3b8;margin-left:4px}
+    .hw-plan-desc{font-size:13px;color:#64748b;line-height:1.6;margin-top:8px}
+    .hw-plan-features{list-style:none;margin:0 0 24px;padding:0;display:flex;flex-direction:column;gap:9px}
+    .hw-pf{display:flex;align-items:flex-start;gap:9px;font-size:13px;line-height:1.5}
+    .hw-pf::before{content:"";width:16px;height:16px;border-radius:50%;flex-shrink:0;margin-top:1px;
+      background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='8' fill='%231d9e75'/%3E%3Cpolyline points='4.5,8.5 7,11 11.5,5.5' stroke='white' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat}
+    .hw-pf-no{color:#94a3b8}
+    .hw-pf-no::before{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='8' fill='%23f1f5f9'/%3E%3Cline x1='5' y1='5' x2='11' y2='11' stroke='%23cbd5e1' stroke-width='1.5'/%3E%3Cline x1='11' y1='5' x2='5' y2='11' stroke='%23cbd5e1' stroke-width='1.5'/%3E%3C/svg%3E") center/contain no-repeat}
+    .hw-pf span{color:#0f172a}
+    .hw-pf-no span{color:#94a3b8}
+    .hw-plan-btn{width:100%;padding:13px;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;transition:all .18s;letter-spacing:.01em}
+    .hw-plan-btn-free{background:#f1f5f9;color:#334155}
+    .hw-plan-btn-free:hover{background:#e2e8f0}
+    .hw-plan-btn-pro{background:linear-gradient(135deg,#1e6fd9,#185fa5);color:white;box-shadow:0 2px 12px rgba(24,95,165,.3)}
+    .hw-plan-btn-pro:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(24,95,165,.4)}
+
+    /* Auth box */
+    .hw-auth{display:grid;grid-template-columns:1fr 1fr;gap:24px;background:white;
+      border:1.5px solid #e2e8f0;border-radius:24px;overflow:hidden;margin-bottom:40px}
+    .hw-auth-left{padding:36px;display:flex;flex-direction:column}
+    .hw-auth-eyebrow{font-size:11px;font-weight:700;color:#185fa5;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+    .hw-auth-title{font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-.3px;margin-bottom:8px}
+    .hw-auth-sub{font-size:13px;color:#64748b;line-height:1.6;margin-bottom:24px}
+    .hw-auth-input-wrap{position:relative;margin-bottom:10px}
+    .hw-auth-input{width:100%;padding:12px 40px 12px 14px;border:1.5px solid #e2e8f0;
+      border-radius:12px;font-size:13px;font-family:monospace;color:#0f172a;outline:none;
+      box-sizing:border-box;background:#fafbfc;transition:border-color .15s}
+    .hw-auth-input:focus{border-color:#185fa5;background:white}
+    .hw-auth-btn{display:flex;align-items:center;justify-content:center;gap:8px;
+      width:100%;padding:13px;background:linear-gradient(135deg,#1e6fd9,#185fa5);
+      color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;
+      cursor:pointer;box-shadow:0 2px 10px rgba(24,95,165,.25);transition:all .18s;margin-bottom:16px}
+    .hw-auth-btn:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(24,95,165,.35)}
+    .hw-auth-right{background:linear-gradient(145deg,#f0f7ff,#e8f2ff);padding:36px;
+      display:flex;align-items:center;justify-content:center}
+    .hw-auth-preview-inner{width:100%}
+    .hw-auth-preview-label{font-size:11px;font-weight:700;color:#185fa5;text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px}
+    .hw-preview-skeleton{height:12px;background:rgba(24,95,165,.12);border-radius:6px;width:100%;animation:shimmer 1.8s infinite}
+    @keyframes shimmer{0%,100%{opacity:.5}50%{opacity:1}}
+    .hw-auth-preview-evus{margin-top:20px;display:flex;flex-wrap:wrap;gap:6px}
+    .hw-auth-preview-evus span{padding:4px 10px;background:rgba(24,95,165,.1);border-radius:99px;font-size:11px;font-weight:600;color:#185fa5}
+
+    @media(max-width:700px){
+      .hw-plans{grid-template-columns:1fr}
+      .hw-auth{grid-template-columns:1fr}
+      .hw-auth-right{display:none}
+      .hw-stats{padding:16px}
+      .hw-stat{padding:8px 14px}
+      .hw-stat-sep{height:24px}
+      .hw-hero{padding:40px 0 32px}
+    }
+
+    /* ══ END NEW HOME ══════════════════════════════════════════════════════ */
     .home-wrap{max-width:1100px;margin:0 auto;padding:0 24px 80px}
 
     /* Hero */
@@ -915,10 +1052,10 @@
     .api-open-link{font-size:10px;padding:3px 8px;border-radius:5px;border:0.5px solid #ddd;
       color:#555;text-decoration:none;transition:all .15s}
     .api-open-link:hover{background:#f0f4fa;border-color:#aaa}
-    #api-view{display:none}
+    #api-view{display:none;overflow-x:hidden}
     #map-view{display:none}
     #map-svg-container{width:100%;background:#f8f9fa;border-radius:12px;
-      border:0.5px solid #e5e5e5;overflow:hidden;position:relative}
+      border:0.5px solid #e5e5e5;overflow:hidden;position:relative;}
     #map-svg-container svg{display:block;width:100%}
     #map-loading{padding:3rem;text-align:center;font-size:13px;color:#aaa}
     #map-tooltip{position:absolute;background:white;border:0.5px solid #ddd;
@@ -949,19 +1086,99 @@
     #map-price-panel .mpp-current-slot{font-size:11px;color:#185fa5;font-weight:600;margin-bottom:6px}
     .map-legend-item{display:flex;align-items:center;gap:7px;font-size:11px;color:#555}
     .map-legend-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
-    #map-filter-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+    #map-filter-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+
+    /* ── Map search ── */
+    #map-search-wrap{margin-bottom:12px}
+    #map-search-active{position:relative;max-width:340px}
+    #map-search-box{display:flex;align-items:center;gap:8px;
+      padding:8px 12px;background:white;
+      border:1.5px solid #e8eaee;border-radius:10px;
+      transition:border-color .15s,box-shadow .15s}
+    #map-search-box:focus-within{border-color:#185fa5;box-shadow:0 0 0 3px rgba(24,95,165,.08)}
+    #map-search-input{flex:1;border:none;outline:none;font-size:13px;color:#1a1a2e;
+      background:transparent;min-width:0}
+    #map-search-input::placeholder{color:#bbb}
+    #map-search-clear{border:none;background:none;cursor:pointer;color:#bbb;
+      display:flex;align-items:center;padding:0;transition:color .15s}
+    #map-search-clear:hover{color:#666}
+    #map-search-dropdown{
+      position:absolute;top:calc(100% + 6px);left:0;right:0;
+      background:white;border:1px solid #e8eaee;border-radius:10px;
+      box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:500;
+      max-height:240px;overflow-y:auto;-webkit-overflow-scrolling:touch
+    }
+    .msd-item{display:flex;align-items:center;gap:10px;padding:9px 13px;
+      cursor:pointer;transition:background .12s;border-bottom:0.5px solid #f5f5f5}
+    .msd-item:last-child{border-bottom:none}
+    .msd-item:hover,.msd-item.active{background:#f5f8ff}
+    .msd-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+    .msd-name{font-size:13px;font-weight:500;color:#0d1117;flex:1;min-width:0;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .msd-provider{font-size:10px;color:#aaa;white-space:nowrap}
+    .msd-empty{padding:14px;text-align:center;font-size:12px;color:#bbb}
+
+    /* ── Modal PRO comune ── */
+    #map-muni-modal-bg{
+      position:fixed;inset:0;background:rgba(8,10,20,.55);z-index:9900;
+      display:none;align-items:center;justify-content:center;padding:16px;
+      backdrop-filter:blur(3px)
+    }
+    #map-muni-modal-bg.open{display:flex}
+    #map-muni-modal{
+      background:white;border-radius:18px;width:100%;max-width:520px;
+      max-height:90svh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+      padding:22px 22px 20px;
+      box-shadow:0 24px 70px rgba(0,0,0,.22),0 0 0 1px rgba(0,0,0,.04);
+      animation:ftmIn .3s cubic-bezier(.4,0,.2,1)
+    }
+    #mmm-head{display:flex;align-items:flex-start;justify-content:space-between;
+      gap:12px;margin-bottom:10px}
+    .mmm-stat{background:#f8f9fc;border-radius:9px;padding:10px 12px;text-align:center}
+    .mmm-stat-val{font-size:16px;font-weight:700;color:#0d1117}
+    .mmm-stat-val.now{color:#185fa5}
+    .mmm-stat-lbl{font-size:9.5px;color:#aaa;margin-top:2px;text-transform:uppercase;
+      letter-spacing:.05em}
+    .mmm-section-title{font-size:10px;font-weight:600;color:#aaa;
+      text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+    .mmm-info-row{display:flex;justify-content:space-between;align-items:center;
+      padding:6px 0;border-bottom:0.5px solid #f2f2f4;font-size:12px}
+    .mmm-info-row:last-child{border-bottom:none}
+    .mmm-info-lbl{color:#888}
+    .mmm-info-val{font-weight:600;color:#0d1117;text-align:right}
+    .mmm-how-item{display:flex;gap:10px;margin-bottom:8px;font-size:12px;
+      color:#555;line-height:1.5}
+    .mmm-how-num{width:20px;height:20px;border-radius:50%;background:#185fa5;
+      color:white;font-size:10px;font-weight:700;display:flex;align-items:center;
+      justify-content:center;flex-shrink:0;margin-top:1px}
+    .mmm-action-btn{padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;
+      cursor:pointer;transition:all .15s;border:1.5px solid #e8eaee;background:white;color:#555}
+    .mmm-action-btn:hover{border-color:#185fa5;color:#185fa5}
+    .mmm-action-btn.primary{background:linear-gradient(135deg,#185fa5,#1d9e75);
+      color:white;border-color:transparent;box-shadow:0 3px 10px rgba(24,95,165,.25)}
+    .mmm-action-btn.primary:hover{opacity:.9}
+    .mmm-pro-lock{display:flex;flex-direction:column;align-items:center;text-align:center;
+      padding:20px;background:#f8f9fc;border-radius:10px;border:1px dashed #dde2ee}
+    @media(max-width:600px){
+      #map-muni-modal-bg{padding:0;align-items:flex-end}
+      #map-muni-modal{border-radius:18px 18px 0 0;max-height:93svh;max-width:100%}
+      #map-muni-modal::before{content:'';display:block;width:36px;height:4px;
+        background:#e0e0e0;border-radius:2px;margin:0 auto 16px}
+      #map-search-active{max-width:100%}
+      #mmm-stats{grid-template-columns:repeat(2,1fr)}
+    }
     .map-filter-btn{font-size:11px;padding:4px 12px;border-radius:6px;
       border:0.5px solid #ddd;background:white;color:#555;cursor:pointer;transition:all .15s}
     .map-filter-btn:hover{border-color:#185fa5;color:#185fa5}
     .map-filter-btn.active{background:#1a1a2e;color:white;border-color:#1a1a2e}
-    .api-section{background:white;border:0.5px solid #e5e5e5;border-radius:12px;padding:1.25rem;margin-bottom:1.25rem}
+    .api-section{background:white;border:0.5px solid #e5e5e5;border-radius:12px;padding:1.25rem;margin-bottom:1.25rem;overflow:hidden}
     .api-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}
     .api-section-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
     .api-desc{font-size:12px;color:#666;margin:4px 0 12px 0;line-height:1.6}
     .api-params-table{width:100%;border-collapse:collapse;font-size:11px}
     .api-params-table td{padding:4px 8px;vertical-align:top;border-bottom:0.5px solid #f0f0f0}
     .api-params-table tr:last-child td{border-bottom:none}
-    .api-params-table td:first-child{font-family:monospace;color:#185fa5;font-weight:600;white-space:nowrap;width:200px}
+    .api-params-table td:first-child{font-family:monospace;color:#185fa5;font-weight:600;white-space:nowrap;width:160px;max-width:160px}
     .api-params-wrap{background:#f8f9fa;border-radius:8px;padding:8px 4px;margin:10px 0}
     .api-params-head{font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.06em;padding:0 8px 6px}
     .api-url-box{background:#f0f4fa;border-radius:8px;padding:10px 14px;font-family:monospace;
@@ -1001,7 +1218,7 @@
     .gate-reg-link a{color:#185fa5;cursor:pointer;text-decoration:none;font-weight:500}
     .gate-reg-link a:hover{text-decoration:underline}
 
-    #api-content{display:none}
+    #api-content{display:none;max-width:100%;overflow-x:hidden}
     #reg-form-wrap{display:none;width:100%;max-width:520px;text-align:left;margin-top:8px}
     .reg-form-title{font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:4px}
     .reg-form-sub{font-size:12px;color:#888;margin-bottom:20px;line-height:1.5}
@@ -1095,6 +1312,10 @@
       .dv-daypills{gap:4px}
       .day-btn{font-size:10px;padding:4px 10px}
       .chart-wrap{height:180px}
+      /* Su mobile: disabilita cursor crosshair e touch-hover */
+      .chart-wrap canvas{touch-action:pan-y;cursor:default!important}
+      /* Su mobile: slot panel non visibile (hover non funziona su touch) */
+      #slot-panel-outer{display:none}
       .home-hero{padding:48px 12px 40px}
       .home-hero-sub{font-size:15px}
       .home-hero-cta{flex-direction:column;align-items:stretch;gap:8px}
@@ -1111,6 +1332,8 @@
       .gate-input-wrap{flex-direction:column}
       .gate-btn{width:100%}
       .api-url-box{flex-direction:column;align-items:flex-start}
+      .api-params-table td:first-child{width:auto;max-width:none;white-space:normal}
+      .api-path{word-break:break-all}
       .try-row{flex-direction:column}
       .try-field{min-width:0;width:100%}
       #map-price-panel .mpp-stats{gap:10px}
@@ -1141,6 +1364,9 @@
       <span class="h-logo-main">Swiss Tariff Hub</span>
       <span class="h-logo-sub">Dynamic Electricity</span>
     </div>
+    <span id="h-live-badge" class="h-live-badge" style="display:none">
+      <span id="h-live-dot"></span><span id="h-live-count">—</span>
+    </span>
   </a>
 
   <div class="h-sep"></div>
@@ -1204,7 +1430,7 @@
     <button class="lang-btn" id="lb-it" onclick="setLang('it')"><span class="lf">🇮🇹</span>IT</button>
   </div>
 
-  <div class="h-dropdown-wrap" id="h-dropdown-wrap" style="display:none">
+  <div class="h-dropdown-wrap" id="h-dropdown-wrap" style="display:block">
     <div id="header-auth-pill" onclick="toggleUserDropdown()" style="display:flex;cursor:pointer"></div>
     <div id="h-user-dropdown">
       <div class="hdd-header">
@@ -1268,44 +1494,7 @@
         </div>
       </div>
       <div class="hdd-footer">
-        <!-- Riga lingua — visibile solo su mobile (display:none di default, flex su ≤768px) -->
-        <div class="hdd-lang-row" style="display:none;flex-direction:column;padding:6px 8px 2px">
-          <div style="font-size:10px;color:rgba(255,255,255,.3);font-weight:600;
-                      text-transform:uppercase;letter-spacing:.08em;padding:4px 8px 8px">
-            Language
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px">
-            <button onclick="setLang('en');toggleUserDropdown()" id="dd-lang-en"
-              style="padding:8px 10px;background:transparent;border:0.5px solid transparent;
-                     color:rgba(255,255,255,.55);border-radius:8px;cursor:pointer;
-                     display:flex;align-items:center;gap:7px;font-size:12px;font-weight:500;
-                     transition:all .15s;text-align:left">
-              <span style="font-size:16px;line-height:1">🇬🇧</span> EN
-            </button>
-            <button onclick="setLang('de');toggleUserDropdown()" id="dd-lang-de"
-              style="padding:8px 10px;background:transparent;border:0.5px solid transparent;
-                     color:rgba(255,255,255,.55);border-radius:8px;cursor:pointer;
-                     display:flex;align-items:center;gap:7px;font-size:12px;font-weight:500;
-                     transition:all .15s;text-align:left">
-              <span style="font-size:16px;line-height:1">🇩🇪</span> DE
-            </button>
-            <button onclick="setLang('fr');toggleUserDropdown()" id="dd-lang-fr"
-              style="padding:8px 10px;background:transparent;border:0.5px solid transparent;
-                     color:rgba(255,255,255,.55);border-radius:8px;cursor:pointer;
-                     display:flex;align-items:center;gap:7px;font-size:12px;font-weight:500;
-                     transition:all .15s;text-align:left">
-              <span style="font-size:16px;line-height:1">🇫🇷</span> FR
-            </button>
-            <button onclick="setLang('it');toggleUserDropdown()" id="dd-lang-it"
-              style="padding:8px 10px;background:transparent;border:0.5px solid transparent;
-                     color:rgba(255,255,255,.55);border-radius:8px;cursor:pointer;
-                     display:flex;align-items:center;gap:7px;font-size:12px;font-weight:500;
-                     transition:all .15s;text-align:left">
-              <span style="font-size:16px;line-height:1">🇮🇹</span> IT
-            </button>
-          </div>
-        </div>
-        <div class="hdd-sep" style="margin:4px 10px 8px"></div>
+
         <button id="hdd-change-tariff-btn" onclick="_showFreeTariffModal(true);toggleUserDropdown()"
           style="display:none;width:100%;margin-bottom:6px;padding:8px 12px;
                  border:1px solid #c5d8f0;border-radius:8px;background:#f4f8ff;
@@ -1334,7 +1523,7 @@
   </div>
 
   <!-- Bottone lingua per utenti non loggati su mobile/tablet -->
-  <div id="h-lang-mobile" style="display:none;position:relative;flex-shrink:0">
+  <div id="h-lang-mobile" style="position:relative;flex-shrink:0">
     <button id="h-lang-mobile-btn"
       onclick="var p=document.getElementById('h-lang-mobile-panel');p.classList.toggle('open');event.stopPropagation()"
       style="height:34px;padding:0 10px;border-radius:9px;
@@ -1457,148 +1646,166 @@
   <div id="home-view">
   <div class="home-wrap">
 
-    <!-- Hero -->
-    <div class="home-hero">
-      <div class="home-hero-eyebrow">
-        <span class="home-hero-eyebrow-dot"></span>
-        <span data-i18n="home_eyebrow">Live Swiss Electricity Tariffs</span>
+    <!-- ══ HERO ══════════════════════════════════════════════════════════════ -->
+    <div class="hw-hero">
+      <div class="hw-hero-badge">
+        <span class="hw-hero-dot"></span>
+        <span data-i18n="home_eyebrow">Live · 9 EVU · UTC</span>
       </div>
-      <h1 class="home-hero-title" data-i18n-html="home_hero_title">Prezzi dell'energia elettrica <em>in tempo reale</em></h1>
-      <p class="home-hero-sub" data-i18n="home_hero_sub">Swiss Tariff Hub aggrega i prezzi dinamici di 9 fornitori svizzeri (EVU) in un'unica API normalizzata.</p>
-      <div class="home-hero-cta">
-        <button class="home-btn-primary" onclick="switchView('api')" data-i18n="home_cta_api">Accedi all'API →</button>
-        <button class="home-btn-secondary" onclick="switchView('data')" data-i18n="home_cta_data">Esplora i dati</button>
+      <h1 class="hw-hero-h1" data-i18n-html="home_hero_title">Swiss Dynamic Electricity Tariffs — <em>real time</em></h1>
+      <p class="hw-hero-p" data-i18n="home_hero_sub">One normalized API for all Swiss dynamic electricity tariffs. Updated daily, 96 × 15-min slots per day, three price components per slot.</p>
+
+    </div>
+
+    <!-- ══ STATS BAR ══════════════════════════════════════════════════════════ -->
+    <div class="hw-stats">
+      <div class="hw-stat"><span class="hw-stat-n" id="home-stat-evus">9</span><span class="hw-stat-l" data-i18n="home_stat_evus">Active EVU</span></div>
+      <div class="hw-stat-sep"></div>
+      <div class="hw-stat"><span class="hw-stat-n">96</span><span class="hw-stat-l" data-i18n="home_stat_slots">Slots / day</span></div>
+      <div class="hw-stat-sep"></div>
+      <div class="hw-stat"><span class="hw-stat-n">3</span><span class="hw-stat-l" data-i18n="home_stat_comp">Price components</span></div>
+      <div class="hw-stat-sep"></div>
+      <div class="hw-stat"><span class="hw-stat-n">UTC</span><span class="hw-stat-l" data-i18n="home_stat_tz">Normalized timezone</span></div>
+      <div class="hw-stat-sep"></div>
+      <div class="hw-stat"><span class="hw-stat-n">CHF</span><span class="hw-stat-l" data-i18n="home_stat_curr">Currency / kWh</span></div>
+    </div>
+
+    <!-- ══ PROVIDERS ══════════════════════════════════════════════════════════ -->
+    <div class="hw-providers">
+      <div class="hw-providers-label" data-i18n="home_evu_label">Supported providers</div>
+      <div class="hw-providers-grid">
+        <div class="hw-provider">CKW</div>
+        <div class="hw-provider">EKZ</div>
+        <div class="hw-provider">AEM</div>
+        <div class="hw-provider">Groupe E</div>
+        <div class="hw-provider">Primeo</div>
+        <div class="hw-provider">AVAG</div>
+        <div class="hw-provider">ELAG</div>
+        <div class="hw-provider hw-provider-soon">AIL <span>soon</span></div>
+        <div class="hw-provider hw-provider-soon">EGA <span>soon</span></div>
       </div>
     </div>
 
-    <!-- Stats bar -->
-    <div class="home-stats">
-      <div class="home-stat">
-        <div class="home-stat-val" id="home-stat-evus">9</div>
-<div class="home-stat-lbl" data-i18n="home_stat_evus">Fornitori (EVU) attivi</div>
+    <!-- ══ FEATURES ═══════════════════════════════════════════════════════════ -->
+    <div class="hw-section-header">
+      <div class="hw-section-label" data-i18n="home_features_label">What we offer</div>
+      <div class="hw-section-title" data-i18n="home_features_title">Everything you need to integrate Swiss dynamic tariffs</div>
+    </div>
+    <div class="hw-features">
+      <div class="hw-feature">
+        <div class="hw-feature-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
+        <div class="hw-feature-body">
+          <div class="hw-feature-title" data-i18n="home_f1_title">Real-time prices</div>
+          <div class="hw-feature-desc" data-i18n="home_f1_desc">Energy, grid and residual prices updated daily. 96 × 15-min UTC slots per tariff.</div>
+        </div>
       </div>
-      <div class="home-stat">
-        <div class="home-stat-val">96</div>
-<div class="home-stat-lbl" data-i18n="home_stat_slots">Slot da 15 min / giorno</div>
+      <div class="hw-feature">
+        <div class="hw-feature-icon" style="background:#eef2ff;color:#4f6ef7">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>
+        </div>
+        <div class="hw-feature-body">
+          <div class="hw-feature-title" data-i18n="home_f2_title">Normalized API</div>
+          <div class="hw-feature-desc" data-i18n="home_f2_desc">Single REST API for all Swiss EVU. Same format, same schema, regardless of provider.</div>
+        </div>
       </div>
-      <div class="home-stat">
-        <div class="home-stat-val">UTC</div>
-<div class="home-stat-lbl" data-i18n="home_stat_tz">Timezone normalizzata</div>
+      <div class="hw-feature">
+        <div class="hw-feature-icon" style="background:#f0fdf4;color:#16a34a">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l3 3 5-5"/></svg>
+        </div>
+        <div class="hw-feature-body">
+          <div class="hw-feature-title" data-i18n="home_f3_title">9 providers, one call</div>
+          <div class="hw-feature-desc" data-i18n="home_f3_desc">CKW, EKZ, AEM, Groupe E, Primeo, AVAG, ELAG and more — all in a single endpoint.</div>
+        </div>
       </div>
-      <div class="home-stat">
-        <div class="home-stat-val">3</div>
-<div class="home-stat-lbl" data-i18n="home_stat_comp">Componenti di prezzo</div>
+      <div class="hw-feature">
+        <div class="hw-feature-icon" style="background:#fdf4ff;color:#9333ea">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="hw-feature-body">
+          <div class="hw-feature-title" data-i18n="home_f4_title">Secure API key access</div>
+          <div class="hw-feature-desc" data-i18n="home_f4_desc">Personal API key with rate limiting, single-session enforcement and plan-based access control.</div>
+        </div>
       </div>
-      <div class="home-stat">
-        <div class="home-stat-val">CHF</div>
-<div class="home-stat-lbl" data-i18n="home_stat_curr">Valuta · CHF/kWh</div>
+      <div class="hw-feature">
+        <div class="hw-feature-icon" style="background:#fff7ed;color:#ea580c">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div class="hw-feature-body">
+          <div class="hw-feature-title" data-i18n="home_f5_title">Smart analytics</div>
+          <div class="hw-feature-desc" data-i18n="home_f5_desc">Daily summary, monthly stats, Smart view with best/worst hours and interactive dashboard.</div>
+        </div>
+      </div>
+      <div class="hw-feature">
+        <div class="hw-feature-icon" style="background:#f0f9ff;color:#0284c7">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+        </div>
+        <div class="hw-feature-body">
+          <div class="hw-feature-title" data-i18n="home_f6_title">Multilingual dashboard</div>
+          <div class="hw-feature-desc" data-i18n="home_f6_desc">Full interface in Italian, German, French and English. Interactive map of Swiss municipalities.</div>
+        </div>
       </div>
     </div>
 
-    <!-- Features -->
-    <div style="text-align:center;margin-bottom:0">
-<div class="home-section-label" data-i18n="home_features_label">Cosa offriamo</div>
-<div class="home-section-title" data-i18n="home_features_title">Un'unica API per tutte le tariffe svizzere</div>
-<div class="home-section-sub" style="margin:0 auto" data-i18n="home_features_sub">Invece di interrogare decine di API diverse.</div>
+    <!-- ══ PLANS ══════════════════════════════════════════════════════════════ -->
+    <div class="hw-section-header">
+      <div class="hw-section-label" data-i18n="home_plans_label">Pricing</div>
+      <div class="hw-section-title" data-i18n="home_plans_title">Simple, transparent plans</div>
     </div>
-    <div class="home-features">
-      <div class="home-feature">
-        <div class="home-feature-icon" style="background:#e8f1fa">⚡</div>
-<div class="home-feature-title" data-i18n="home_f1_title">Prezzi dinamici giornalieri</div>
-<div class="home-feature-desc" data-i18n="home_f1_desc">Dati aggiornati quotidianamente dai provider ufficiali.</div>
+    <div class="hw-plans" id="home-plans-grid">
+
+      <!-- FREE -->
+      <div class="hw-plan" id="home-plan-free-card">
+        <div class="hw-plan-top">
+          <div class="hw-plan-name" data-i18n="home_plan_free">Free</div>
+          <div class="hw-plan-price">CHF 0<span class="hw-plan-period" data-i18n="um_per_month">/ month</span></div>
+          <div class="hw-plan-desc" data-i18n="home_plan_free_desc">For personal use and exploration. Pick one tariff and get full access to it.</div>
+        </div>
+        <ul class="hw-plan-features">
+          <li class="hw-pf hw-pf-yes"><span data-i18n="pf_free_1">1 tariff of your choice (permanent)</span></li>
+          <li class="hw-pf hw-pf-yes"><span data-i18n="pf_free_2">Today's prices — all 96 slots</span></li>
+          <li class="hw-pf hw-pf-yes"><span data-i18n="pf_free_3">Smart view for your tariff</span></li>
+          <li class="hw-pf hw-pf-yes"><span data-i18n="pf_free_4">Interactive map (your zone)</span></li>
+          <li class="hw-pf hw-pf-yes"><span data-i18n="pf_free_5">100 API requests / day</span></li>
+          <li class="hw-pf hw-pf-no"><span data-i18n="pf_pro_1">All tariffs simultaneously</span></li>
+          <li class="hw-pf hw-pf-no"><span data-i18n="pf_pro_2">Historical data (unlimited)</span></li>
+          <li class="hw-pf hw-pf-no"><span data-i18n="pf_pro_6">Monthly summary &amp; metrics</span></li>
+        </ul>
+        <button class="hw-plan-btn hw-plan-btn-free" id="home-plan-free-btn" onclick="openHomeRegModal()" data-i18n="home_plan_free_btn">Request free access</button>
       </div>
-      <div class="home-feature">
-        <div class="home-feature-icon" style="background:#e8f7f0">🗺</div>
-<div class="home-feature-title" data-i18n="home_f2_title">Copertura per CAP svizzero</div>
-<div class="home-feature-desc" data-i18n="home_f2_desc">Mapping ZIP → EVU su tutto il territorio svizzero.</div>
+
+      <!-- PRO -->
+      <div class="hw-plan hw-plan-featured" id="home-plan-pro-card">
+        <div class="hw-plan-badge" id="home-plan-pro-badge" data-i18n="home_plan_recommended">Recommended</div>
+        <div class="hw-plan-top">
+          <div class="hw-plan-name" data-i18n="home_plan_pro">Pro</div>
+          <div class="hw-plan-price">CHF 19<span class="hw-plan-period" data-i18n="um_per_month">/ month</span></div>
+          <div class="hw-plan-desc" data-i18n="home_plan_pro_desc">For companies, aggregators and home-automation systems.</div>
+        </div>
+        <ul class="hw-plan-features">
+          <li class="hw-pf hw-pf-yes"><span data-i18n="pf_pro_1">All 9+ tariffs simultaneously</span></li>
+          <li class="hw-pf hw-pf-yes"><span data-i18n="pf_pro_2">Full historical data</span></li>
+          <li class="hw-pf hw-pf-yes"><span data-i18n="pf_pro_3">Smart view — all tariffs</span></li>
+          <li class="hw-pf hw-pf-yes"><span data-i18n="pf_pro_4">Interactive map — all zones</span></li>
+          <li class="hw-pf hw-pf-yes"><span data-i18n="pf_pro_5">2 000 API requests / day</span></li>
+          <li class="hw-pf hw-pf-yes"><span data-i18n="pf_pro_6">Monthly summary &amp; /metrics</span></li>
+          <li class="hw-pf hw-pf-yes"><span data-i18n="pf_pro_7">Priority support</span></li>
+        </ul>
+        <button class="hw-plan-btn hw-plan-btn-pro" id="home-plan-pro-btn" onclick="showProUpgradeForm()" data-i18n="home_plan_pro_btn">Upgrade to Pro ⚡</button>
       </div>
-      <div class="home-feature">
-        <div class="home-feature-icon" style="background:#fef3e8">🔌</div>
-<div class="home-feature-title" data-i18n="home_f3_title">9 fornitori in una sola chiamata</div>
-<div class="home-feature-desc" data-i18n="home_f3_desc">CKW, EKZ, AEM, Groupe E, Primeo, AVAG, ELAG e altri.</div>
-      </div>
-      <div class="home-feature">
-        <div class="home-feature-icon" style="background:#f0e8fa">🛡</div>
-<div class="home-feature-title" data-i18n="home_f4_title">API key sicura</div>
-<div class="home-feature-desc" data-i18n="home_f4_desc">Accesso tramite API key personale con rate limiting configurabile.</div>
-      </div>
-      <div class="home-feature">
-        <div class="home-feature-icon" style="background:#e8f7f0">📊</div>
-<div class="home-feature-title" data-i18n="home_f5_title">Summary e analytics</div>
-<div class="home-feature-desc" data-i18n="home_f5_desc">Endpoint daily summary, monthly stats e smart view.</div>
-      </div>
-      <div class="home-feature">
-        <div class="home-feature-icon" style="background:#e8f1fa">🌍</div>
-<div class="home-feature-title" data-i18n="home_f6_title">Interfaccia multilingua</div>
-<div class="home-feature-desc" data-i18n="home_f6_desc">Dashboard disponibile in italiano, tedesco, francese e inglese.</div>
-      </div>
+
     </div>
 
-    <!-- EVU providers -->
-    <div class="home-evu">
-<div class="home-evu-title" data-i18n="home_evu_label">Fornitori supportati</div>
-      <div class="home-evu-list">
-        <span class="home-evu-pill">⚡ CKW</span>
-        <span class="home-evu-pill">⚡ EKZ</span>
-        <span class="home-evu-pill">⚡ AEM</span>
-        <span class="home-evu-pill">⚡ Groupe E</span>
-        <span class="home-evu-pill">⚡ Primeo Energie</span>
-        <span class="home-evu-pill">⚡ AVAG</span>
-        <span class="home-evu-pill">⚡ ELAG</span>
-        <span class="home-evu-pill">⚡ EGA <span style="font-size:10px;color:#aaa">(soon)</span></span>
-        <span class="home-evu-pill">⚡ AIL <span style="font-size:10px;color:#aaa">(soon)</span></span>
-      </div>
-    </div>
-
-    <!-- Plans -->
-    <div style="text-align:center;margin-bottom:40px">
-<div class="home-section-label" data-i18n="home_plans_label">Piani</div>
-<div class="home-section-title" data-i18n="home_plans_title">Scegli il piano giusto</div>
-    </div>
-    <div class="home-plans" id="home-plans-grid">
-      <div class="home-plan" id="home-plan-free-card">
-        <div class="home-plan-name" data-i18n="home_plan_free">Free</div>
-        <div class="home-plan-price">CHF 0 <span data-i18n="um_per_month">/ mese</span></div>
-<div class="home-plan-desc" data-i18n="home_plan_free_desc">Per sviluppatori e uso personale.</div>
-        <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div><span data-i18n="pf_free_1">100 richieste / giorno</span></div>
-        <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div><span data-i18n="pf_free_2">Prezzi oggi e domani</span></div>
-        <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div><span data-i18n="pf_free_3">Summary giornaliero (2 giorni)</span></div>
-        <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div><span data-i18n="pf_free_4">Smart view e /api/v1/latest</span></div>
-        <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-no"><svg width="9" height="9" viewBox="0 0 9 9"><line x1="2" y1="2" x2="7" y2="7" stroke="#ccc" stroke-width="1.5"/><line x1="7" y1="2" x2="2" y2="7" stroke="#ccc" stroke-width="1.5"/></svg></div><span style="color:#bbb" data-i18n="pf_pro_3">/prices/all — tutte le tariffe</span></div>
-        <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-no"><svg width="9" height="9" viewBox="0 0 9 9"><line x1="2" y1="2" x2="7" y2="7" stroke="#ccc" stroke-width="1.5"/><line x1="7" y1="2" x2="2" y2="7" stroke="#ccc" stroke-width="1.5"/></svg></div><span style="color:#bbb" data-i18n="pf_pro_2">Storico illimitato</span></div>
-        <button class="home-plan-btn home-plan-btn-free" id="home-plan-free-btn" onclick="openHomeRegModal()" data-i18n="home_plan_free_btn">Richiedi accesso Free</button>
-      </div>
-      <div class="home-plan featured" id="home-plan-pro-card">
-<div class="home-plan-badge" id="home-plan-pro-badge" data-i18n="home_plan_recommended">Consigliato</div>
-        <div class="home-plan-name" data-i18n="home_plan_pro">Pro</div>
-        <div class="home-plan-price">CHF 19 <span data-i18n="um_per_month">/ mese</span></div>
-<div class="home-plan-desc" data-i18n="home_plan_pro_desc">Per aziende, aggregatori e sistemi di automazione energetica.</div>
-        <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div><span data-i18n="pf_pro_1">2000 richieste / giorno</span></div>
-        <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div><span data-i18n="pf_pro_2">Storico illimitato</span></div>
-        <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div><span data-i18n="pf_pro_3">/prices/all — tutte le tariffe</span></div>
-        <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div><span data-i18n="pf_pro_4">Summary mensile e /metrics</span></div>
-        <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div><span data-i18n="pf_pro_5">Rate limit 30 req/min</span></div>
-        <div class="home-plan-feature"><div class="home-plan-feature-check home-plan-check-yes"><svg width="9" height="9" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="#1d9e75" stroke-width="1.5" fill="none"/></svg></div><span data-i18n="pf_pro_6">Supporto prioritario</span></div>
-        <button class="home-plan-btn home-plan-btn-pro" id="home-plan-pro-btn" onclick="showProUpgradeForm()" data-i18n="home_plan_pro_btn">Contatta per Pro →</button>
-      </div>
-    </div>
-
-    <!-- Auth box — sezione accesso -->
-    <div style="text-align:center;margin:56px 0 32px">
-      <div class="home-section-label" data-i18n="home_auth_label">Accesso</div>
-      <div class="home-section-title" data-i18n="home_auth_title">Inizia subito</div>
-      <div class="home-section-sub" style="margin:0 auto" data-i18n="home_auth_sub">Già hai una API key? Accedi per visualizzare i tuoi dati.</div>
-    </div>
-
-    <div class="home-auth-section" id="home-auth-box">
-
-      <!-- SINISTRA: form login (gate) / stato loggato -->
-      <div class="home-auth-left" id="home-auth-gate">
-        <div class="home-auth-title" data-i18n="home_auth_box_title">Accedi con la tua API key</div>
-        <div class="home-auth-sub" data-i18n="home_auth_box_sub">Inserisci la tua API key per accedere alla dashboard completa.</div>
-        <div class="home-auth-input-wrap">
-          <input class="home-auth-input" id="home-key-input" type="password"
-            placeholder="stk_xxxxxxxxxxxxxxxx" autocomplete="off"
+    <!-- ══ AUTH BOX ══════════════════════════════════════════════════════════ -->
+    <div class="hw-auth" id="home-auth-box">
+      <div class="hw-auth-left" id="home-auth-gate">
+        <div class="hw-auth-eyebrow" data-i18n="home_auth_label">Access</div>
+        <div class="hw-auth-title" data-i18n="home_auth_box_title">Log in with your API key</div>
+        <div class="hw-auth-sub" data-i18n="home_auth_box_sub">Already have a key? Log in to access your personalised dashboard.</div>
+        <div class="hw-auth-input-wrap">
+          <input class="hw-auth-input" id="home-key-input" type="password"
+            placeholder="stk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off"
             onkeydown="if(event.key==='Enter') homeLogin()">
           <button class="home-auth-eye" id="home-key-eye" onclick="toggleKeyVis()" type="button">
             <svg id="home-key-eye-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -1608,119 +1815,63 @@
           </button>
         </div>
         <div class="home-auth-err" id="home-auth-err"></div>
-        <button class="home-auth-btn" onclick="homeLogin()" data-i18n="home_auth_btn">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M5 2H3a1.5 1.5 0 00-1.5 1.5v7A1.5 1.5 0 003 12h2M9.5 10l3-3-3-3M12.5 7H5.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Accedi →
+        <button class="hw-auth-btn" onclick="homeLogin()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 2H3a1.5 1.5 0 00-1.5 1.5v7A1.5 1.5 0 003 12h2M9.5 10l3-3-3-3M12.5 7H5.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span data-i18n="home_auth_btn">Log in</span>
         </button>
-        <div class="home-auth-divider" data-i18n="home_auth_divider">oppure</div>
+        <div class="home-auth-divider" data-i18n="home_auth_divider">or</div>
         <div class="home-auth-reg-link">
-          <span data-i18n="home_auth_no_key">Non hai ancora una key?</span>
-          <a onclick="openHomeRegModal()" data-i18n="home_auth_reg_link">Richiedi accesso gratuito</a>
+          <span data-i18n="home_auth_no_key">Don't have a key yet?</span>
+          <a onclick="openHomeRegModal()" data-i18n="home_auth_reg_link">Request free access</a>
         </div>
-      <!-- SINISTRA loggato: dentro lo stesso contenitore del gate, display:none di default -->
+        <!-- Stato loggato -->
         <div class="home-auth-left-logged" id="home-auth-left-logged">
           <div class="hal-check">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <polyline points="4,12 9,17 20,7" stroke="#1d9e75" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
-          <div class="hal-title" data-i18n="home_auth_logged_title">Accesso attivo</div>
-          <div class="hal-sub" data-i18n="home_auth_logged_sub">Sei loggato. Usa il menu in alto per navigare la dashboard o gestire la tua API key.</div>
-          <button class="hal-upgrade-btn" id="hal-upgrade-btn" onclick="showProUpgradeForm()" style="display:none" data-i18n="home_upgrade_btn">Passa a Pro ⚡</button>
+          <div class="hal-title" data-i18n="home_auth_logged_title">You are logged in</div>
+          <div class="hal-sub" data-i18n="home_auth_logged_sub">Use the menu above to navigate the dashboard or manage your API key.</div>
+          <button class="hal-upgrade-btn" id="hal-upgrade-btn" onclick="showProUpgradeForm()" style="display:none" data-i18n="home_upgrade_btn">Upgrade to Pro ⚡</button>
+        </div>
+      </div>
+      <div class="hw-auth-right" id="home-auth-preview" style="display:flex">
+        <div class="hw-auth-preview-inner">
+          <div class="hw-auth-preview-label" data-i18n="home_preview_label">Live snapshot</div>
+          <div id="home-preview-content">
+            <div class="hw-preview-skeleton"></div>
+            <div class="hw-preview-skeleton" style="width:75%;margin-top:8px"></div>
+            <div class="hw-preview-skeleton" style="width:55%;margin-top:8px"></div>
+          </div>
+          <div class="hw-auth-preview-evus" id="home-auth-evu-list"></div>
         </div>
       </div>
 
-      <!-- DESTRA: stato non loggato → features preview; loggato → profilo -->
-      <div class="home-auth-right">
-
-        <!-- Non loggato: vantaggi rapidi -->
-        <div class="home-auth-right-gate" id="home-auth-right-preview">
-          <div style="font-size:32px;margin-bottom:16px">⚡</div>
-          <div style="font-size:15px;font-weight:700;color:#0d1117;margin-bottom:8px;font-family:'Georgia',serif" data-i18n="home_features_title">Un'unica API per tutte le tariffe</div>
-          <div class="home-auth-right-features" style="margin-top:20px;text-align:left;width:100%">
-            <div class="home-auth-right-feature">
-              <div class="home-auth-right-icon" style="background:#e8f7f0">✅</div>
-              <div class="home-auth-right-text"><strong data-i18n="home_f1_title">Prezzi dinamici giornalieri</strong><span data-i18n="home_f1_desc">Aggiornati ogni giorno dai provider ufficiali.</span></div>
-            </div>
-            <div class="home-auth-right-feature">
-              <div class="home-auth-right-icon" style="background:#e8f1fa">🔑</div>
-              <div class="home-auth-right-text"><strong data-i18n="home_f4_title">API key sicura</strong><span data-i18n="home_f4_desc">Accesso personale con rate limiting configurabile.</span></div>
-            </div>
-            <div class="home-auth-right-feature">
-              <div class="home-auth-right-icon" style="background:#f0e8fa">📊</div>
-              <div class="home-auth-right-text"><strong data-i18n="home_f5_title">Summary e analytics</strong><span data-i18n="home_f5_desc">Dashboard smart per ottimizzare i consumi.</span></div>
-            </div>
+      <!-- Pannello loggato (nascosto di default, mostrato da _updateHomeAuthBox) -->
+      <div id="home-auth-logged" style="display:none;flex:1;background:linear-gradient(145deg,#f0f7ff,#e8f2ff);padding:36px;flex-direction:column;justify-content:center;gap:12px">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px">
+          <div id="home-auth-av" style="width:48px;height:48px;border-radius:50%;background:#185fa5;color:white;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">?</div>
+          <div>
+            <div id="home-auth-name" style="font-size:16px;font-weight:700;color:#0f172a">—</div>
+            <div id="home-auth-email" style="font-size:12px;color:#64748b">—</div>
+          </div>
+          <span id="home-auth-plan-badge" class="ham-plan ham-plan-free" style="margin-left:auto">Free</span>
+        </div>
+        <div style="background:rgba(255,255,255,.6);border-radius:10px;padding:12px 14px;font-size:12px;color:#334155">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span style="color:#64748b;font-weight:500" data-i18n="home_stat_evus">Requests today</span>
+            <span id="home-auth-usage-text" style="font-weight:700">0 / 100</span>
+          </div>
+          <div style="height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden">
+            <div id="home-auth-usage-bar" style="height:100%;width:0%;background:#1d9e75;border-radius:2px;transition:width .4s"></div>
           </div>
         </div>
-
-        <!-- Loggato: profilo completo -->
-        <div id="home-auth-logged" style="display:none">
-          <!-- Profilo -->
-          <div class="ham-profile">
-            <div class="ham-av" id="home-auth-av">?</div>
-            <div class="ham-info">
-              <div class="ham-name" id="home-auth-name">—</div>
-              <div class="ham-email" id="home-auth-email">—</div>
-              <span class="ham-plan ham-plan-free" id="home-auth-plan-badge">Free</span>
-            </div>
-          </div>
-          <!-- Info rows -->
-          <div class="ham-rows">
-            <div class="ham-row">
-              <div class="ham-row-icon">🔑</div>
-              <div class="ham-row-content">
-                <div class="ham-row-label">API Key</div>
-                <div class="ham-row-val mono" id="home-auth-key">stk_••••</div>
-              </div>
-            </div>
-            <div class="ham-row">
-              <div class="ham-row-icon">📊</div>
-              <div class="ham-row-content">
-                <div class="ham-row-label" data-i18n="home_usage_today" style="font-size:10px;color:#aaa">Richieste oggi</div>
-                <div class="ham-row-val" id="home-auth-usage-text">0 / 100</div>
-                <div class="ham-usage-bar-bg">
-                  <div class="ham-usage-bar-fill" id="home-auth-usage-bar" style="width:0%"></div>
-                </div>
-              </div>
-            </div>
-            <div class="ham-row">
-              <div class="ham-row-icon">⭐</div>
-              <div class="ham-row-content">
-                <div class="ham-row-label" style="font-size:10px;color:#aaa">Total requests</div>
-                <div class="ham-row-val" id="home-auth-total">0</div>
-              </div>
-            </div>
-            <div class="ham-row">
-              <div class="ham-row-icon">🌍</div>
-              <div class="ham-row-content">
-                <div class="ham-row-label" style="font-size:10px;color:#aaa">Country</div>
-                <div class="ham-row-val" id="home-auth-country">—</div>
-              </div>
-            </div>
-          </div>
-          <!-- CTA -->
-          <div class="ham-ctas">
-            <button class="ham-cta-primary" onclick="switchView('data')">
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                <rect x="1" y="6.5" width="3" height="5.5" rx="1" fill="currentColor"/>
-                <rect x="5.5" y="3.5" width="3" height="8.5" rx="1" fill="currentColor"/>
-                <rect x="10" y="1" width="3" height="11" rx="1" fill="currentColor"/>
-              </svg>
-              <span data-i18n="home_auth_goto">Vai alla dashboard</span>
-            </button>
-            <button class="ham-cta-secondary" onclick="switchView('api')">
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                <path d="M2 4l3 2.5L2 9M7 9h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span data-i18n="home_auth_api_link">Vai alla sezione API</span>
-            </button>
-          </div>
-        </div>
-
-      </div><!-- end home-auth-right -->
-    </div><!-- end home-auth-section -->
+        <div style="font-size:11px;color:#94a3b8;font-family:monospace" id="home-auth-key">stk_••••••••</div>
+        <div style="display:none" id="home-auth-country"></div>
+        <div style="display:none" id="home-auth-total"></div>
+      </div>
+    </div>
 
   </div><!-- end home-wrap -->
   </div><!-- end home-view -->
@@ -1728,15 +1879,15 @@
   <div id="consumer-view">
 
     <!-- ── Selettore tariffa: dropdown ── -->
+    <div id="smart-detail-wrap" style="position:relative">
     <div style="margin-bottom:16px" id="smart-selector-wrap">
       <div style="font-size:11px;color:#888;margin-bottom:6px;font-weight:500" data-i18n="smart_select_label">Seleziona tariffa</div>
       <div style="position:relative">
-        <select id="smart-tariff-select"
+        <select id="smart-tariff-select" onchange="onSmartSelectChange(this)"
           style="width:100%;padding:10px 36px 10px 14px;font-size:13px;font-weight:500;
                  color:#1a1a2e;background:white;border:0.5px solid #ddd;border-radius:10px;
                  outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;
-                 box-shadow:0 1px 4px rgba(0,0,0,.05)"
-          onchange="onSmartSelectChange(this)">
+                 box-shadow:0 1px 4px rgba(0,0,0,.05)">
           <option value="">— loading —</option>
         </select>
         <svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:#888"
@@ -1744,6 +1895,14 @@
           <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
+    </div>
+
+    <!-- Lock tariffa Pro (free su tariffa non propria) -->
+    <div id="smart-tariff-lock" style="display:none;text-align:center;padding:32px 16px;background:#fafafa;border-radius:12px;margin-bottom:14px;margin-top:14px">
+      <div style="font-size:32px;margin-bottom:10px">🔒</div>
+      <div style="font-size:14px;font-weight:600;color:#1a1a2e;margin-bottom:6px" data-i18n="smart_tariff_lock_title">Pro feature</div>
+      <div style="font-size:12px;color:#888;margin-bottom:14px" data-i18n="smart_tariff_lock_sub">Upgrade to Pro to access Smart data for all tariffs.</div>
+      <button onclick="showProUpgradeForm()" style="padding:8px 20px;background:#185fa5;color:white;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer" data-i18n="smart_tariff_lock_btn">Upgrade to Pro ⚡</button>
     </div>
 
     <!-- ── Signal + best times ── -->
@@ -1861,6 +2020,8 @@
       </div>
     </div>
 
+
+    </div><!-- /smart-detail-wrap -->
 
     <!-- ── Tariff comparison — sempre visibile ── -->
     <div class="card" style="margin-top:1.25rem">
@@ -2009,6 +2170,53 @@
       <button class="map-filter-btn" data-filter="ekze"   onclick="filterMap('ekze')">EKZ Einsiedeln</button>
       <button class="map-filter-btn" data-filter="ega"    onclick="filterMap('ega')">EGA</button>
       <button class="map-filter-btn" data-filter="elag"   onclick="filterMap('elag')">ELAG</button>
+    </div>
+
+    <!-- ── Barra ricerca comune (PRO) + teaser per free/guest ───────────── -->
+    <div id="map-search-wrap" style="margin-bottom:12px">
+
+      <!-- Stato PRO: search attiva -->
+      <div id="map-search-active" style="display:none;position:relative;max-width:340px">
+        <div id="map-search-box">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:#aaa">
+            <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M9.5 9.5L12.5 12.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <input id="map-search-input" type="text" autocomplete="off" spellcheck="false"
+                 data-i18n-placeholder="map_search_placeholder"
+                 placeholder="Search municipality…"
+                 oninput="mapSearchInput(this.value)"
+                 onkeydown="mapSearchKeydown(event)">
+          <button id="map-search-clear" onclick="mapSearchClear()" style="display:none">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M9 3L3 9M3 3l6 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <div id="map-search-dropdown" style="display:none"></div>
+      </div>
+
+      <!-- Stato guest/free: teaser PRO -->
+      <div id="map-search-teaser" style="display:none">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+             background:#f8f9fc;border:1.5px dashed #d0d7e8;border-radius:10px;
+             max-width:500px;cursor:pointer" onclick="showProUpgradeForm()">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;color:#aaa">
+            <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M11 11l3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <div style="flex:1;min-width:0">
+            <span style="font-size:12px;color:#bbb;font-weight:500" data-i18n="map_search_placeholder">Search municipality…</span>
+          </div>
+          <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;
+                background:linear-gradient(135deg,#185fa5,#1d9e75);color:white;
+                white-space:nowrap;flex-shrink:0">PRO</span>
+        </div>
+        <div style="font-size:11px;color:#bbb;margin-top:5px;padding-left:2px" data-i18n="map_search_pro_only">
+          Municipality search is a Pro feature
+        </div>
+      </div>
+
     </div>
 
     <div id="map-svg-container">
@@ -2294,6 +2502,39 @@
   </div><!-- end api-view -->
 
 </main>
+
+<!-- ── Modal PRO: dettaglio comune (fuori dal main per z-index corretto) ── -->
+<div id="map-muni-modal-bg" onclick="if(event.target===this)closeMuniModal()">
+  <div id="map-muni-modal">
+    <div id="mmm-head">
+      <div style="min-width:0;flex:1">
+        <div id="mmm-name" style="font-size:17px;font-weight:700;color:#0d1117;letter-spacing:-.02em"></div>
+        <div id="mmm-sub" style="font-size:12px;color:#999;margin-top:3px"></div>
+      </div>
+      <button onclick="closeMuniModal()" style="border:none;background:#f2f2f4;border-radius:50%;
+              width:28px;height:28px;cursor:pointer;color:#888;font-size:15px;
+              display:flex;align-items:center;justify-content:center;flex-shrink:0">&#x2715;</button>
+    </div>
+
+    <div id="mmm-provider-pill"></div>
+    <div id="mmm-recommend"></div>
+
+    <div id="mmm-stats"
+         style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px"></div>
+
+    <div id="mmm-chart-label"
+         style="font-size:10px;font-weight:600;color:#aaa;text-transform:uppercase;
+                letter-spacing:.07em;margin-bottom:6px"></div>
+    <svg id="mmm-chart" viewBox="0 0 960 84" preserveAspectRatio="none"
+         style="width:100%;height:76px;display:block;border-radius:8px;margin-bottom:16px"></svg>
+
+    <div id="mmm-compare" style="margin-bottom:14px"></div>
+    <div id="mmm-tariff-info"
+         style="background:#f8f9fc;border-radius:10px;padding:14px;margin-bottom:14px"></div>
+    <div id="mmm-how" style="margin-bottom:14px"></div>
+    <div id="mmm-actions" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+  </div>
+</div>
 <script>
 // ── Translations ──────────────────────────────────────────────────────────────
 const T = {
@@ -2354,6 +2595,16 @@ const T = {
     map_loading: 'Loading municipality boundaries…',
     map_no_tariff: 'No dynamic tariff',
     map_note: 'Grey municipalities have no dynamic tariff available in 2026. 457 out of 2,148 Swiss municipalities covered. Source: ElCom open data.',
+    map_search_placeholder: 'Search municipality…',
+    map_search_empty: 'No municipality found',
+    map_search_pro_only: 'Municipality search is a Pro feature',
+    map_muni_no_tariff: 'No dynamic tariff in this municipality',
+    map_muni_suggest_now: 'Cheapest moment now',
+    map_muni_avoid_now: 'Expensive now — consider shifting load',
+    map_muni_how_title: 'How dynamic pricing works',
+    map_muni_open_smart: 'Open in Smart',
+    map_muni_open_data: 'Open in Data',
+    map_muni_compared: 'vs. other providers today',
     with_prices_today: 'with prices today',
     gate_title: 'API Access',
     gate_sub: 'Enter your API key to access the documentation and live playground.',
@@ -2388,6 +2639,11 @@ const T = {
     gate_suspended_msg: 'Your API key has been suspended. Contact support.',
     gate_revoked_msg: 'Your API key has been revoked.',
     gate_ratelimit_msg: 'Daily rate limit reached. Resets at midnight CET.',
+    gate_session_invalid_msg: 'You were logged in from another device. Please log in again.',
+    device_conflict_title: 'Already logged in on another device',
+    device_conflict_body: 'Your account is currently active on another device. Proceeding will log out that device immediately.',
+    device_conflict_cancel: 'Cancel',
+    device_conflict_confirm: 'Log in here',
     susp_banner_title: 'Key temporarily suspended',
     susp_banner_sub: 'An email has been sent to you with details. Contact support for more information.',
     susp_banner_contact: 'Contact support',
@@ -2401,7 +2657,8 @@ const T = {
     home_hero_title:     'Swiss electricity prices <em>in real time</em>',
     home_hero_sub:       'Swiss Tariff Hub aggregates dynamic prices from 9 Swiss providers (EVUs) into a single normalised API — updated daily, in UTC format at 15-minute intervals.',
     home_cta_api:        'Access the API →',
-    home_cta_data:       'Explore data',
+    home_cta_data:       'Explore data →',
+    home_preview_label:  'Live snapshot',
     home_stat_evus:      'Active providers (EVU)',
     home_stat_slots:     'Slots per day (15 min)',
     home_stat_tz:        'Normalised timezone',
@@ -2430,20 +2687,25 @@ const T = {
     home_plan_free_desc: 'For developers and personal use. No credit card required.',
     home_plan_pro_desc:  'For companies, aggregators and energy automation systems.',
     home_plan_free_btn:  'Request free access',
-    pf_free_1: '100 requests / day',
+    pf_free_1: '1 tariff of your choice (permanent)',
     pf_free_2: 'Today & tomorrow prices',
-    pf_free_3: 'Daily summary (2 days)',
-    pf_free_4: 'Smart view & /api/v1/latest',
-    pf_pro_1: '2000 requests / day',
-    pf_pro_2: 'Unlimited history',
-    pf_pro_3: '/prices/all — all tariffs',
-    pf_pro_4: 'Monthly summary & /metrics',
-    pf_pro_5: 'Rate limit 30 req/min',
-    pf_pro_6: 'Priority support',
+    pf_free_3: 'Smart view for your tariff',
+    pf_free_4: 'Interactive map (your zone)',
+    pf_free_5: '100 API requests / day',
+    pf_pro_1: 'All 9+ tariffs simultaneously',
+    pf_pro_2: 'Full historical data',
+    pf_pro_3: 'Smart view — all tariffs',
+    pf_pro_4: 'Interactive map — all zones',
+    pf_pro_5: '2 000 API requests / day',
+    pf_pro_6: 'Monthly summary & /metrics',
+    pf_pro_7: 'Priority support',
     smart_compare_lock_title: 'Login required',
     smart_lock_title: 'Login to see live signals',
     smart_lock_sub: 'Log in with your API key to see best hours, price signal and today\'s profile.',
     smart_lock_btn: 'Log in →',
+    smart_tariff_lock_title: 'Pro feature',
+    smart_tariff_lock_sub: 'Upgrade to Pro to access Smart data for all tariffs.',
+    smart_tariff_lock_btn: 'Upgrade to Pro ⚡',
     dv_slot_lock_title: 'Login to inspect slots',
     dv_slot_lock_sub: 'Log in with your API key to inspect individual 15-min price slots.',
     dv_slot_lock_btn: 'Log in →',
@@ -2455,10 +2717,11 @@ const T = {
     day_lock_tip: 'Log in to see past days',
     smart_compare_lock_sub: 'Log in with your API key to compare all Swiss tariffs.',
     smart_compare_lock_btn: 'Log in →',
-    home_plan_pro_btn:   'Contact us for Pro →',
+    home_plan_pro_btn:   'Upgrade to Pro ⚡',
     home_plan_recommended: 'Recommended',
     home_auth_label:     'Access',
     home_auth_title:     'Start now',
+    home_auth_placeholder: 'stk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
     home_auth_sub:       'Already have an API key? Log in to view your usage data and test endpoints directly from the dashboard.',
     home_auth_box_title: 'Log in with your API key',
     home_auth_box_sub:   'Enter your API key to access the full dashboard.',
@@ -2522,7 +2785,14 @@ const T = {
     um_gate_register:    'Create free account →',
     um_gate_login:       'Already have a key? Log in',
     ftm_title:           'Choose your default tariff',
-    ftm_sub:             'Free plan: pick the one tariff you need. You can change it later from your account.',
+    ftm_sub:             'Free plan: pick the one tariff you need.',
+    ftm_irreversible_warning: 'This choice is permanent and cannot be changed. Choose carefully.',
+    ftm_confirm2_title:          'Are you sure?',
+    ftm_confirm2_sub:            'You are about to lock your tariff choice permanently. This cannot be undone.',
+    ftm_confirm2_yes:            'Yes, confirm permanently',
+    ftm_confirm2_back:           '← Go back',
+    no_tariff_gate_title:        'Choose your tariff first',
+    no_tariff_gate_sub:          'Select a tariff to unlock all data for your free plan.',
     ftm_confirm:         'Confirm choice',
     ftm_skip:            'Skip for now',
     um_method_title:     'Payment method',
@@ -2598,6 +2868,16 @@ const T = {
     map_loading: 'Gemeindegrenzen werden geladen…',
     map_no_tariff: 'Kein dynamischer Tarif',
     map_note: 'Graue Gemeinden verfügen im Jahr 2026 über keinen dynamischen Tarif. 457 von 2.148 Gemeinden abgedeckt. Quelle: ElCom Open Data.',
+    map_search_placeholder: 'Gemeinde suchen…',
+    map_search_empty: 'Keine Gemeinde gefunden',
+    map_search_pro_only: 'Gemeindesuche ist eine Pro-Funktion',
+    map_muni_no_tariff: 'Kein dynamischer Tarif in dieser Gemeinde',
+    map_muni_suggest_now: 'Günstigster Moment jetzt',
+    map_muni_avoid_now: 'Teuer jetzt — Last verschieben',
+    map_muni_how_title: 'Wie dynamische Preise funktionieren',
+    map_muni_open_smart: 'In Smart öffnen',
+    map_muni_open_data: 'In Data öffnen',
+    map_muni_compared: 'vs. andere Anbieter heute',
     api_view_subtitle: 'REST \u00b7 UTC-Zeitstempel \u00b7 15-Min-Intervalle \u00b7 CHF/kWh \u00b7 gem\u00e4\u00df T-Swiss-Spezifikation',
     api_tariffs_section_desc: 'Listet alle verf\u00fcgbaren Tarife mit Metadaten auf. Keine Parameter erforderlich.',
     api_prices_section_desc: 'Gibt Zeitreihen der Nettopreise pro kWh zur\u00fcck \u2014 Energie, Netz und Rest \u2014 in 15-Min-UTC-Slots.',
@@ -2643,6 +2923,11 @@ const T = {
     gate_suspended_msg: 'Ihr API-Key wurde gesperrt. Kontaktieren Sie den Support.',
     gate_revoked_msg: 'Ihr API-Key wurde widerrufen.',
     gate_ratelimit_msg: 'Tägliches Limit erreicht. Reset um Mitternacht CET.',
+    gate_session_invalid_msg: 'Sie wurden auf einem anderen Gerät angemeldet. Bitte erneut anmelden.',
+    device_conflict_title: 'Bereits auf einem anderen Gerät angemeldet',
+    device_conflict_body: 'Ihr Konto ist derzeit auf einem anderen Gerät aktiv. Wenn Sie fortfahren, wird dieses Gerät sofort abgemeldet.',
+    device_conflict_cancel: 'Abbrechen',
+    device_conflict_confirm: 'Hier anmelden',
     susp_banner_title: 'Key vor\u00fcbergehend gesperrt',
     susp_banner_sub: 'Eine E-Mail mit Details wurde an Sie gesendet. Kontaktieren Sie den Support f\u00fcr weitere Informationen.',
     susp_banner_contact: 'Support kontaktieren',
@@ -2656,7 +2941,8 @@ const T = {
     home_hero_title:     'Schweizer Strompreise <em>in Echtzeit</em>',
     home_hero_sub:       'Swiss Tariff Hub aggregiert dynamische Preise von 9 Schweizer Anbietern (EVU) in einer einzigen normalisierten API — täglich aktualisiert, im UTC-Format mit 15-Minuten-Intervallen.',
     home_cta_api:        'Zur API →',
-    home_cta_data:       'Daten erkunden',
+    home_cta_data:       'Daten erkunden →',
+    home_preview_label:  'Live-Übersicht',
     home_stat_evus:      'Aktive Anbieter (EVU)',
     home_stat_slots:     'Slots pro Tag (15 Min.)',
     home_stat_tz:        'Normalisierte Zeitzone',
@@ -2685,20 +2971,25 @@ const T = {
     home_plan_free_desc: 'Für Entwickler und den persönlichen Gebrauch. Keine Kreditkarte erforderlich.',
     home_plan_pro_desc:  'Für Unternehmen, Aggregatoren und Energieautomatisierungssysteme.',
     home_plan_free_btn:  'Kostenlosen Zugang beantragen',
-    pf_free_1: '100 Anfragen / Tag',
-    pf_free_2: 'Heute & morgen Preise',
-    pf_free_3: 'Tägliche Zusammenfassung (2 Tage)',
-    pf_free_4: 'Smart View & /api/v1/latest',
-    pf_pro_1: '2000 Anfragen / Tag',
+    pf_free_1: '1 Tarif Ihrer Wahl (dauerhaft)',
+    pf_free_2: 'Heutige Preise — alle 96 Slots',
+    pf_free_3: 'Smart-Ansicht für Ihren Tarif',
+    pf_free_4: 'Interaktive Karte (Ihre Zone)',
+    pf_free_5: '100 API-Anfragen / Tag',
+    pf_pro_1: 'Alle 9+ Tarife gleichzeitig',
     pf_pro_2: 'Unbegrenztes Archiv',
-    pf_pro_3: '/prices/all — alle Tarife',
-    pf_pro_4: 'Monatliche Zusammenfassung & /metrics',
-    pf_pro_5: 'Rate-Limit 30 Anfragen/min',
-    pf_pro_6: 'Prioritäts-Support',
+    pf_pro_3: 'Smart-Ansicht — alle Tarife',
+    pf_pro_4: 'Interaktive Karte — alle Zonen',
+    pf_pro_5: '2 000 API-Anfragen / Tag',
+    pf_pro_6: 'Monatliche Übersicht & /metrics',
+    pf_pro_7: 'Prioritäts-Support',
     smart_compare_lock_title: 'Anmeldung erforderlich',
     smart_lock_title: 'Anmelden für Live-Signale',
     smart_lock_sub: 'Melden Sie sich an, um beste Stunden, Preissignale und das heutige Profil zu sehen.',
     smart_lock_btn: 'Anmelden →',
+    smart_tariff_lock_title: 'Pro-Funktion',
+    smart_tariff_lock_sub: 'Auf Pro upgraden, um Smart-Daten für alle Tarife zu sehen.',
+    smart_tariff_lock_btn: 'Auf Pro upgraden ⚡',
     dv_slot_lock_title: 'Anmelden für Slot-Details',
     dv_slot_lock_sub: 'Melden Sie sich an, um einzelne 15-Minuten-Preisslots zu inspizieren.',
     dv_slot_lock_btn: 'Anmelden →',
@@ -2710,10 +3001,11 @@ const T = {
     day_lock_tip: 'Anmelden für vergangene Tage',
     smart_compare_lock_sub: 'Melden Sie sich mit Ihrem API-Key an, um alle Schweizer Tarife zu vergleichen.',
     smart_compare_lock_btn: 'Anmelden →',
-    home_plan_pro_btn:   'Kontakt für Pro →',
+    home_plan_pro_btn:   'Auf Pro upgraden ⚡',
     home_plan_recommended: 'Empfohlen',
     home_auth_label:     'Zugang',
     home_auth_title:     'Jetzt starten',
+    home_auth_placeholder: 'stk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
     home_auth_sub:       'Haben Sie bereits einen API-Key? Melden Sie sich an, um Ihre Nutzungsdaten einzusehen und Endpunkte direkt aus dem Dashboard zu testen.',
     home_auth_box_title: 'Mit Ihrem API-Key anmelden',
     home_auth_box_sub:   'Geben Sie Ihren API-Key ein, um auf das vollständige Dashboard zuzugreifen.',
@@ -2777,7 +3069,14 @@ const T = {
     um_gate_register:    'Kostenloses Konto erstellen →',
     um_gate_login:       'Haben Sie bereits einen Key? Anmelden',
     ftm_title:           'W\u00e4hlen Sie Ihren Standard-Tarif',
-    ftm_sub:             'Free-Plan: W\u00e4hlen Sie den einen Tarif, den Sie ben\u00f6tigen. Sie k\u00f6nnen ihn sp\u00e4ter \u00e4ndern.',
+    ftm_sub:             'Free-Plan: W\u00e4hlen Sie den einen Tarif, den Sie ben\u00f6tigen.',
+    ftm_irreversible_warning: 'Diese Wahl ist endg\u00fcltig und kann nicht ge\u00e4ndert werden.',
+    ftm_confirm2_title:          'Sind Sie sicher?',
+    ftm_confirm2_sub:            'Sie sind dabei, Ihre Tarifwahl dauerhaft zu sperren. Dies kann nicht r\u00fcckg\u00e4ngig gemacht werden.',
+    ftm_confirm2_yes:            'Ja, dauerhaft best\u00e4tigen',
+    ftm_confirm2_back:           '\u2190 Zur\u00fcck',
+    no_tariff_gate_title:        'W\u00e4hlen Sie zuerst Ihren Tarif',
+    no_tariff_gate_sub:          'W\u00e4hlen Sie einen Tarif, um alle Daten zu entsperren.',
     ftm_confirm:         'Auswahl best\u00e4tigen',
     ftm_skip:            'Jetzt \u00fcberspringen',
     um_method_title:     'Zahlungsmethode',
@@ -2899,6 +3198,11 @@ const T = {
     gate_suspended_msg: 'Votre clé API a été suspendue. Contactez le support.',
     gate_revoked_msg: 'Votre clé API a été révoquée.',
     gate_ratelimit_msg: 'Limite quotidienne atteinte. Réinitialisation à minuit CET.',
+    gate_session_invalid_msg: 'Vous avez été connecté depuis un autre appareil. Veuillez vous reconnecter.',
+    device_conflict_title: 'Déjà connecté sur un autre appareil',
+    device_conflict_body: 'Votre compte est actuellement actif sur un autre appareil. En continuant, cet appareil sera déconnecté immédiatement.',
+    device_conflict_cancel: 'Annuler',
+    device_conflict_confirm: 'Se connecter ici',
     susp_banner_title: 'Cl\u00e9 temporairement suspendue',
     susp_banner_sub: 'Un e-mail avec les d\u00e9tails vous a \u00e9t\u00e9 envoy\u00e9. Contactez le support pour plus d\u2019informations.',
     susp_banner_contact: 'Contacter le support',
@@ -2912,7 +3216,8 @@ const T = {
     home_hero_title:     'Prix de l’électricité suisse <em>en temps réel</em>',
     home_hero_sub:       'Swiss Tariff Hub agrège les prix dynamiques de 9 fournisseurs suisses (EVU) en une seule API normalisée — mise à jour quotidiennement, en format UTC par intervalles de 15 minutes.',
     home_cta_api:        "Accéder à l'API →",
-    home_cta_data:       'Explorer les données',
+    home_cta_data:       'Explorer les données →',
+    home_preview_label:  'Aperçu en direct',
     home_stat_evus:      'Fournisseurs (EVU) actifs',
     home_stat_slots:     'Slots par jour (15 min)',
     home_stat_tz:        'Fuseau horaire normalisé',
@@ -2941,20 +3246,26 @@ const T = {
     home_plan_free_desc: "Pour les développeurs et l'usage personnel. Aucune carte bancaire requise.",
     home_plan_pro_desc:  "Pour les entreprises, les agrégateurs et les systèmes d'automatisation énergétique.",
     home_plan_free_btn:  "Demander l'accès gratuit",
-    pf_free_1: '100 requêtes / jour',
-    pf_free_2: 'Prix du jour et du lendemain',
-    pf_free_3: 'Résumé quotidien (2 jours)',
-    pf_free_4: 'Smart view & /api/v1/latest',
-    pf_pro_1: '2000 requêtes / jour',
-    pf_pro_2: 'Historique illimité',
-    pf_pro_3: '/prices/all — tous les tarifs',
-    pf_pro_4: 'Résumé mensuel & /metrics',
-    pf_pro_5: 'Limite 30 req/min',
-    pf_pro_6: 'Support prioritaire',
+    pf_free_1: '1 tarif de votre choix (permanent)',
+    pf_free_2: 'Prix du jour — 96 créneaux',
+    pf_free_3: 'Vue Smart pour votre tarif',
+    pf_free_4: 'Carte interactive (votre zone)',
+    pf_free_5: '100 requêtes API / jour',
+    pf_pro_1: 'Tous les 9+ tarifs simultanément',
+    pf_pro_2: 'Données historiques complètes',
+    pf_pro_3: 'Vue Smart — tous les tarifs',
+    pf_pro_4: 'Carte interactive — toutes zones',
+    pf_pro_5: '2 000 requêtes API / jour',
+    pf_pro_6: 'Synthèse mensuelle & /metrics',
+    pf_pro_7: 'Support prioritaire',
+    pf_pro_7: 'Support prioritaire',
     smart_compare_lock_title: 'Connexion requise',
     smart_lock_title: 'Connexion pour les signaux en direct',
     smart_lock_sub: 'Connectez-vous pour voir les meilleures heures, le signal de prix et le profil du jour.',
     smart_lock_btn: 'Se connecter →',
+    smart_tariff_lock_title: 'Fonctionnalité Pro',
+    smart_tariff_lock_sub: 'Passez à Pro pour accéder aux données Smart de tous les tarifs.',
+    smart_tariff_lock_btn: 'Passer à Pro ⚡',
     dv_slot_lock_title: 'Connexion pour inspecter les slots',
     dv_slot_lock_sub: 'Connectez-vous pour inspecter les créneaux de prix de 15 minutes.',
     dv_slot_lock_btn: 'Se connecter →',
@@ -2966,10 +3277,11 @@ const T = {
     day_lock_tip: 'Connectez-vous pour voir les jours passés',
     smart_compare_lock_sub: 'Connectez-vous avec votre clé API pour comparer tous les tarifs suisses.',
     smart_compare_lock_btn: 'Se connecter →',
-    home_plan_pro_btn:   'Nous contacter pour Pro →',
+    home_plan_pro_btn:   'Passer à Pro ⚡',
     home_plan_recommended: 'Recommandé',
     home_auth_label:     'Accès',
     home_auth_title:     'Commencer maintenant',
+    home_auth_placeholder: 'stk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
     home_auth_sub:       "Vous avez déjà une clé API ? Connectez-vous pour consulter vos données d'utilisation et tester les points d'accès directement depuis le tableau de bord.",
     home_auth_box_title: 'Se connecter avec votre clé API',
     home_auth_box_sub:   'Saisissez votre clé API pour accéder au tableau de bord complet.',
@@ -3033,7 +3345,14 @@ const T = {
     um_gate_register:    "Créer un compte gratuit →",
     um_gate_login:       "Déjà une clé ? Se connecter",
     ftm_title:           'Choisissez votre tarif par d\u00e9faut',
-    ftm_sub:             'Plan gratuit\u00a0: choisissez le tarif dont vous avez besoin. Vous pourrez le modifier plus tard.',
+    ftm_sub:             'Plan gratuit\u00a0: choisissez le tarif dont vous avez besoin.',
+    ftm_irreversible_warning: 'Ce choix est d\u00e9finitif et ne peut pas \u00eatre modifi\u00e9.',
+    ftm_confirm2_title:          '\u00cates-vous s\u00fbr?',
+    ftm_confirm2_sub:            'Vous \u00eates sur le point de verrouiller d\u00e9finitivement votre choix de tarif.',
+    ftm_confirm2_yes:            'Oui, confirmer d\u00e9finitivement',
+    ftm_confirm2_back:           '\u2190 Retour',
+    no_tariff_gate_title:        'Choisissez d\u2019abord votre tarif',
+    no_tariff_gate_sub:          'S\u00e9lectionnez un tarif pour d\u00e9bloquer toutes les donn\u00e9es.',
     ftm_confirm:         'Confirmer le choix',
     ftm_skip:            'Passer pour l\u2019instant',
     um_method_title:     'Mode de paiement',
@@ -3109,6 +3428,16 @@ const T = {
     map_loading: 'Caricamento confini comunali…',
     map_no_tariff: 'Nessuna tariffa dinamica',
     map_note: 'I comuni grigi non hanno tariffe dinamiche nel 2026. 457 su 2.148 comuni svizzeri coperti. Fonte: ElCom open data.',
+    map_search_placeholder: 'Cerca comune…',
+    map_search_empty: 'Nessun comune trovato',
+    map_search_pro_only: 'La ricerca comune è una funzione Pro',
+    map_muni_no_tariff: 'Nessuna tariffa dinamica in questo comune',
+    map_muni_suggest_now: 'Momento più economico ora',
+    map_muni_avoid_now: 'Costoso ora — sposta i carichi',
+    map_muni_how_title: 'Come funziona la tariffazione dinamica',
+    map_muni_open_smart: 'Apri in Smart',
+    map_muni_open_data: 'Apri in Data',
+    map_muni_compared: 'vs. altri fornitori oggi',
     api_view_subtitle: 'REST \u00b7 timestamp UTC \u00b7 intervalli 15 min \u00b7 CHF/kWh \u00b7 conforme alla spec T-Swiss',
     api_tariffs_section_desc: 'Elenca tutte le tariffe disponibili con metadati. Nessun parametro richiesto.',
     api_prices_section_desc: 'Restituisce le serie temporali dei prezzi netti per kWh \u2014 energia, rete e residuo \u2014 in slot UTC da 15 min.',
@@ -3154,6 +3483,11 @@ const T = {
     gate_suspended_msg: 'La tua chiave API è stata sospesa. Contatta il supporto.',
     gate_revoked_msg: 'La tua chiave API è stata revocata.',
     gate_ratelimit_msg: 'Limite giornaliero raggiunto. Reset a mezzanotte CET.',
+    gate_session_invalid_msg: 'Accesso effettuato da un altro dispositivo. Accedi di nuovo.',
+    device_conflict_title: 'Già connesso su un altro dispositivo',
+    device_conflict_body: 'Il tuo account è attivo su un altro dispositivo. Proseguendo, quel dispositivo verrà disconnesso immediatamente.',
+    device_conflict_cancel: 'Annulla',
+    device_conflict_confirm: 'Accedi qui',
     susp_banner_title: 'Chiave temporaneamente sospesa',
     susp_banner_sub: 'Ti \u00e8 stata inviata un\u2019email con i dettagli. Contatta il supporto per ulteriori informazioni.',
     susp_banner_contact: 'Contatta il supporto',
@@ -3167,7 +3501,8 @@ const T = {
     home_hero_title:     "Prezzi dell'elettricità svizzera <em>in tempo reale</em>",
     home_hero_sub:       'Swiss Tariff Hub aggrega i prezzi dinamici di 9 fornitori svizzeri (EVU) in un’unica API normalizzata — aggiornata ogni giorno, in formato UTC a intervalli di 15 minuti.',
     home_cta_api:        "Accedi all'API →",
-    home_cta_data:       'Esplora i dati',
+    home_cta_data:       'Esplora i dati →',
+    home_preview_label:  'Anteprima live',
     home_stat_evus:      'Fornitori (EVU) attivi',
     home_stat_slots:     'Slot al giorno (15 min)',
     home_stat_tz:        'Timezone normalizzata',
@@ -3196,20 +3531,25 @@ const T = {
     home_plan_free_desc: 'Per sviluppatori e uso personale. Nessuna carta richiesta.',
     home_plan_pro_desc:  'Per aziende, aggregatori e sistemi di automazione energetica.',
     home_plan_free_btn:  'Richiedi accesso gratuito',
-    pf_free_1: '100 richieste / giorno',
-    pf_free_2: 'Prezzi oggi e domani',
-    pf_free_3: 'Summary giornaliero (2 giorni)',
-    pf_free_4: 'Smart view e /api/v1/latest',
-    pf_pro_1: '2000 richieste / giorno',
-    pf_pro_2: 'Storico illimitato',
-    pf_pro_3: '/prices/all — tutte le tariffe',
-    pf_pro_4: 'Summary mensile e /metrics',
-    pf_pro_5: 'Rate limit 30 req/min',
-    pf_pro_6: 'Supporto prioritario',
+    pf_free_1: '1 tariffa a scelta (permanente)',
+    pf_free_2: 'Prezzi di oggi — 96 slot',
+    pf_free_3: 'Smart view per la tua tariffa',
+    pf_free_4: 'Mappa interattiva (tua zona)',
+    pf_free_5: '100 richieste API / giorno',
+    pf_pro_1: 'Tutte le 9+ tariffe contemporaneamente',
+    pf_pro_2: 'Storico completo',
+    pf_pro_3: 'Smart view — tutte le tariffe',
+    pf_pro_4: 'Mappa interattiva — tutte le zone',
+    pf_pro_5: '2 000 requêtes API / jour',
+    pf_pro_6: 'Summary mensile e /metrics',
+    pf_pro_7: 'Supporto prioritario',
     smart_compare_lock_title: 'Accesso richiesto',
     smart_lock_title: 'Accedi per vedere i segnali live',
     smart_lock_sub: 'Accedi con la tua API key per vedere le ore migliori, il segnale prezzo e il profilo giornaliero.',
     smart_lock_btn: 'Accedi →',
+    smart_tariff_lock_title: 'Funzione Pro',
+    smart_tariff_lock_sub: 'Passa a Pro per accedere ai dati Smart di tutte le tariffe.',
+    smart_tariff_lock_btn: 'Passa a Pro ⚡',
     dv_slot_lock_title: 'Accedi per ispezionare gli slot',
     dv_slot_lock_sub: 'Accedi con la tua API key per ispezionare i singoli slot di 15 minuti.',
     dv_slot_lock_btn: 'Accedi →',
@@ -3221,10 +3561,11 @@ const T = {
     day_lock_tip: 'Accedi per vedere i giorni passati',
     smart_compare_lock_sub: 'Accedi con la tua API key per confrontare tutte le tariffe svizzere.',
     smart_compare_lock_btn: 'Accedi →',
-    home_plan_pro_btn:   'Contatta per Pro →',
+    home_plan_pro_btn:   'Passa a Pro ⚡',
     home_plan_recommended: 'Consigliato',
     home_auth_label:     'Accesso',
     home_auth_title:     'Inizia subito',
+    home_auth_placeholder: 'stk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
     home_auth_sub:       'Hai già una API key? Accedi per visualizzare i tuoi dati di utilizzo e testare gli endpoint direttamente dalla dashboard.',
     home_auth_box_title: 'Accedi con la tua API key',
     home_auth_box_sub:   'Inserisci la tua API key per accedere alla dashboard completa.',
@@ -3288,7 +3629,14 @@ const T = {
     um_gate_register:    'Crea account gratuito →',
     um_gate_login:       'Hai già una key? Accedi',
     ftm_title:           'Scegli la tua tariffa predefinita',
-    ftm_sub:             'Piano free: scegli l\u2019unica tariffa che ti serve. Potrai cambiarla in seguito dal tuo account.',
+    ftm_sub:             'Piano free: scegli l\u2019unica tariffa che ti serve.',
+    ftm_irreversible_warning: 'Questa scelta \u00e8 definitiva e non pu\u00f2 essere modificata.',
+    ftm_confirm2_title:          'Sei sicuro?',
+    ftm_confirm2_sub:            'Stai per bloccare definitivamente la scelta della tariffa. Questa azione non pu\u00f2 essere annullata.',
+    ftm_confirm2_yes:            'S\u00ec, conferma definitivamente',
+    ftm_confirm2_back:           '\u2190 Torna indietro',
+    no_tariff_gate_title:        'Scegli prima la tua tariffa',
+    no_tariff_gate_sub:          'Seleziona una tariffa per sbloccare tutti i dati del piano free.',
     ftm_confirm:         'Conferma scelta',
     ftm_skip:            'Salta per ora',
     um_method_title:     'Metodo di pagamento',
@@ -3353,16 +3701,14 @@ function setLang(l) {
       btn.style.borderColor= lc === l ? 'rgba(255,255,255,.15)' : 'transparent';
     }
   });
-  // Evidenzia nel dropdown utente
-  ['en','de','fr','it'].forEach(lc => {
-    const btn = document.getElementById('dd-lang-' + lc);
-    if (btn) {
-      btn.style.background  = lc === l ? 'rgba(255,255,255,.1)' : 'transparent';
-      btn.style.color       = lc === l ? 'white' : 'rgba(255,255,255,.55)';
-      btn.style.borderColor = lc === l ? 'rgba(255,255,255,.15)' : 'transparent';
-    }
-  });
+
   // data-i18n → textContent (salta elementi con figli HTML complessi)
+  // Aggiorna placeholder (data-i18n-placeholder)
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    const val = t(key);
+    if (val) el.placeholder = val;
+  });
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const val = t(el.getAttribute('data-i18n'));
     if (!val) return;
@@ -3464,7 +3810,9 @@ function fmtShort(v) { return v.toFixed(1) + ' Rp'; }
 // Gli endpoint /api/v1/* usano invece X-API-Key dell'utente loggato
 const _DS = '{{ dashboard_secret }}';
 async function _ifetch(path, opts) {
-  return fetch(path, { ...opts, headers: { ...(opts?.headers||{}), 'X-Dashboard-Secret': _DS } });
+  const headers = { ...(opts?.headers || {}), 'X-Dashboard-Secret': _DS };
+  if (_apiKeyRaw) headers['X-API-Key'] = _apiKeyRaw;
+  return fetch(path, { ...opts, headers });
 }
 // Helper per fetch API utente (endpoint /api/v1/* protetti da API key)
 async function _apifetch(path, opts) {
@@ -3499,6 +3847,10 @@ async function loadHealth() {
   const scnt = document.getElementById('header-status-count');
   if (sdot) { sdot.style.background = okCount > 0 ? '#34d399' : '#f87171'; sdot.style.boxShadow = okCount > 0 ? '0 0 8px #34d399' : 'none'; }
   if (scnt) scnt.textContent = okCount;
+  const _lc = document.getElementById('h-live-count');
+  if (_lc) _lc.textContent = okCount + '/' + lastHealthData.length;
+  const _ld = document.getElementById('h-live-dot');
+  if (_ld) { _ld.style.background = okCount > 0 ? '#34d399' : '#f87171'; _ld.style.boxShadow = okCount > 0 ? '0 0 6px #34d399' : 'none'; }
   document.getElementById('m-total').textContent = lastHealthData.length;
   document.getElementById('m-total-sub').textContent = okCount + ' ' + t('with_prices_today');
   renderStatusList(lastHealthData);
@@ -3538,21 +3890,41 @@ function _getUserPlan() {
   return (_apiUserInfo?.plan || 'free');
 }
 
+// Tariffa sbloccata per l'utente: free_tariff_id per free, prima per tutti gli altri
+function _getFreeTariffId() {
+  if (_getUserPlan() === 'free' && _apiUserInfo?.free_tariff_id)
+    return _apiUserInfo.free_tariff_id;
+  return (_allTariffs[0] && _allTariffs[0].tariff_id) || null;
+}
+
 function _buildTariffSelect(tariffs) {
   const sel = document.getElementById('tariff-select');
   if (!sel) return;
-  const plan = _getUserPlan();
-  // guest: prime 2 libere, resto disabled
-  // free: tutte visibili ma slot lock sulla 2a+
-  // pro: tutto libero
-  sel.innerHTML = tariffs.map((t, i) => {
+  const plan         = _getUserPlan();
+  const freeTariffId = _getFreeTariffId();
+
+  // Per free: metti la tariffa scelta per prima
+  let ordered = tariffs;
+  if (plan === 'free' && freeTariffId) {
+    const chosen = tariffs.find(t => t.tariff_id === freeTariffId);
+    const rest   = tariffs.filter(t => t.tariff_id !== freeTariffId);
+    if (chosen) ordered = [chosen, ...rest];
+  }
+
+  sel.innerHTML = ordered.map((t, i) => {
+    // Solo guest ha opzioni disabled nel select
     const locked = plan === 'guest' && i >= 2;
     const lockLabel = locked ? ' 🔒' : '';
     return `<option value="${t.tariff_id}" ${locked ? 'disabled' : ''} title="${t.provider_name} — ${t.tariff_name}">${shortTariffLabel(t.provider_name, t.tariff_name, t.tariff_id)}${lockLabel}</option>`;
   }).join('');
-  // Seleziona prima disponibile
-  const first = tariffs.find((_, i) => !(plan === 'guest' && i >= 2));
-  if (first) sel.value = first.tariff_id;
+
+  // Seleziona la tariffa corretta
+  if (plan === 'free' && freeTariffId) {
+    sel.value = freeTariffId;
+  } else {
+    const first = ordered.find((_, i) => !(plan === 'guest' && i >= 2));
+    if (first) sel.value = first.tariff_id;
+  }
 }
 
 let _allTariffs = [];
@@ -3560,6 +3932,16 @@ let _allTariffs = [];
 async function onTariffChange() {
   const tariffId = document.getElementById('tariff-select').value;
   if (!tariffId) return;
+  // Gate: free senza tariffa scelta
+  if (_needsTariffChoice()) {
+    const ph = document.getElementById('chart-placeholder');
+    const canvas = document.getElementById('priceChart');
+    if (canvas) canvas.style.display = 'none';
+    if (ph) { ph.style.display = 'flex'; _showNoTariffGate('chart-placeholder'); }
+    document.getElementById('day-btns').innerHTML = '';
+    const sc = document.getElementById('slot-panel-content'); if (sc) sc.innerHTML = '';
+    return;
+  }
   // Blocca se non loggato e tariffa fuori dalle prime 2
   const plan = _getUserPlan();
   if (plan === 'guest') {
@@ -3605,7 +3987,7 @@ async function loadDaySummary(tariffId) {
   }
   dailySummary = await r.json();
   const _plan    = _getUserPlan();
-  const _firstId = _allTariffs[0]?.tariff_id;
+  const _firstId = _getFreeTariffId();
   const _isFirst = tariffId === _firstId;
   // Blocca giorni passati se: guest (sempre), free su tariffa ≥2
   const _lockPast = _plan === 'guest' || (_plan === 'free' && !_isFirst);
@@ -3720,8 +4102,25 @@ async function loadDayChart(tariffId, dateStr) {
   activeDate = dateStr;
   const placeholder = document.getElementById('chart-placeholder');
   const canvas = document.getElementById('priceChart');
-  const r = await _ifetch(`/internal/prices/all?start_time=${dateStr}T00:00:00Z`);
+  const r = await _ifetch(`/internal/prices/all?start_time=${dateStr}T00:00:00Z&tariff_id=${encodeURIComponent(tariffId)}`);
   if (!r.ok) {
+    // 403 = giorno bloccato per piano — mostra lock visivo invece di "no data"
+    if (r.status === 403) {
+      canvas.style.display = 'none'; placeholder.style.display = 'flex';
+      placeholder.innerHTML = `<div style="text-align:center;padding:20px">
+        <div style="font-size:28px;margin-bottom:10px">\uD83D\uDD12</div>
+        <div style="font-size:13px;font-weight:600;color:#1a1a2e;margin-bottom:4px">${t('day_lock_tip')||'Upgrade to Pro for historical data'}</div>
+        <div style="font-size:11px;color:#aaa">${dateStr}</div>
+      </div>`;
+      // Slot panel: svuota senza messaggio hover
+      const sc = document.getElementById('slot-panel-content');
+      if (sc) sc.innerHTML = '';
+      _updateDvSlotAccess(tariffId);
+      document.getElementById('series-toggles').style.display = 'none';
+      ['m-min','m-max','m-date'].forEach(id => document.getElementById(id).textContent = '\u2014');
+      ['m-min-sub','m-max-sub','m-slots'].forEach(id => document.getElementById(id).textContent = '');
+      return;
+    }
     canvas.style.display = 'none'; placeholder.style.display = 'flex';
     placeholder.innerHTML = `<div style="text-align:center">
       <svg width="220" height="80" viewBox="0 0 220 80" style="opacity:.12;display:block;margin:0 auto 12px">
@@ -3730,9 +4129,6 @@ async function loadDayChart(tariffId, dateStr) {
       </svg>
       <div style="font-size:14px;font-weight:500;color:#999;margin-bottom:4px">${t('no_data_today')}</div>
       <div style="font-size:11px;color:#bbb">${dateStr}</div></div>`;
-    document.getElementById('slot-panel').style.display = 'none';
-    document.getElementById('slot-panel-empty').textContent = t('hover_chart');
-    document.getElementById('slot-panel-empty').style.display = 'block';
     document.getElementById('series-toggles').style.display = 'none';
     ['m-min','m-max','m-date'].forEach(id => document.getElementById(id).textContent = '\u2014');
     ['m-min-sub','m-max-sub','m-slots'].forEach(id => document.getElementById(id).textContent = '');
@@ -3822,7 +4218,7 @@ async function loadDayChart(tariffId, dateStr) {
     if (plan === 'guest') return;
     // free: hover solo sulla prima tariffa
     if (plan === 'free') {
-      const firstId = _allTariffs[0]?.tariff_id;
+      const firstId = _getFreeTariffId();
       if (activeTariff !== firstId) return;
     }
     const pts = chart.getElementsAtEventForMode(e,'index',{intersect:false},true);
@@ -3837,7 +4233,7 @@ function _getChartCursor() {
   const plan = _getUserPlan();
   if (plan === 'guest') return 'default';
   if (plan === 'free') {
-    const firstId = _allTariffs[0]?.tariff_id;
+    const firstId = _getFreeTariffId();
     return activeTariff === firstId ? 'crosshair' : 'default';
   }
   return 'crosshair';
@@ -3845,17 +4241,15 @@ function _getChartCursor() {
 
 function _isChartInteractive() {
   const plan = _getUserPlan();
-  if (plan === 'guest') return false;
-  if (plan === 'pro')   return true;
-  // free: solo prima tariffa
-  const firstId = _allTariffs[0]?.tariff_id;
-  return activeTariff === firstId;
+  if (plan === 'pro') return true;
+  // guest e free: hover solo sulla tariffa accessibile (prima / propria)
+  return activeTariff === _getFreeTariffId();
 }
 
 // ── Monthly ───────────────────────────────────────────────────────────────────
 async function loadMonthly(tariffId) {
   const plan    = _getUserPlan();
-  const firstId = _allTariffs[0]?.tariff_id;
+  const firstId = _getFreeTariffId();
   const isFirst = tariffId === firstId;
   const grid    = document.getElementById('month-grid');
   const overlay = document.getElementById('monthly-lock-overlay');
@@ -3941,6 +4335,494 @@ function buildMapLegend() {
   `<div class="map-legend-item"><div class="map-legend-dot" style="background:#cccccc"></div>${t('map_no_tariff')}</div>`;
 }
 
+// ── Map Search (PRO only) ────────────────────────────────────────────────────
+
+let _mapSearchIdx = -1;
+let _mapSearchResults = [];
+
+let _mapProVerified = false;  // gate server-side, non manipolabile da _getUserPlan
+async function _mapSearchVisible() {
+  const active  = document.getElementById('map-search-active');
+  const teaser  = document.getElementById('map-search-teaser');
+  if (!active || !teaser) return;
+  // Verifica reale lato server
+  _mapProVerified = false;
+  if (_apiKeyRaw) {
+    try {
+      const vr = await _ifetch('/internal/verify-pro').then(r => r.json());
+      _mapProVerified = !!vr.pro;
+    } catch(e) { _mapProVerified = false; }
+  }
+  if (_mapProVerified) {
+    active.style.display  = 'block';
+    teaser.style.display  = 'none';
+    const inp = document.getElementById('map-search-input');
+    if (inp) inp.placeholder = t('map_search_placeholder') || 'Search municipality…';
+  } else if (_apiSessionToken) {
+    active.style.display  = 'none';
+    teaser.style.display  = 'block';
+  } else {
+    active.style.display  = 'none';
+    teaser.style.display  = 'none';
+  }
+}
+
+function mapSearchInput(val) {
+  if (!_mapProVerified) return;
+  const clear = document.getElementById('map-search-clear');
+  const dd    = document.getElementById('map-search-dropdown');
+  if (clear) clear.style.display = val ? 'flex' : 'none';
+  if (!val.trim()) { dd.style.display = 'none'; _mapSearchResults = []; return; }
+
+  const q = val.trim().toLowerCase();
+  _mapSearchResults = Object.entries(BFS_NAMES)
+    .filter(([, name]) => name && name.toLowerCase().includes(q))
+    .sort(([, a], [, b]) => {
+      const aS = a.toLowerCase().startsWith(q) ? 0 : 1;
+      const bS = b.toLowerCase().startsWith(q) ? 0 : 1;
+      return aS - bS || a.localeCompare(b);
+    })
+    .slice(0, 8)
+    .map(([id, name]) => ({ id, name, info: MAP_BFS[id] || null }));
+
+  if (!_mapSearchResults.length) {
+    dd.style.display = 'block';
+    dd.innerHTML = `<div class="msd-empty">${t('map_search_empty') || 'No municipality found'}</div>`;
+    return;
+  }
+  _mapSearchIdx = -1;
+  dd.style.display = 'block';
+  dd.innerHTML = _mapSearchResults.map((r, i) => {
+    const color = r.info?.color || '#ccc';
+    const prov  = r.info ? r.info.label.split('\u2013')[0].trim() : '\u2014';
+    return `<div class="msd-item" data-idx="${i}" onclick="mapSearchSelect(${i})">
+      <span class="msd-dot" style="background:${color}"></span>
+      <span class="msd-name">${r.name}</span>
+      <span class="msd-provider">${prov}</span>
+    </div>`;
+  }).join('');
+}
+
+function mapSearchKeydown(e) {
+  const items = document.querySelectorAll('.msd-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _mapSearchIdx = Math.min(_mapSearchIdx + 1, items.length - 1);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _mapSearchIdx = Math.max(_mapSearchIdx - 1, -1);
+  } else if (e.key === 'Enter' && _mapSearchIdx >= 0) {
+    e.preventDefault(); mapSearchSelect(_mapSearchIdx); return;
+  } else if (e.key === 'Escape') {
+    mapSearchClear(); return;
+  }
+  items.forEach((el, i) => el.classList.toggle('active', i === _mapSearchIdx));
+}
+
+function mapSearchSelect(idx) {
+  const r = _mapSearchResults[idx];
+  if (!r) return;
+  const inp = document.getElementById('map-search-input');
+  if (inp) inp.value = r.name;
+  document.getElementById('map-search-dropdown').style.display = 'none';
+  document.getElementById('map-search-clear').style.display = 'flex';
+  openMuniModal(r.id, r.name, r.info);
+}
+
+function mapSearchClear() {
+  const inp = document.getElementById('map-search-input');
+  const dd  = document.getElementById('map-search-dropdown');
+  const cl  = document.getElementById('map-search-clear');
+  if (inp) inp.value = '';
+  if (dd)  dd.style.display = 'none';
+  if (cl)  cl.style.display = 'none';
+  _mapSearchResults = []; _mapSearchIdx = -1;
+}
+
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('map-search-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const dd = document.getElementById('map-search-dropdown');
+    if (dd) dd.style.display = 'none';
+  }
+  const bg = document.getElementById('map-muni-modal-bg');
+  if (bg && e.target === bg) closeMuniModal();
+});
+
+// ── Modal PRO comune ──────────────────────────────────────────────────────────
+
+const PROVIDER_TO_TARIFF_ID = {
+  ckw:    'ckw_home_dynamic',
+  ekz:    'ekz_energie_dynamisch_netz_400d',
+  ekze:   'ekz_einsiedeln_energie_dynamisch_netz_400d',
+  groupe: 'groupe_e_vario',
+  primeo: 'primeo_netzdynamisch',
+  avag:   'avag_primeo_netzdynamisch',
+  elag:   'elag_primeo_netzdynamisch',
+  ail:    'ail_tariffa_dinamica',
+  aem:    'aem_tariffa_dinamica',
+  ega:    'ega_einheitstarif_netz_dynamisch',
+};
+
+const MMM_HOW = {
+  en: [
+    'Your smart meter reports consumption every 15 min to the grid operator.',
+    'The energy price per slot is set the day before by your provider based on market signals (e.g. EPEX spot).',
+    'Your bill = energy price \u00d7 consumption for each 15-min slot, summed over the month.',
+    'Shift heavy loads (dishwasher, EV charging, heat pump) to low-price slots to save money.',
+  ],
+  de: [
+    'Ihr Smart Meter \u00fcbermittelt den Verbrauch alle 15 Min. an den Netzbetreiber.',
+    'Der Energiepreis pro Slot wird vom Anbieter am Vortag anhand von Marktsignalen festgelegt (z.B. EPEX Spot).',
+    'Ihre Rechnung = Energiepreis \u00d7 Verbrauch pro 15-Min-Slot, summiert \u00fcber den Monat.',
+    'Verlagern Sie Gro\u00dfverbraucher (Geschirrsp\u00fcler, E-Auto, W\u00e4rmepumpe) in g\u00fcnstige Slots.',
+  ],
+  fr: [
+    'Votre compteur intelligent transmet la consommation toutes les 15 min au gestionnaire de r\u00e9seau.',
+    "Le prix de l\u2019\u00e9nergie par plage est fix\u00e9 la veille par votre fournisseur selon les signaux du march\u00e9 (ex. EPEX spot).",
+    'Votre facture = prix \u00d7 consommation par plage de 15 min, cumul\u00e9 sur le mois.',
+    "D\u00e9placez les gros consommateurs (lave-vaisselle, recharge VE, pompe \u00e0 chaleur) vers les plages les moins ch\u00e8res.",
+  ],
+  it: [
+    'Il vostro contatore intelligente trasmette il consumo ogni 15 min al gestore di rete.',
+    "Il prezzo dell\u2019energia per slot viene fissato il giorno prima dal fornitore sulla base dei segnali di mercato (es. EPEX spot).",
+    'La vostra bolletta = prezzo \u00d7 consumo per ogni slot da 15 min, sommato sul mese.',
+    'Spostate i carichi pesanti (lavastoviglie, ricarica EV, pompa di calore) negli slot a basso prezzo.',
+  ],
+};
+
+async function openMuniModal(bfsId, name, info) {
+  // Gate server-side
+  const plan = _getUserPlan();
+  if (!_apiSessionToken) return;  // guest: mai
+  if (plan !== 'pro') {
+    // Free: solo comuni della propria tariffa
+    const fpk = _getFreeProviderKey();
+    if (!info || info.id !== fpk) return;
+  } else {
+    // Pro: verifica server-side
+    try {
+      const vr = await _ifetch('/internal/verify-pro').then(r => r.json());
+      if (!vr.pro) return;
+    } catch(e) { return; }
+  }
+
+  const bg = document.getElementById('map-muni-modal-bg');
+  if (!bg) return;
+  bg.classList.add('open');
+
+  // Label grafico localizzato
+  const chartLbl = document.getElementById('mmm-chart-label');
+  if (chartLbl) chartLbl.textContent = {
+    en:'Today\'s price profile', de:'Heutiges Preisprofil',
+    fr:'Profil de prix d\'aujourd\'hui', it:'Profilo prezzi di oggi'
+  }[lang] || 'Today\'s price profile';
+
+  // Reset
+  ['mmm-stats','mmm-chart','mmm-tariff-info','mmm-how','mmm-actions',
+   'mmm-recommend','mmm-compare'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '';
+  });
+  const chart = document.getElementById('mmm-chart');
+  if (chart) chart.style.display = 'block';
+  if (chartLbl) chartLbl.style.display = 'block';
+
+  // Header
+  document.getElementById('mmm-name').textContent = name;
+  const tariffId = info ? PROVIDER_TO_TARIFF_ID[info.id] : null;
+  const tariffObj = tariffId ? (_allTariffs.find(tt => tt.tariff_id === tariffId) || {}) : {};
+  document.getElementById('mmm-sub').textContent =
+    info ? `BFS ${bfsId} \u00b7 ${tariffObj.provider_name || info.label.split('\u2013')[0].trim()}`
+         : `BFS ${bfsId} \u00b7 ${t('map_muni_no_tariff') || 'No dynamic tariff'}`;
+
+  // Provider pill
+  const pill = document.getElementById('mmm-provider-pill');
+  if (info) {
+    pill.style.cssText = `display:inline-flex;align-items:center;gap:7px;padding:5px 12px;
+      border-radius:99px;font-size:11px;font-weight:600;margin-bottom:16px;
+      background:${info.color}22;color:${info.color};border:1px solid ${info.color}55`;
+    pill.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:${info.color};flex-shrink:0"></span>${tariffObj.tariff_name || info.label}`;
+  } else {
+    pill.style.cssText = 'display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:99px;font-size:11px;font-weight:600;margin-bottom:16px;background:#f2f2f4;color:#aaa;border:1px solid #e0e0e0';
+    pill.textContent = t('map_muni_no_tariff') || 'No dynamic tariff';
+  }
+
+  if (!info || !tariffId) {
+    document.getElementById('mmm-stats').innerHTML =
+      `<div style="grid-column:1/-1;text-align:center;padding:16px;font-size:13px;color:#aaa">
+        ${t('map_muni_no_tariff') || 'No dynamic tariff available for this municipality.'}
+      </div>`;
+    if (chart) chart.style.display = 'none';
+    if (chartLbl) chartLbl.style.display = 'none';
+    _buildMuniHow();
+    return;
+  }
+
+  // Loading
+  document.getElementById('mmm-stats').innerHTML =
+    `<div style="grid-column:1/-1;text-align:center;padding:20px">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"
+           style="animation:spin .8s linear infinite;display:inline-block;vertical-align:middle">
+        <circle cx="10" cy="10" r="8" stroke="#e8e8e8" stroke-width="2.5"/>
+        <path d="M10 2a8 8 0 018 8" stroke="#185fa5" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>`;
+
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const raw = await _ifetch(`/internal/prices/all?start_time=${today}T00:00:00Z&tariff_id=${encodeURIComponent(tariffId)}`)
+      .then(r => r.json()).catch(() => null);
+
+    if (!raw || !raw.tariffs) throw new Error('no data');
+
+    const tariffData = raw.tariffs[tariffId];
+    if (!tariffData) throw new Error('no tariff data');
+
+    // Estrai serie energy+grid+residual e somma in totale per slot
+    // Formato API: [{ts: value}, ...] dove ogni elemento e' {timestamp_iso: prezzo}
+    const _ext = series => {
+      if (!series) return [];
+      return series.map(s => {
+        if (typeof s.value === 'number') return s.value;
+        const v = Object.values(s)[0];
+        return typeof v === 'number' ? v : null;
+      });
+    };
+    const _tsKeys = series => {
+      if (!series || !series.length) return [];
+      const first = series[0];
+      if (typeof first.start_time === 'string') return series.map(s => s.start_time);
+      return series.map(s => Object.keys(s)[0]);
+    };
+    const gridVals     = _ext(tariffData.grid_price_utc);
+    const energyVals   = _ext(tariffData.energy_price_utc);
+    const residualVals = _ext(tariffData.residual_price_utc);
+    const labels       = _tsKeys(tariffData.energy_price_utc || tariffData.grid_price_utc || []);
+    const n = labels.length;
+    if (!n) throw new Error('no slots');
+
+    const prices = Array.from({length: n}, (_, i) =>
+      (gridVals[i] || 0) + (energyVals[i] || 0) + (residualVals[i] || 0)
+    );
+
+    const validP = prices.filter(v => v > 0);
+    if (!validP.length) throw new Error('no prices');
+
+    const minP = Math.min(...validP);
+    const maxP = Math.max(...prices);
+    const avgP = validP.reduce((a, b) => a + b, 0) / validP.length;
+
+    // Slot corrente
+    const nowUtc  = new Date();
+    const slotMs  = Math.floor(nowUtc / 9e5) * 9e5;
+    const nowIso  = new Date(slotMs).toISOString().replace('.000', '');
+    const nowIdx  = labels.findIndex(l => l === nowIso || l === nowIso + 'Z' ||
+                                          l.startsWith(nowIso.slice(0, 16)));
+    const nowP    = nowIdx >= 0 ? prices[nowIdx] : prices[Math.floor(n / 2)];
+
+    // Prossimo slot conveniente (< 33° percentile)
+    const p33       = minP + (maxP - minP) * 0.33;
+    const refIdx    = nowIdx >= 0 ? nowIdx : Math.floor(n / 2);
+    const cheapNext = prices
+      .map((p, i) => ({p, i}))
+      .filter(x => x.i > refIdx && x.p <= p33)[0] || null;
+
+    // Raccomandazione
+    const recommend = document.getElementById('mmm-recommend');
+    if (recommend) {
+      const isCheap     = nowP <= p33;
+      const isExpensive = nowP >= minP + (maxP - minP) * 0.66;
+      const color = isCheap ? '#1d9e75' : isExpensive ? '#e74c3c' : '#f59e0b';
+      const icon  = isCheap ? '\u26a1' : isExpensive ? '\u26a0\ufe0f' : '\u23f1\ufe0f';
+      let msg;
+      if (isCheap)         msg = t('map_muni_suggest_now') || 'Cheap now \u2014 good time to use energy';
+      else if (isExpensive) msg = t('map_muni_avoid_now')  || 'Expensive now \u2014 consider shifting load';
+      else {
+        const mins = cheapNext ? (cheapNext.i - refIdx) * 15 : null;
+        msg = mins != null
+          ? `Next cheap slot in ~${mins >= 60 ? Math.floor(mins/60)+'h '+(mins%60)+'min' : mins+'min'}`
+          : 'Moderate price now';
+      }
+      recommend.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+             background:${color}15;border:1px solid ${color}35;border-radius:10px;
+             font-size:12px;font-weight:600;color:${color};margin-bottom:14px">
+          <span style="font-size:18px">${icon}</span><span>${msg}</span>
+        </div>`;
+    }
+
+    // Stats 4 celle
+    const fmt = v => (v * 100).toFixed(2);
+    document.getElementById('mmm-stats').innerHTML = `
+      <div class="mmm-stat">
+        <div class="mmm-stat-val now">${fmt(nowP)} <small>Rp</small></div>
+        <div class="mmm-stat-lbl">${t('now') || 'Now'}</div>
+      </div>
+      <div class="mmm-stat">
+        <div class="mmm-stat-val" style="color:#1d9e75">${fmt(minP)} <small>Rp</small></div>
+        <div class="mmm-stat-lbl">Min</div>
+      </div>
+      <div class="mmm-stat">
+        <div class="mmm-stat-val">${fmt(avgP)} <small>Rp</small></div>
+        <div class="mmm-stat-lbl">Avg</div>
+      </div>
+      <div class="mmm-stat">
+        <div class="mmm-stat-val" style="color:#e74c3c">${fmt(maxP)} <small>Rp</small></div>
+        <div class="mmm-stat-lbl">Max</div>
+      </div>`;
+
+    // Grafico SVG 96 slot
+    const svgEl = document.getElementById('mmm-chart');
+    const svgRects = prices.map((p, i) => {
+      const x    = (i / n * 960).toFixed(1);
+      const w    = Math.max(1, (960 / n - 0.5)).toFixed(1);
+      const norm = maxP > minP ? (p - minP) / (maxP - minP) : 0.5;
+      const h    = Math.max(4, Math.round(norm * 66));
+      const y    = 74 - h;
+      const col  = i === nowIdx ? '#185fa5'
+                 : norm < .33  ? '#1d9e75'
+                 : norm < .66  ? '#f59e0b' : '#e74c3c';
+      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${col}" opacity="${i===nowIdx?1:.78}" rx="1"/>`;
+    }).join('');
+    const timeLines = [0, 6, 12, 18, 23].map(h => {
+      const x = (h / 24 * 960).toFixed(1);
+      return `<line x1="${x}" y1="0" x2="${x}" y2="74" stroke="#e0e0e0" stroke-width="0.5"/>
+              <text x="${x}" y="82" font-size="8" fill="#bbb" text-anchor="middle">${String(h).padStart(2,'0')}:00</text>`;
+    }).join('');
+    svgEl.setAttribute('viewBox', '0 0 960 86');
+    svgEl.innerHTML = `<rect width="960" height="74" fill="#f8f9fa" rx="4"/>${svgRects}${timeLines}`;
+
+    // Confronto altri provider nello slot corrente
+    const compareEl = document.getElementById('mmm-compare');
+    if (compareEl && raw.tariffs) {
+      const nowLabel = labels[nowIdx >= 0 ? nowIdx : Math.floor(n/2)];
+      const comparisons = [];
+      Object.entries(raw.tariffs).forEach(([tid, td]) => {
+        const gv = (td.grid_price_utc     || []).find(s => s.start_time === nowLabel || s.start_time?.startsWith(nowLabel?.slice(0,16)));
+        const ev = (td.energy_price_utc   || []).find(s => s.start_time === nowLabel || s.start_time?.startsWith(nowLabel?.slice(0,16)));
+        const rv = (td.residual_price_utc || []).find(s => s.start_time === nowLabel || s.start_time?.startsWith(nowLabel?.slice(0,16)));
+        const total = (gv?.value || 0) + (ev?.value || 0) + (rv?.value || 0);
+        if (total > 0) {
+          const to = _allTariffs.find(t => t.tariff_id === tid);
+          comparisons.push({ tid, name: to ? shortTariffLabel(to.provider_name, to.tariff_name, tid) : tid, v: total });
+        }
+      });
+      comparisons.sort((a, b) => a.v - b.v);
+      if (comparisons.length > 1) {
+        const barMax  = Math.max(...comparisons.map(x => x.v));
+        const myRank  = comparisons.findIndex(x => x.tid === tariffId);
+        compareEl.innerHTML = `
+          <div class="mmm-section-title" style="margin-top:4px">${t('map_muni_compared') || 'vs. other providers now'}</div>
+          ${comparisons.map(x => {
+            const isMine = x.tid === tariffId;
+            const pct    = (x.v / barMax * 100).toFixed(0);
+            const col    = isMine ? (info?.color || '#185fa5') : '#d0d5e0';
+            return `<div style="margin-bottom:6px">
+              <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;
+                   font-weight:${isMine?700:400};color:${isMine?'#0d1117':'#888'}">
+                <span>${x.name}${isMine?' \u2605':''}</span>
+                <span>${(x.v*100).toFixed(2)} Rp</span>
+              </div>
+              <div style="height:5px;background:#f0f0f0;border-radius:3px;overflow:hidden">
+                <div style="height:100%;width:${pct}%;background:${col};border-radius:3px"></div>
+              </div>
+            </div>`;
+          }).join('')}
+          ${myRank >= 0 ? `<div style="font-size:10px;color:#aaa;margin-top:5px">
+            Rank #${myRank+1} of ${comparisons.length} providers at this hour</div>` : ''}`;
+      }
+    }
+
+    // Info tariffa
+    const infoEl = document.getElementById('mmm-tariff-info');
+    if (infoEl) {
+      infoEl.innerHTML = `
+        <div class="mmm-section-title">${t('tariff_details')||'Tariff details'}</div>
+        <div class="mmm-info-row">
+          <span class="mmm-info-lbl">${t('provider')||'Provider'}</span>
+          <span class="mmm-info-val">${tariffObj.provider_name||info.label.split('\u2013')[0].trim()}</span>
+        </div>
+        <div class="mmm-info-row">
+          <span class="mmm-info-lbl">${t('tariff')||'Tariff'}</span>
+          <span class="mmm-info-val">${tariffObj.tariff_name||'—'}</span>
+        </div>
+        <div class="mmm-info-row">
+          <span class="mmm-info-lbl">${t('resolution')||'Resolution'}</span>
+          <span class="mmm-info-val">15 min UTC</span>
+        </div>
+        <div class="mmm-info-row">
+          <span class="mmm-info-lbl">${t('unit')||'Unit'}</span>
+          <span class="mmm-info-val">CHF/kWh (excl. VAT)</span>
+        </div>
+        ${tariffObj.daily_update_time_utc ? `<div class="mmm-info-row">
+          <span class="mmm-info-lbl">${t('update_time')||'Published'}</span>
+          <span class="mmm-info-val">${tariffObj.daily_update_time_utc} UTC</span>
+        </div>` : ''}
+        <div class="mmm-info-row">
+          <span class="mmm-info-lbl">BFS ID</span>
+          <span class="mmm-info-val">${bfsId}</span>
+        </div>`;
+    }
+
+  } catch(e) {
+    document.getElementById('mmm-stats').innerHTML =
+      `<div style="grid-column:1/-1;font-size:12px;color:#e74c3c;text-align:center;padding:12px">
+        No price data available for today
+      </div>`;
+    if (chart) chart.style.display = 'none';
+    if (chartLbl) chartLbl.style.display = 'none';
+  }
+
+  _buildMuniHow();
+  _buildMuniActions(info, tariffId);
+}
+
+function _buildMuniHow() {
+  const l   = lang || 'en';
+  const how = MMM_HOW[l] || MMM_HOW.en;
+  const el  = document.getElementById('mmm-how');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="mmm-section-title" style="margin-top:4px">${t('map_muni_how_title')||'How dynamic pricing works'}</div>
+    ${how.map((step, i) => `
+      <div class="mmm-how-item">
+        <div class="mmm-how-num">${i+1}</div>
+        <div>${step}</div>
+      </div>`).join('')}`;
+}
+
+function _buildMuniActions(info, tariffId) {
+  const el = document.getElementById('mmm-actions');
+  if (!el || !tariffId) return;
+  el.innerHTML = `
+    <button class="mmm-action-btn primary" onclick="closeMuniModal();switchView('smart')">
+      ${t('map_muni_open_smart')||'Open in Smart'} \u2192
+    </button>
+    <button class="mmm-action-btn" onclick="closeMuniModal();_openDataWithTariff('${tariffId}')">
+      ${t('map_muni_open_data')||'Open in Data'} \u2192
+    </button>`;
+}
+
+function _openDataWithTariff(tariffId) {
+  switchView('data');
+  const sel = document.getElementById('tariff-select');
+  if (!sel) return;
+  const opt = Array.from(sel.options).find(o => o.value === tariffId);
+  if (opt && !opt.disabled) {
+    sel.value = tariffId;
+    onTariffChange();
+  }
+}
+
+function closeMuniModal() {
+  const bg = document.getElementById('map-muni-modal-bg');
+  if (bg) bg.classList.remove('open');
+  mapSearchClear();
+}
+
+
 function filterMap(filterId) {
   activeFilter = filterId;
   document.querySelectorAll('.map-filter-btn').forEach(b =>
@@ -3980,9 +4862,10 @@ async function loadMap() {
   try {
     await loadScript('https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js');
     await loadScript('https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js');
-    const [topo, zipMapResp] = await Promise.all([
+    const [topo, zipMapResp, muniNamesResp] = await Promise.all([
       fetch('https://unpkg.com/swiss-maps@4/2021/ch-combined.json').then(r => r.json()),
-      fetch('/api/v1/zip-map').then(r => r.json()).catch(() => ({}))
+      fetch('/api/v1/zip-map').then(r => r.json()).catch(() => ({})),
+      fetch('/api/v1/municipalities').then(r => r.json()).catch(() => ({})),
     ]);
     // ZIP_MAP: tariff_id -> { zip_display, zip_count }
     // MAP_BFS usa id come provider key (es. "ckw", "ekz") — costruiamo lookup provider_id -> zip_display
@@ -4017,40 +4900,62 @@ async function loadMap() {
       }
     });
     loadingEl.style.display = 'none';
-    const muni = topojson.feature(topo, topo.objects.municipalities);
-    // Costruisce lookup BFS_ID → nome comune dalla topologia stessa
-    // swiss-maps@4 usa 'name' come chiave principale nelle properties
-    BFS_NAMES = {};  // popola la variabile globale
+    const _topoKey = topo.objects?.municipalities ? 'municipalities'
+                   : topo.objects?.gemeinden      ? 'gemeinden'
+                   : Object.keys(topo.objects || {})[0];
+    const muni = topojson.feature(topo, topo.objects[_topoKey]);
+
+    // ── BFS_NAMES: 3 livelli ──────────────────────────────────────────────────
+    BFS_NAMES = {};
+
+    // Livello 1: properties del TopoJSON (swiss-maps@4 le ha vuote — verrà override)
     muni.features.forEach(f => {
-      const bfsId = String(f.id || f.properties?.id || f.properties?.BFS_NUMMER || '');
-      if (!bfsId) return;
-      // Prova tutte le varianti di chiave nome usate nelle diverse versioni della topologia
+      const id = String(f.id || f.properties?.id || f.properties?.BFS_NUMMER || '');
+      if (!id) return;
       const n = f.properties?.name || f.properties?.NAME || f.properties?.GEM_NAME
-             || f.properties?.GMDNAME || f.properties?.gemeindename
-             || f.properties?.Gemeindename || f.properties?.GEMNAME || '';
-      BFS_NAMES[bfsId] = n;
+             || f.properties?.GMDNAME || f.properties?.gemeindename || '';
+      if (n) BFS_NAMES[id] = n;
     });
-    // Debug: mostra quanti comuni hanno nome (console, non visibile all'utente)
-    const namedCount = Object.values(BFS_NAMES).filter(n => n).length;
-    const sampleFeature = muni.features[0];
-    console.log('[Map] Sample feature id:', sampleFeature?.id, 'properties:', JSON.stringify(sampleFeature?.properties));
-    console.log('[Map] BFS_NAMES: ' + Object.keys(BFS_NAMES).length + ' comuni, ' + namedCount + ' con nome');
-    // Se la topologia non ha nomi, carica da /api/v1/municipalities
-    if (namedCount === 0) {
-      console.warn('[Map] Nomi assenti nelle properties — carico da /api/v1/municipalities');
+
+    // Livello 2: API interna (479 comuni con tariffe — verificati)
+    Object.assign(BFS_NAMES, muniNamesResp);
+
+    // Livello 3: Swisstopo GeoAdmin API per i comuni ancora senza nome
+    const _missingIds = muni.features
+      .map(f => String(f.id || ''))
+      .filter(id => id && !BFS_NAMES[id]);
+
+    if (_missingIds.length > 0) {
       try {
-        const muniResp = await fetch('/api/v1/municipalities');
-        if (muniResp.ok) {
-          const muniData = await muniResp.json();
-          Object.assign(BFS_NAMES, muniData);
-          console.log('[Map] Caricati ' + Object.keys(muniData).length + ' nomi da API');
+        // Swisstopo API: cerca tutti i comuni per numero BFS
+        // L'API supporta max ~500 features per risposta, usiamo searchText wildcard
+        // e filtriamo lato client
+        const _swissResp = await fetch(
+          'https://api3.geo.admin.ch/rest/services/api/MapServer/find?' +
+          'layer=ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill' +
+          '&searchField=gemeindenummer&searchText=*' +
+          '&returnGeometry=false&lang=de&sr=4326',
+          { signal: AbortSignal.timeout(12000) }
+        ).then(r => r.ok ? r.json() : null).catch(() => null);
+
+        if (_swissResp?.results?.length) {
+          let loaded = 0;
+          _swissResp.results.forEach(r => {
+            const id   = String(r.attributes?.gemeindenummer || r.id || '');
+            const name = r.attributes?.gemeindename || r.attributes?.name || '';
+            if (id && name && !BFS_NAMES[id]) { BFS_NAMES[id] = name; loaded++; }
+          });
         }
-      } catch(e) { console.warn('[Map] Fallback API fallita:', e); }
+      } catch(e) { console.warn('[Map] Swisstopo non disponibile:', e.message); }
     }
+
+    const namedCount = Object.values(BFS_NAMES).filter(n => n).length;
     const W = container.clientWidth || 800;
-    const H = Math.round(W * 0.56);
+    const isMobile = window.innerWidth <= 1100;
+    const H = Math.round(W * (isMobile ? 0.75 : 0.56));
     svgEl.setAttribute('height', H);
     svgEl.style.height = H + 'px';
+    svgEl.style.touchAction = 'none';  // abilita D3 zoom su touch
     const proj = d3.geoIdentity().reflectY(true).fitSize([W, H], muni);
     const path = d3.geoPath().projection(proj);
     const svg  = d3.select('#map-svg');
@@ -4058,7 +4963,7 @@ async function loadMap() {
     // ── Zoom & Pan con d3.zoom ───────────────────────────────────────────
     const zoomG = svg.append('g').attr('class', 'zoom-layer');
     const zoom  = d3.zoom()
-      .scaleExtent([1, 12])
+      .scaleExtent([isMobile ? 0.5 : 1, 12])
       .on('zoom', (ev) => {
         zoomG.attr('transform', ev.transform);
       });
@@ -4068,11 +4973,13 @@ async function loadMap() {
     const resetBtn = document.createElement('button');
     resetBtn.textContent = '⊙';
     resetBtn.title = 'Reset zoom';
-    resetBtn.style.cssText = 'position:absolute;top:10px;right:10px;z-index:10;'
+    resetBtn.style.cssText = 'position:absolute;top:10px;right:10px;z-index:25;'
       + 'background:white;border:0.5px solid #ddd;border-radius:6px;'
       + 'padding:4px 8px;font-size:14px;cursor:pointer;color:#555;'
       + 'box-shadow:0 1px 4px rgba(0,0,0,.08);';
     resetBtn.onclick = () => svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity);
+    // Il bottone va nel parent del container (non dentro) così non viene coperto dall'overlay gate
+    container.style.position = 'relative';
     container.appendChild(resetBtn);
 
     zoomG.selectAll('path')
@@ -4116,19 +5023,99 @@ async function loadMap() {
       .on('click', (ev, d) => {
         ev.stopPropagation();
         const id   = String(d.id || d.properties?.id || '');
-        const info = MAP_BFS[id];
-        if (!info) return;  // comune senza provider — ignora click
-        if (!_apiSessionToken) return;  // non loggato — panel disabilitato
+        const info = MAP_BFS[id] || null;
+        const plan = _getUserPlan();
+        // Guest: non cliccabile
+        if (!_apiSessionToken) return;
+        // Pro: tutto cliccabile (gate server-side in openMuniModal)
+        // Free: solo i comuni della propria tariffa
+        if (plan !== 'pro') {
+          const freePKey = _getFreeProviderKey();
+          if (!info || info.id !== freePKey) return;
+        }
         const name = BFS_NAMES[id]
           || d.properties?.name || d.properties?.NAME || d.properties?.GEM_NAME || '';
         const displayName = name || (lang==='de'?'Gemeinde':lang==='fr'?'Commune':lang==='it'?'Comune':'Municipality') + ' ' + id;
-        openPricePanel(info, displayName, id);
+        openMuniModal(id, displayName, info);
       });
     mapPaths = Array.from(svgEl.querySelectorAll('.zoom-layer path'));
+    // Aggiorna cursore dei path in base al piano
+    await _mapSearchVisible();  // mostra search PRO o teaser free
+    _applyMapAccess();          // cursori + filtro sincrono
+    // Gate: free senza tariffa scelta
+    if (_needsTariffChoice()) {
+      const gate = document.createElement('div');
+      gate.id = 'map-tariff-gate';
+      gate.style.cssText = 'position:absolute;inset:0;background:rgba(255,255,255,.92);z-index:20;display:flex;align-items:center;justify-content:center';
+      const mapWrap = document.getElementById('map-wrap') || document.getElementById('map-svg')?.parentElement;
+      if (mapWrap && !document.getElementById('map-tariff-gate')) {
+        mapWrap.style.position = 'relative';
+        mapWrap.appendChild(gate);
+        _showNoTariffGate('map-tariff-gate');
+      }
+    }
   } catch(e) {
     loadingEl.textContent = 'Could not load map — check network connection.';
     console.error('Map load error:', e);
   }
+}
+
+// Helper: restituisce la provider key della tariffa free corrente
+function _getFreeProviderKey() {
+  const fid = _apiUserInfo?.free_tariff_id || null;
+  if (!fid) return null;
+  // CKW ha due tariffe (home/business) che mappano allo stesso provider key
+  if (fid === 'ckw_home_dynamic' || fid === 'ckw_business_dynamic') return 'ckw';
+  return Object.entries(PROVIDER_TO_TARIFF).find(([,v]) => v === fid)?.[0] || null;
+}
+
+// Aggiorna cursore dei path: not-allowed sui comuni non cliccabili per free
+function _updateMapCursors() {
+  if (!mapPaths.length) return;
+  const plan = _getUserPlan();
+  const fpk  = plan !== 'pro' ? _getFreeProviderKey() : null;
+  mapPaths.forEach(path => {
+    const info = MAP_BFS[path.dataset.bfs];
+    if (!_apiSessionToken) {
+      path.setAttribute('cursor', 'default');
+    } else if (plan === 'pro') {
+      path.setAttribute('cursor', 'pointer');
+    } else {
+      path.setAttribute('cursor', info && info.id === fpk ? 'pointer' : 'not-allowed');
+    }
+  });
+}
+
+// Applica accesso mappa (filtro + cursori) in base al piano corrente — sincrono
+function _applyMapAccess() {
+  const plan = _getUserPlan();
+  // Gestisci overlay gate mappa (anche senza mapPaths — mappa potrebbe non essere caricata)
+  const mapWrap = document.getElementById('map-svg-container');
+  let mapGate = document.getElementById('map-tariff-gate');
+  if (_apiSessionToken && plan !== 'pro' && _needsTariffChoice()) {
+    // Crea overlay se non esiste
+    if (!mapGate && mapWrap) {
+      mapWrap.style.position = 'relative';
+      mapGate = document.createElement('div');
+      mapGate.id = 'map-tariff-gate';
+      mapGate.style.cssText = 'position:absolute;inset:0;background:rgba(255,255,255,.92);z-index:20;display:flex;align-items:center;justify-content:center';
+      mapWrap.appendChild(mapGate);
+      _showNoTariffGate('map-tariff-gate');
+    }
+  } else {
+    // Rimuovi gate se non serve più
+    if (mapGate) mapGate.remove();
+  }
+  if (!mapPaths.length) return;
+  _updateMapCursors();
+  if (!_apiSessionToken) {
+    filterMap('all');
+  } else if (plan !== 'pro') {
+    if (_needsTariffChoice()) return;
+    const fpk = _getFreeProviderKey();
+    if (fpk) filterMap(fpk);
+  }
+  // Pro: mantiene il filtro attivo corrente
 }
 
 // \u2500\u2500 Map price panel \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -4183,7 +5170,7 @@ async function openPricePanel(info, comuneName, bfsId) {
   }
 
   try {
-    const resp = await _ifetch('/internal/prices/all?start_time=' + encodeURIComponent(new Date().toISOString().slice(0,10) + 'T00:00:00Z'));
+    const resp = await _ifetch('/internal/prices/all?start_time=' + encodeURIComponent(new Date().toISOString().slice(0,10) + 'T00:00:00Z') + '&tariff_id=' + encodeURIComponent(tariffId));
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const raw  = await resp.json();
     // Estrae i dati per la tariffa selezionata da {tariffs: {tariff_id: {...}}}
@@ -4378,44 +5365,130 @@ function switchView(view) {
 
 // ── Consumer view ─────────────────────────────────────────────────────────────
 async function loadSmart(dateStr) {
+  // Rimuovi gate esistente
+  const oldGate = document.getElementById('smart-tariff-gate');
+  if (oldGate) oldGate.remove();
+
+  // Gate: free senza tariffa scelta — overlay sopra il consumer-view, chiama cmq /smart per il compare
+  if (_needsTariffChoice()) {
+    // Overlay sopra tutto il consumer-view (come la mappa)
+    const consumerView = document.getElementById('smart-detail-wrap');
+    if (consumerView && !document.getElementById('smart-tariff-gate')) {
+      const gate = document.createElement('div');
+      gate.id = 'smart-tariff-gate';
+      gate.style.cssText = 'position:absolute;inset:0;background:rgba(255,255,255,.95);z-index:10;display:flex;align-items:flex-start;justify-content:center;padding-top:80px;border-radius:inherit';
+      consumerView.appendChild(gate);
+      _showNoTariffGate('smart-tariff-gate','text-align:center');
+    }
+    // Carica comunque i dati per il compare mensile (summary pubblico)
+    try {
+      const r2 = await _ifetch(`/internal/smart?date_str=${dateStr||'{{ today }}'}`);
+      if (r2.ok) { smartData = await r2.json(); renderSmartCompare(smartData.tariffs); }
+    } catch(e) {}
+    return;
+  }
   const r = await _ifetch(`/internal/smart?date_str=${dateStr||'{{ today }}'}`);
   if (!r.ok) return;
   smartData = await r.json();
-  const withData    = smartData.tariffs.filter(t => t.has_data);
-  const withoutData = smartData.tariffs.filter(t => !t.has_data && t.adapter_ready);
-  // Popola dropdown
-  const sel = document.getElementById('smart-tariff-select');
-  if (sel) {
-    sel.innerHTML =
-      withData.map(t =>
-        `<option value="${t.tariff_id}" title="${t.provider_name} — ${t.tariff_name}">${shortTariffLabel(t.provider_name, t.tariff_name, t.tariff_id)}</option>`
-      ).join('') +
-      (withoutData.length
-        ? `<optgroup label="No data today">` +
-          withoutData.map(t => `<option value="" disabled title="${t.provider_name} — ${t.tariff_name}">${shortTariffLabel(t.provider_name, t.tariff_name, t.tariff_id)}</option>`).join('') +
-          `</optgroup>`
-        : '');
-  }
-  // Prima aggiorna accesso (mostra/nasconde div loggato/skeleton)
+  _buildSmartSelect();
   _updateSmartAccess();
-  // Poi renderizza — i div sono già visibili
+  const withData = smartData.tariffs.filter(t => t.has_data);
   if (withData.length) {
-    activeSmartTariff = withData[0].tariff_id;
-    if (_apiSessionToken) renderSmartTariff(withData[0]);
+    const plan    = _getUserPlan();
+    // Usa free_tariff_id da _apiUserInfo (già popolato da sessionStorage al restore)
+    const freeTId = _getFreeTariffId();
+    const start = (plan !== 'pro' && freeTId && withData.find(t => t.tariff_id === freeTId))
+      ? withData.find(t => t.tariff_id === freeTId) : withData[0];
+    activeSmartTariff = start.tariff_id;
+    _buildSmartSelect();  // ricostruisce con la tariffa corretta in cima
+    const sel = document.getElementById('smart-tariff-select');
+    if (sel) sel.value = activeSmartTariff;
+    if (_apiSessionToken) renderSmartTariff(start);
   }
   renderSmartCompare(smartData.tariffs);
 }
 
-function selectSmartTariff(tariffId, btn) {
-  // legacy tab click — non più usata
+// Costruisce il select Smart: tariffa free in cima senza lock, le altre disabled con 🔒
+function _buildSmartSelect() {
+  const sel = document.getElementById('smart-tariff-select');
+  if (!sel || !smartData) return;
+  const freeTId   = _getFreeTariffId();
+  const plan      = _getUserPlan();
+  const withData  = smartData.tariffs.filter(t => t.has_data);
+  const noData    = smartData.tariffs.filter(t => !t.has_data && t.adapter_ready);
+
+  // Riordina: tariffa free per prima (solo per free/guest)
+  let ordered = withData;
+  if (plan !== 'pro' && freeTId) {
+    const chosen = withData.find(t => t.tariff_id === freeTId);
+    const rest   = withData.filter(t => t.tariff_id !== freeTId);
+    if (chosen) ordered = [chosen, ...rest];
+  }
+
+  sel.innerHTML = ordered.map(t => {
+    const isAccessible = plan === 'pro' || t.tariff_id === freeTId;
+    const label = shortTariffLabel(t.provider_name, t.tariff_name, t.tariff_id) + (isAccessible ? '' : ' 🔒');
+    return `<option value="${t.tariff_id}" ${isAccessible ? '' : 'disabled'} title="${t.provider_name} — ${t.tariff_name}">${label}</option>`;
+  }).join('') + (noData.length
+    ? `<optgroup label="No data today">` +
+      noData.map(t => `<option value="" disabled>${shortTariffLabel(t.provider_name, t.tariff_name, t.tariff_id)}</option>`).join('') +
+      `</optgroup>` : '');
 }
 
-function onSmartSelectChange(sel) {
+function selectSmartTariff(tariffId, btn) { /* legacy */ }
+
+async function onSmartSelectChange(sel) {
+  // Usato solo da Pro (per free le altre opzioni sono disabled)
   const tariffId = sel.value;
   if (!tariffId || !smartData) return;
   activeSmartTariff = tariffId;
-  const td = smartData.tariffs.find(t => t.tariff_id === tariffId);
-  if (td && _apiSessionToken) renderSmartTariff(td);
+  if (!_apiSessionToken) return;
+  _showSmartLock(false);
+  let td = smartData.tariffs.find(t => t.tariff_id === tariffId);
+  if (!td || td.signal === undefined) {
+    try {
+      const r = await _ifetch(`/internal/smart?date_str={{ today }}&tariff_id=${encodeURIComponent(tariffId)}`);
+      if (r.ok) {
+        const fresh = await r.json();
+        const freshTd = fresh.tariffs.find(t => t.tariff_id === tariffId);
+        if (freshTd) {
+          const idx = smartData.tariffs.findIndex(t => t.tariff_id === tariffId);
+          if (idx >= 0) smartData.tariffs[idx] = freshTd;
+          td = freshTd;
+        }
+      }
+    } catch(e) {}
+  }
+  if (td) renderSmartTariff(td);
+}
+
+
+function _reorderSmartSelect(firstId) {
+  const sel = document.getElementById('smart-tariff-select');
+  if (!sel) return;
+  // Trova l'opzione target e spostala in cima senza ricostruire tutto il DOM
+  const opts = Array.from(sel.options).filter(o => !o.disabled && o.value);
+  const target = opts.find(o => o.value === firstId);
+  if (!target) return;
+  // Rimuovi e reinserisci in cima al select (prima del primo optgroup o option)
+  sel.removeChild(target);
+  sel.insertBefore(target, sel.firstChild);
+  sel.value = firstId;
+}
+
+function _showSmartLock(locked) {
+  const loggedEl  = document.getElementById('smart-top-logged');
+  const profEl    = document.getElementById('smart-profile-logged');
+  const lockEl    = document.getElementById('smart-tariff-lock');
+  if (locked) {
+    if (loggedEl) loggedEl.style.display  = 'none';
+    if (profEl)   profEl.style.display    = 'none';
+    if (lockEl)   lockEl.style.display    = '';
+  } else {
+    if (loggedEl) loggedEl.style.display  = '';
+    if (profEl)   profEl.style.display    = '';
+    if (lockEl)   lockEl.style.display    = 'none';
+  }
 }
 
 function renderSmartTariff(td) {
@@ -4654,22 +5727,31 @@ let _keyStatusTimer  = null;
 
 // Ripristina stato UI se sessione ancora valida al reload
 (function _restoreSession() {
+  // Se non loggato, mostra subito il bottone login nell'header
+  if (!_apiSessionToken) {
+    // Usa setTimeout per aspettare che le funzioni siano definite
+    setTimeout(_showHeaderLoginBtn, 0);
+  }
   if (_apiSessionToken && _apiKeyRaw && _apiUserInfo) {
     fetch('/api/v1/check-key-status', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({api_key: _apiKeyRaw}),
+      body: JSON.stringify({api_key: _apiKeyRaw, session_token: _apiSessionToken}),
     }).then(r => r.json()).then(data => {
       if (!data.valid) {
         if (data.status === 'suspended') {
           _showSuspendedBanner();
           setTimeout(() => { _clearSession(); _forceLogout(data.status); }, 5000);
+        } else if (data.status === 'session_invalid') {
+          _clearSession();
+          _forceLogout('session_invalid');
         } else {
           _clearSession();
         }
       } else {
-        _apiUserInfo.requests_today = data.requests_today;
-        _apiUserInfo.rate_limit_day = data.rate_limit_day;
+        _apiUserInfo.requests_today  = data.requests_today;
+        _apiUserInfo.rate_limit_day  = data.rate_limit_day;
+        if (data.free_tariff_id !== undefined) _apiUserInfo.free_tariff_id = data.free_tariff_id;
         sessionStorage.setItem('_apiUserInfo', JSON.stringify(_apiUserInfo));
         if (document.getElementById('api-view') &&
             document.getElementById('api-view').style.display !== 'none') {
@@ -4690,10 +5772,11 @@ function _saveSession() {
 function _clearSession() {
   _apiSessionToken = null;
   _apiUserInfo     = null;
-  const _wrap = document.getElementById('h-dropdown-wrap');
-  if (_wrap) _wrap.style.display = 'none';
   const _dd = document.getElementById('h-user-dropdown');
   if (_dd) _dd.classList.remove('open');
+  // Mostra bottone Login nella pill invece di nascondere il wrap
+  const _pill = document.getElementById('header-auth-pill');
+  if (_pill) _pill.onclick = null;  // rimuovi toggle dropdown
   _apiKeyRaw       = null;
   sessionStorage.removeItem('_apiSessionToken');
   sessionStorage.removeItem('_apiUserInfo');
@@ -4712,13 +5795,17 @@ function _startKeyStatusPolling() {
       const r    = await fetch('/api/v1/check-key-status', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({api_key: _apiKeyRaw}),
+        body: JSON.stringify({api_key: _apiKeyRaw, session_token: _apiSessionToken}),
       });
       const data = await r.json();
       if (!data.valid) {
         if (data.status === 'suspended') {
           _showSuspendedBanner();
           setTimeout(() => { _clearSession(); _forceLogout(data.status); }, 5000);
+        } else if (data.status === 'session_invalid') {
+          // Altro dispositivo ha fatto login — slogga silenziosamente
+          _clearSession();
+          _forceLogout('session_invalid');
         } else {
           _clearSession();
           _forceLogout(data.status);
@@ -4726,34 +5813,32 @@ function _startKeyStatusPolling() {
         return;
       }
       if (_apiUserInfo) {
-        const oldPlan = _apiUserInfo.plan || 'free';
+        const oldPlan     = _apiUserInfo.plan || 'free';
+        const oldTariff   = _apiUserInfo.free_tariff_id || null;
         _apiUserInfo.requests_today = data.requests_today;
         _apiUserInfo.rate_limit_day = data.rate_limit_day;
-        if (data.plan) _apiUserInfo.plan = data.plan;
+        if (data.plan)          _apiUserInfo.plan = data.plan;
+        if (data.free_tariff_id !== undefined) _apiUserInfo.free_tariff_id = data.free_tariff_id;
+        if (data.tariff_choice_locked !== undefined) _apiUserInfo.tariff_choice_locked = data.tariff_choice_locked;
         _saveSession();
         _updateUsageBar(data.requests_today, data.rate_limit_day);
         _updateDropdownUsage(data.requests_today, data.rate_limit_day);
-        // Se il piano è cambiato (upgrade o downgrade admin) aggiorna tutta la UI
+        // Piano cambiato
         if (data.plan && data.plan !== oldPlan) {
-          _updateHomeAuthBox();
-          _updatePlanPill(data.plan);
-          // Ricarica la view attiva per sbloccare/bloccare i contenuti
-          const activeTab = document.querySelector('.view-tab.active');
-          if (activeTab) {
-            const m = activeTab.getAttribute('onclick')?.match(/switchView\('([^']+)'\)/);
-            if (m) switchView(m[1]);
-          }
-          // Banner downgrade visibile
-          if (oldPlan === 'pro' && data.plan === 'free') {
-            _showDowngradeBanner();
-          }
+          _onPlanChanged(oldPlan, data.plan);
+        }
+        // Tariffa free cambiata da un altro dispositivo
+        if (data.free_tariff_id && data.free_tariff_id !== oldTariff) {
+          _populateUserDropdown(_apiUserInfo);
+          _updateDvAccess();
+          if (typeof onTariffChange === 'function' && currentView === 'data') onTariffChange();
         }
       }
       if (data.requests_today >= data.rate_limit_day) {
         _showRateLimitPopup(data.requests_today, data.rate_limit_day);
       }
     } catch(e) {}
-  }, 15000);
+  }, 8000);
 }
 
 // Check immediato quando l'utente torna sulla tab (dopo essere stato su admin, email, ecc.)
@@ -4762,12 +5847,14 @@ document.addEventListener('visibilitychange', () => {
     fetch('/api/v1/check-key-status', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({api_key: _apiKeyRaw}),
+      body: JSON.stringify({api_key: _apiKeyRaw, session_token: _apiSessionToken}),
     }).then(r => r.json()).then(data => {
       if (!data.valid) {
         if (data.status === 'suspended') {
           _showSuspendedBanner();
           setTimeout(() => { _clearSession(); _forceLogout(data.status); }, 5000);
+        } else if (data.status === 'session_invalid') {
+          _clearSession(); _forceLogout('session_invalid');
         } else {
           _clearSession();
           _forceLogout(data.status);
@@ -4781,18 +5868,60 @@ document.addEventListener('visibilitychange', () => {
         _apiUserInfo.rate_limit_day = data.rate_limit_day ?? _apiUserInfo.rate_limit_day;
         _apiUserInfo.requests_today = data.requests_today ?? _apiUserInfo.requests_today;
         _saveSession();
-        _updateHomeAuthBox();
-        _updatePlanPill(data.plan);
-        const activeTab = document.querySelector('.view-tab.active');
-        if (activeTab) {
-          const m = activeTab.getAttribute('onclick')?.match(/switchView\('([^']+)'\)/);
-          if (m) switchView(m[1]);
-        }
-        if (oldPlan === 'pro' && data.plan === 'free') _showDowngradeBanner();
+        _onPlanChanged(oldPlan, data.plan);
       }
     }).catch(() => {});
   }
 });
+
+// ── Gestione cambio piano immediato (upgrade/downgrade) ──────────────────────
+function _onPlanChanged(oldPlan, newPlan) {
+  // UI generica
+  _updateHomeAuthBox();
+  _updatePlanPill(newPlan);
+  _populateUserDropdown(_apiUserInfo);
+  _mapSearchVisible();
+  _applyMapAccess();
+
+  // Data page: ricostruisce select con nuovi diritti e ricarica grafico
+  _updateDvAccess();
+  if (_allTariffs.length) {
+    _buildTariffSelect(_allTariffs);
+    // Forza la selezione alla tariffa corretta per il nuovo piano
+    const selEl = document.getElementById('tariff-select');
+    if (selEl) {
+      const freeTId = _getFreeTariffId();
+      if (newPlan !== 'pro' && freeTId) {
+        // Downgrade: seleziona la tariffa free e resetta la data
+        activeTariff = freeTId;
+        selEl.value  = freeTId;
+      }
+    }
+    // Ricarica sempre, non solo se siamo in Data (aggiorna stato interno)
+    if (currentView === 'data') {
+      // Reset alla data odierna per evitare che rimangano dati di giorni passati pro
+      activeDate = null;
+      const todayPill = document.querySelector('.day-btn.today-pill');
+      if (todayPill) todayPill.click(); else onTariffChange();
+    }
+  }
+
+  // Smart page: ricarica sempre (reset access e dati)
+  // Prima rimuovi smartData per forzare reload fresco
+  if (currentView === 'smart') {
+    smartData = null;
+    loadSmart();
+  } else {
+    // Anche se non siamo in smart, resetta per quando ci torna
+    smartData = null;
+  }
+
+  // Downgrade banner
+  if (oldPlan === 'pro' && newPlan === 'free') {
+    _showDowngradeBanner();
+    closeMuniModal();
+  }
+}
 
 // ── Nome tariffa corto per i menu a tendina ─────────────────────────────────
 const TARIFF_SHORT_LABELS = {
@@ -4837,8 +5966,8 @@ async function homeLogin() {
   const key   = (input?.value || '').trim();
   err.textContent = '';
   if (!key) { err.textContent = t('home_auth_err_empty'); return; }
-  const btn = document.querySelector('#home-auth-box .home-auth-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  const btn = document.querySelector('#home-auth-box .hw-auth-btn') || document.querySelector('#home-auth-box .home-auth-btn');
+  if (btn) { btn.disabled = true; const s = btn.querySelector('span'); if(s) s.textContent = '...'; else btn.textContent = '...'; }
   try {
     const r = await fetch('/api/v1/validate-key', {
       method: 'POST',
@@ -4847,12 +5976,7 @@ async function homeLogin() {
     });
     const data = await r.json();
     if (r.ok && data.valid) {
-      _apiSessionToken = data.session_token;
-      _apiUserInfo     = data.user;
-      _apiKeyRaw       = key;
-      _saveSession();
-      showApiContent();
-      _startKeyStatusPolling();
+      await _finalizeLogin(key, data);
       if (input) input.value = '';
       _updateHomeAuthBox();
     } else {
@@ -4863,7 +5987,7 @@ async function homeLogin() {
   } catch(e) {
     err.textContent = t('home_auth_err_net');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Accedi →'; }
+    if (btn) { btn.disabled = false; const _s = btn.querySelector('span'); if(_s) _s.textContent = t('home_auth_btn')||'Log in'; else btn.textContent = t('home_auth_btn')||'Log in'; }
   }
 }
 
@@ -4873,12 +5997,10 @@ function _updateDvSlotAccess(tariffId) {
   const slotLock    = document.getElementById('dv-slot-lock');
   if (!slotContent || !slotLock) return;
 
+  const accessibleId = _getFreeTariffId();
   let lockMsg = '';
-  if (plan === 'guest') {
-    lockMsg = 'guest';
-  } else if (plan === 'free') {
-    const firstId = _allTariffs[0]?.tariff_id;
-    if (tariffId && tariffId !== firstId) lockMsg = 'free';
+  if (plan !== 'pro' && tariffId && tariffId !== accessibleId) {
+    lockMsg = (plan === 'guest') ? 'guest' : 'free';
   }
 
   if (lockMsg) {
@@ -4918,40 +6040,217 @@ function _updateDvAccess() {
     }
     _updateDvSlotAccess(activeTariff);
   }
+  _mapSearchVisible();
+  _applyMapAccess();
 }
 
 function _updateSmartAccess() {
   const logged = !!_apiSessionToken;
+  const plan   = _getUserPlan();
   const _d = (id, show) => { const el = document.getElementById(id); if(el) el.style.display = show ? '' : 'none'; };
-  // Signal + best times
+  // Signal + best times: visibile se loggato (free e pro)
   _d('smart-top-logged',    logged);
   _d('smart-top-skeleton',  !logged);
-  // Price profile
+  // Price profile: visibile se loggato
   _d('smart-profile-logged',   logged);
   _d('smart-profile-skeleton', !logged);
-  // Pill CTA
+  // Pill CTA: solo per guest
   _d('smart-lock-pill-wrap', !logged);
-  // Dropdown: disabilita se non loggato
+  // Dropdown: abilitato per free e pro, disabilitato per guest
   const sel = document.getElementById('smart-tariff-select');
   if (sel) sel.disabled = !logged;
   if (sel) sel.style.opacity = logged ? '' : '.5';
   if (sel) sel.style.cursor  = logged ? '' : 'not-allowed';
+  // Se free e tariffa attiva non è la propria → mostra lock
+  if (logged && plan === 'free' && activeSmartTariff && activeSmartTariff !== _getFreeTariffId()) {
+    _showSmartLock(true);
+  } else if (logged) {
+    _showSmartLock(false);
+  }
+}
+
+// ── Header Login Button & Modal ─────────────────────────────────────────────
+function _showHeaderLoginBtn() {
+  const pill = document.getElementById('header-auth-pill');
+  if (!pill) return;
+  pill.onclick = null;
+  pill.style.cursor = 'default';
+  pill.innerHTML = `
+    <button onclick="openHeaderLoginModal()" class="hlm-trigger-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/>
+        <polyline points="10 17 15 12 10 7"/>
+        <line x1="15" y1="12" x2="3" y2="12"/>
+      </svg>
+      <span class="hlm-txt">${t('home_auth_btn')||'Log in'}</span>
+    </button>`;
+}
+
+function openHeaderLoginModal() {
+  const existing = document.getElementById('_hlm-overlay');
+  if (existing) { existing.remove(); return; }
+
+  const ov = document.createElement('div');
+  ov.id = '_hlm-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9000;display:flex;align-items:flex-start;justify-content:flex-end;padding:66px 16px 0;pointer-events:none';
+  ov.innerHTML = `
+    <div id="_hlm-box" style="
+      pointer-events:all;
+      background:#fff;
+      border-radius:20px;
+      box-shadow:0 4px 6px rgba(0,0,0,.04),0 20px 60px rgba(0,0,0,.14),0 0 0 1px rgba(0,0,0,.05);
+      padding:28px;
+      width:min(340px,calc(100vw-32px));
+      animation:ftmIn .18s cubic-bezier(.22,1,.36,1)">
+
+      <!-- Header -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px">
+        <div>
+          <div style="font-size:16px;font-weight:700;color:#0f172a;letter-spacing:-.3px;margin-bottom:3px"
+               data-i18n="home_auth_btn">${t('home_auth_btn')||'Log in'}</div>
+          <div style="font-size:12px;color:#94a3b8" data-i18n="home_auth_title">${t('home_auth_title')||'Enter your API key'}</div>
+        </div>
+        <button onclick="closeHeaderLoginModal()" style="
+          width:28px;height:28px;border-radius:50%;background:#f1f5f9;border:none;
+          display:flex;align-items:center;justify-content:center;cursor:pointer;
+          font-size:14px;color:#64748b;flex-shrink:0;margin-top:-2px;transition:background .15s"
+          onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">×</button>
+      </div>
+
+      <!-- Input -->
+      <div style="position:relative;margin-bottom:12px">
+        <div style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+        </div>
+        <input id="_hlm-input" type="password"
+          data-i18n-placeholder="home_auth_placeholder"
+          placeholder="${t('home_auth_placeholder')||'API key...'}"
+          autocomplete="current-password"
+          style="width:100%;padding:11px 38px 11px 36px;border:1.5px solid #e2e8f0;
+            border-radius:12px;font-size:13px;color:#0f172a;outline:none;
+            box-sizing:border-box;transition:border-color .15s;font-family:monospace;
+            background:#fafbfc"
+          onfocus="this.style.borderColor='#185fa5';this.style.background='#fff'"
+          onblur="this.style.borderColor='#e2e8f0';this.style.background='#fafbfc'"
+          onkeydown="if(event.key==='Enter') _hlmLogin()">
+        <!-- Occhio mostra/nascondi key -->
+        <button type="button" onclick="_hlmToggleEye(this)" tabindex="-1" style="
+          position:absolute;right:10px;top:50%;transform:translateY(-50%);
+          background:none;border:none;cursor:pointer;padding:4px;color:#94a3b8;
+          display:flex;align-items:center;transition:color .15s"
+          onmouseover="this.style.color='#185fa5'" onmouseout="this.style.color='#94a3b8'">
+          <svg id="_hlm-eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Login button -->
+      <button onclick="_hlmLogin()" id="_hlm-btn" style="
+        width:100%;padding:12px;
+        background:linear-gradient(135deg,#1e6fd9,#185fa5);
+        color:white;border:none;border-radius:12px;
+        font-size:13px;font-weight:600;cursor:pointer;
+        display:flex;align-items:center;justify-content:center;gap:8px;
+        letter-spacing:.01em;transition:opacity .15s;box-shadow:0 2px 8px rgba(24,95,165,.3)"
+        onmouseover="this.style.opacity='.9'" onmouseout="this.style.opacity='1'">
+        <span data-i18n="home_auth_btn">${t('home_auth_btn')||'Log in'}</span>
+      </button>
+
+      <!-- Error -->
+      <div id="_hlm-err" style="font-size:11px;color:#ef4444;margin-top:8px;min-height:14px;text-align:center"></div>
+
+      <!-- Register link -->
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid #f1f5f9;text-align:center">
+        <span style="font-size:12px;color:#94a3b8">
+          <a onclick="openHomeRegModal();closeHeaderLoginModal()" style="
+            color:#185fa5;cursor:pointer;font-weight:500;text-decoration:none"
+             data-i18n="home_auth_reg_link">${t('home_auth_reg_link')||'Request free access'}</a>
+        </span>
+      </div>
+    </div>`;
+
+  document.body.appendChild(ov);
+  ov.addEventListener('click', e => { if (e.target === ov) closeHeaderLoginModal(); });
+  setTimeout(() => document.getElementById('_hlm-input')?.focus(), 50);
+}
+
+function _hlmToggleEye(btn) {
+  const inp = document.getElementById('_hlm-input');
+  if (!inp) return;
+  const isHidden = inp.type === 'password';
+  inp.type = isHidden ? 'text' : 'password';
+  const icon = btn.querySelector('svg');
+  if (icon) icon.innerHTML = isHidden
+    ? '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+    : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+}
+
+function closeHeaderLoginModal() {
+  const ov = document.getElementById('_hlm-overlay');
+  if (ov) ov.remove();
+}
+
+async function _hlmLogin() {
+  const input = document.getElementById('_hlm-input');
+  const err   = document.getElementById('_hlm-err');
+  const key   = (input?.value || '').trim();
+  err.textContent = '';
+  if (!key) { err.textContent = t('home_auth_err_empty'); return; }
+  const btn = document.getElementById('_hlm-btn');
+  if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.querySelector('span').textContent = '...'; }
+  try {
+    const r = await fetch('/api/v1/validate-key', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({api_key: key}),
+    });
+    const data = await r.json();
+    if (r.ok && data.valid) {
+      closeHeaderLoginModal();
+      // Usa lo stesso flusso di homeLogin
+      await _finalizeLogin(key, data);
+    } else {
+      if (r.status === 403 && data.detail === 'suspended') err.textContent = t('home_auth_err_susp');
+      else if (r.status === 403 && data.detail === 'revoked') err.textContent = t('home_auth_err_rev');
+      else err.textContent = t('home_auth_err_inv');
+    }
+  } catch(e) {
+    err.textContent = t('home_auth_err_net');
+  } finally {
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.querySelector('span').textContent = t('home_auth_btn')||'Log in'; }
+  }
 }
 
 function _updateHomeAuthBox() {
-  const logged      = document.getElementById('home-auth-logged');
-  const preview     = document.getElementById('home-auth-right-preview');
+  const preview     = document.getElementById('home-auth-preview');
   const gateLeft    = document.getElementById('home-auth-gate');
   const loggedLeft  = document.getElementById('home-auth-left-logged');
-  if (!logged) return;
+  if (!gateLeft) return;
 
   if (_apiUserInfo) {
     const u      = _apiUserInfo;
     const isPro  = (u.plan||'free') === 'pro';
 
-    // Destra: mostra profilo
-    logged.style.display  = 'block';
+    // Destra: nascondi preview, mostra logged panel
     if (preview) preview.style.display = 'none';
+    const loggedPanel = document.getElementById('home-auth-logged');
+    if (loggedPanel) loggedPanel.style.display = 'flex';
+    // Pill header: ripristina onclick dropdown (rimuovi bottone login se presente)
+    const pillH = document.getElementById('header-auth-pill');
+    if (pillH) {
+      const loginBtn = pillH.querySelector('button[onclick="openHeaderLoginModal()"]');
+      if (loginBtn) pillH.innerHTML = '';
+      pillH.onclick = toggleUserDropdown;
+      pillH.style.cursor = 'pointer';
+    }
 
     // Sinistra: nasconde gate, mostra stato loggato
     // gate rimane visibile — alterna contenuto interno
@@ -5001,8 +6300,9 @@ function _updateHomeAuthBox() {
 
   } else {
     // Non loggato
-    logged.style.display  = 'none';
-    if (preview)     preview.style.display     = 'flex';
+    if (preview) preview.style.display = 'flex';
+    const loggedPanel2 = document.getElementById('home-auth-logged');
+    if (loggedPanel2) loggedPanel2.style.display = 'none';
     // Ripristina tutti i figli del gate
     if (gateLeft) {
       Array.from(gateLeft.children).forEach(el => {
@@ -5012,6 +6312,7 @@ function _updateHomeAuthBox() {
     }
     // Ripristina piani default
     _resetPlansUI();
+    _showHeaderLoginBtn();
   }
 }
 
@@ -5437,8 +6738,9 @@ async function submitPayment() {
         }
       }
     } catch(_) {}
-    _updateHomeAuthBox();
-    _updatePlanPill('pro');
+    const _oldPlanBeforeUpgrade = (_apiUserInfo?.plan) || 'free';
+    if (_apiUserInfo) _apiUserInfo.plan = 'pro';
+    _onPlanChanged(_oldPlanBeforeUpgrade, 'pro');
 
     // Schermata successo
     const formBody = document.getElementById('um-form-body');
@@ -5507,9 +6809,10 @@ function _forceLogout(reason) {
   const input = document.getElementById('gate-key-input');
   if (input) input.value = '';
   let msg = '';
-  if (reason === 'suspended')   msg = t('gate_suspended_msg');
-  else if (reason === 'revoked') msg = t('gate_revoked_msg');
-  else if (reason === 'rate_limit') msg = t('gate_ratelimit_msg');
+  if (reason === 'suspended')        msg = t('gate_suspended_msg');
+  else if (reason === 'revoked')     msg = t('gate_revoked_msg');
+  else if (reason === 'rate_limit')  msg = t('gate_ratelimit_msg');
+  else if (reason === 'session_invalid') msg = t('gate_session_invalid_msg');
   else msg = t('gate_invalid');
   _showInfoPopup(msg, reason === 'rate_limit' ? '#ba7517' : '#e24b4a');
 }
@@ -5696,14 +6999,9 @@ async function gateSubmit() {
       body: JSON.stringify({api_key: key}),
     });
     if (r.ok) {
-      const data       = await r.json();
-      _apiSessionToken = data.session_token;
-      _apiUserInfo     = data.user;
-      _apiKeyRaw       = key;
-      _saveSession();
-      input.value = '';
-      showApiContent();
-      _startKeyStatusPolling();
+      const data = await r.json();
+      // Finalizza login — sovrascrive sempre sessione precedente
+      await _finalizeLogin(key, data);
     } else {
       const data = await r.json().catch(()=>({}));
       input.classList.add('error');
@@ -5722,6 +7020,83 @@ async function gateSubmit() {
     btn.disabled    = false;
     btn.textContent = t('gate_btn');
   }
+}
+
+// ── Finalizza login (dopo conferma o senza sessione preesistente) ─────────────
+async function _finalizeLogin(key, data) {
+  // Conferma al server: sovrascrive il session_token nel DB
+  try {
+    await fetch('/api/v1/confirm-login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({api_key: key, session_token: data.session_token}),
+    });
+  } catch(e) {}
+  _apiSessionToken = data.session_token;
+  _apiUserInfo     = data.user;
+  if (data.tariff_choice_locked !== undefined && _apiUserInfo) _apiUserInfo.tariff_choice_locked = data.tariff_choice_locked;
+  _apiKeyRaw       = key;
+  _saveSession();
+  ['gate-key-input','home-key-input'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  showApiContent();
+  _updateHomeAuthBox();
+  _applyMapAccess();
+  _startKeyStatusPolling();
+}
+
+// ── Modale conflitto dispositivo ──────────────────────────────────────────────
+function _showDeviceConflictModal(key, data) {
+  // Rimuovi eventuale modale esistente
+  const existing = document.getElementById('_device-conflict-modal');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = '_device-conflict-modal';
+  overlay.style.cssText = [
+    'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999',
+    'display:flex;align-items:center;justify-content:center;padding:20px'
+  ].join(';');
+
+  overlay.innerHTML = `
+    <div style="
+      background:white;border-radius:16px;padding:32px 28px;
+      max-width:420px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,.3);
+      display:flex;flex-direction:column;gap:16px;text-align:center
+    ">
+      <div style="font-size:36px;line-height:1">&#x1F4F1;</div>
+      <div style="font-size:16px;font-weight:700;color:#1a1a2e" id="_dcm-title"></div>
+      <div style="font-size:13px;color:#666;line-height:1.6" id="_dcm-body"></div>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button id="_dcm-cancel" style="
+          flex:1;padding:11px;border-radius:9px;border:0.5px solid #ddd;
+          background:white;color:#555;font-size:13px;font-weight:500;cursor:pointer;
+          transition:background .15s
+        "></button>
+        <button id="_dcm-confirm" style="
+          flex:1;padding:11px;border-radius:9px;border:none;
+          background:#185fa5;color:white;font-size:13px;font-weight:600;cursor:pointer;
+          transition:opacity .15s
+        "></button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('_dcm-title').textContent   = t('device_conflict_title');
+  document.getElementById('_dcm-body').textContent    = t('device_conflict_body');
+  document.getElementById('_dcm-cancel').textContent  = t('device_conflict_cancel');
+  document.getElementById('_dcm-confirm').textContent = t('device_conflict_confirm');
+
+  document.getElementById('_dcm-cancel').onclick = () => overlay.remove();
+  document.getElementById('_dcm-confirm').onclick = async () => {
+    overlay.remove();
+    await _finalizeLogin(key, data);
+  };
+
+  // Click fuori per annullare
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 }
 
 function showApiContent() {
@@ -5746,9 +7121,9 @@ function showApiContent() {
     pill.style.display = 'flex';
     const wrap = document.getElementById('h-dropdown-wrap');
     if (wrap) wrap.style.display = 'block';
-    // Su mobile/tablet: nascondi globo lingua (la lingua è nel dropdown utente)
-    const _lm = document.getElementById('h-lang-mobile');
-    if (_lm) _lm.style.setProperty('display','none','important');
+
+    // Aggiorna visibilità search mappa
+    if (typeof _mapSearchVisible === 'function') _mapSearchVisible();
     _populateUserDropdown(info);
   }
 
@@ -5801,7 +7176,8 @@ function _populateUserDropdown(info) {
 
   // Bottone cambia tariffa: visibile solo per piano free
   const changeTariffBtn = document.getElementById('hdd-change-tariff-btn');
-  if (changeTariffBtn) changeTariffBtn.style.display = (plan === 'free') ? 'flex' : 'none';
+  const isLocked = plan === 'free' && info.tariff_choice_locked;
+  if (changeTariffBtn) changeTariffBtn.style.display = (plan === 'free' && !isLocked) ? 'flex' : 'none';
 
   // Riga tariffa: visibile solo per piano free con tariffa scelta
   const tariffRow = document.getElementById('hdd-tariff-row');
@@ -5834,7 +7210,28 @@ function _populateUserDropdown(info) {
 
 let _ftmDone = false;
 
+function _needsTariffChoice() {
+  return _getUserPlan() === 'free' && !_apiUserInfo?.free_tariff_id;
+}
+
+function _showNoTariffGate(containerId, style) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const s = style || 'padding:48px 24px;text-align:center';
+  el.innerHTML = `<div style="${s}">
+    <div style="font-size:36px;margin-bottom:12px">📊</div>
+    <div style="font-size:15px;font-weight:700;color:#1a1a2e;margin-bottom:8px"
+         data-i18n="no_tariff_gate_title">${t('no_tariff_gate_title')||'Choose your tariff first'}</div>
+    <div style="font-size:12px;color:#888;margin-bottom:18px;line-height:1.6"
+         data-i18n="no_tariff_gate_sub">${t('no_tariff_gate_sub')||'Select a tariff to unlock data.'}</div>
+    <button onclick="_showFreeTariffModal(true)" style="padding:10px 24px;background:#185fa5;color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer"
+            data-i18n="ftm_title">${t('ftm_title')||'Choose tariff'} →</button>
+  </div>`;
+}
+
 function _showFreeTariffModal(force) {
+  // Se la scelta è già bloccata (irrevocabile), non mostrare il modal mai
+  if (_apiUserInfo?.tariff_choice_locked && _getUserPlan() === 'free') return;
   if (_ftmDone && !force) return;
   if (force) _ftmDone = false;
   if (document.getElementById('_ftm-overlay')) return;
@@ -5933,13 +7330,16 @@ function _showFreeTariffModal(force) {
       </div>
       <div class="_ftm-foot">
         <button class="_ftm-btn-skip" id="_ftm-skip" onclick="_closeFtm()"></button>
-        <button class="_ftm-btn-confirm" id="_ftm-confirm" onclick="_saveFreeTariff()" disabled></button>
+        <button class="_ftm-btn-confirm" id="_ftm-confirm" onclick="_ftmConfirmStep()" disabled></button>
       </div>
     </div>`;
 
   document.body.appendChild(overlay);
-  overlay.querySelector('#_ftm-title').textContent   = t('ftm_title');
-  overlay.querySelector('#_ftm-sub').textContent     = t('ftm_sub');
+  overlay.querySelector('#_ftm-title').textContent = t('ftm_title');
+  const _hasChoice = !!(_apiUserInfo?.free_tariff_id);
+  overlay.querySelector('#_ftm-sub').innerHTML = _hasChoice
+    ? t('ftm_sub')
+    : `${t('ftm_sub')}<br><span style="display:inline-block;margin-top:8px;padding:8px 12px;background:#fff4e0;border:1px solid #f5c842;border-radius:8px;font-size:12px;font-weight:600;color:#8a5a00">⚠️ ${t('ftm_irreversible_warning')}</span>`;
   overlay.querySelector('#_ftm-skip').textContent    = t('ftm_skip');
   overlay.querySelector('#_ftm-confirm').textContent = t('ftm_confirm');
 
@@ -6014,6 +7414,7 @@ function _selectFtmOpt(el) {
 
 function _closeFtm(fromSave) {
   if (fromSave) _ftmDone = true;  // blocca solo se l'utente ha confermato
+  if (fromSave && _apiUserInfo) { _apiUserInfo.tariff_choice_locked = true; _saveSession(); }
   // se "salta", _ftmDone rimane false → il pulsante dropdown può riaprire
   const ov = document.getElementById('_ftm-overlay');
   if (!ov) return;
@@ -6021,10 +7422,58 @@ function _closeFtm(fromSave) {
   setTimeout(() => ov.remove(), 250);
 }
 
-async function _saveFreeTariff() {
-  const selected = document.querySelector('._ftm-opt.selected');
-  if (!selected) return;
-  const tariffId = selected.dataset.tariffId;
+function _ftmConfirmStep() {
+  // Recupera la tariffa selezionata PRIMA di sostituire il DOM
+  const selectedOpt = document.querySelector('._ftm-opt.selected');
+  if (!selectedOpt) return;
+  const _pendingTariffId = selectedOpt.dataset.tariffId;
+  if (!_pendingTariffId) return;
+
+  // Prima conferma già fatta (selezione tariffa). Mostra doppia conferma se prima scelta.
+  const alreadyChosen = !!(_apiUserInfo?.free_tariff_id);
+  if (alreadyChosen) { _saveFreeTariffId(_pendingTariffId); return; }
+
+  // Prima scelta: richiede doppia conferma
+  const confirmBtn = document.getElementById('_ftm-confirm');
+  const list = document.getElementById('_ftm-list');
+  if (!list || !confirmBtn) { _saveFreeTariffId(_pendingTariffId); return; }
+
+  // Sostituisce il contenuto del modal con il pannello di doppia conferma
+  list.innerHTML = `
+    <div style="padding:8px 4px 4px">
+      <div style="font-size:28px;text-align:center;margin-bottom:12px">⚠️</div>
+      <div style="font-size:14px;font-weight:700;color:#1a1a2e;text-align:center;margin-bottom:8px">
+        ${t('ftm_confirm2_title')}
+      </div>
+      <div style="font-size:12px;color:#666;text-align:center;line-height:1.6;margin-bottom:16px">
+        ${t('ftm_confirm2_sub')}
+      </div>
+      <div style="background:#fff4e0;border:1px solid #f5c842;border-radius:10px;padding:12px 14px;
+                  font-size:12px;font-weight:600;color:#8a5a00;text-align:center">
+        ${t('ftm_irreversible_warning')}
+      </div>
+    </div>`;
+
+  // Aggiorna bottoni
+  confirmBtn.textContent = t('ftm_confirm2_yes');
+  confirmBtn.onclick = () => _saveFreeTariffId(_pendingTariffId, true);
+  const skipBtn = document.getElementById('_ftm-skip');
+  if (skipBtn) {
+    skipBtn.textContent = t('ftm_confirm2_back');
+    skipBtn.onclick = () => { _closeFtm(); _showFreeTariffModal(true); };
+  }
+}
+
+async function _saveFreeTariffId(tariffId, fromSave) {
+  if (!tariffId || !_apiKeyRaw) return;
+  return _saveFreeTariff(fromSave, tariffId);
+}
+
+async function _saveFreeTariff(fromSave, _overrideTariffId) {
+  const tariffId = _overrideTariffId || (() => {
+    const sel = document.querySelector('._ftm-opt.selected');
+    return sel ? sel.dataset.tariffId : null;
+  })();
   if (!tariffId || !_apiKeyRaw) return;
 
   const btn = document.getElementById('_ftm-confirm');
@@ -6052,7 +7501,49 @@ async function _saveFreeTariff() {
     populateTryTariffSelect();
     populateApiTariffSelect();
     const allOverlay = document.getElementById('api-all-pro-overlay');
+    // Rimuovi gate da tutte le pagine
+    ['smart-tariff-gate','map-tariff-gate'].forEach(id => {
+      const g = document.getElementById(id); if (g) g.remove();
+    });
+    // Ripristina sezioni smart nascoste dal gate
+    ['smart-top-logged','smart-profile-logged','smart-lock-pill-wrap'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = '';
+    });
+    // Se smartData è null (non ancora caricato), ricarica Smart
+    if (!smartData && currentView === 'smart') { loadSmart(); }
     if (allOverlay) allOverlay.style.display = 'flex';
+    // Ricostruisce il select Data con la nuova tariffa in cima
+    if (_allTariffs.length) {
+      _buildTariffSelect(_allTariffs);
+      onTariffChange();
+    }
+    // Aggiorna mappa immediatamente con la nuova tariffa
+    _applyMapAccess();
+    // Ricostruisce il select Smart e aggiorna i dati con la nuova tariffa
+    if (smartData) {
+      _buildSmartSelect();
+      const _newTId = _getFreeTariffId();
+      if (_newTId) {
+        activeSmartTariff = _newTId;
+        const _sSel = document.getElementById('smart-tariff-select');
+        if (_sSel) _sSel.value = _newTId;
+        let _td = smartData.tariffs.find(t => t.tariff_id === _newTId);
+        if (!_td || _td.signal === undefined) {
+          _ifetch('/internal/smart?date_str={{ today }}&tariff_id=' + encodeURIComponent(_newTId))
+            .then(r => r.json()).then(fresh => {
+              const ft = fresh.tariffs && fresh.tariffs.find(t => t.tariff_id === _newTId);
+              if (ft) {
+                const ix = smartData.tariffs.findIndex(t => t.tariff_id === _newTId);
+                if (ix >= 0) smartData.tariffs[ix] = ft; else smartData.tariffs.push(ft);
+                renderSmartTariff(ft);
+              }
+            }).catch(() => {});
+        } else {
+          renderSmartTariff(_td);
+        }
+      }
+    }
     // Aggiorna riga tariffa nel dropdown
     if (_apiUserInfo) _populateUserDropdown(_apiUserInfo);  // fromSave=true → setta _ftmDone, non mostra più auto
 
@@ -6115,15 +7606,14 @@ function apiLogout() {
   document.getElementById('gate-key-input').value = '';
   document.getElementById('gate-err').textContent = '';
   const pill = document.getElementById('header-auth-pill');
-  if (pill) pill.style.display = 'none';
   const wrap = document.getElementById('h-dropdown-wrap');
-  if (wrap) wrap.style.display = 'none';
   const dd = document.getElementById('h-user-dropdown');
   if (dd) dd.classList.remove('open');
-  // Su mobile: rimostra globo lingua
-  const _lm = document.getElementById('h-lang-mobile');
-  if (_lm) _lm.style.removeProperty('display');
+  // NON nascondere wrap/pill — _updateHomeAuthBox li gestisce correttamente
+
+  if (typeof _mapSearchVisible === 'function') _mapSearchVisible();
   _updateHomeAuthBox();
+  _showHeaderLoginBtn();  // forza bottone login dopo tutto
   _resetPlansUI();
   _updateSmartAccess();
   _updateDvAccess();
@@ -6360,6 +7850,15 @@ async function tryEndpoint(which) {
 
 async function _doTryEndpoint(which) {
   if (!_apiKeyRaw) return;
+  // Gate: free senza tariffa scelta non può provare i prezzi
+  if (which === 'prices' && _needsTariffChoice()) {
+    const resultEl = document.getElementById('try-result-prices');
+    const metaEl   = document.getElementById('try-meta-prices');
+    if (resultEl) { resultEl.style.display = 'block'; resultEl.className = 'try-result'; }
+    if (metaEl)   { metaEl.style.display = 'block'; }
+    if (resultEl) resultEl.innerHTML = `<div style='padding:16px;text-align:center'><div style='font-size:13px;font-weight:600;color:#1a1a2e;margin-bottom:8px'>${t('no_tariff_gate_title')}</div><button onclick='_showFreeTariffModal(true)' style='padding:8px 18px;background:#185fa5;color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer'>${t('ftm_title')} →</button></div>`;
+    return;
+  }
   const resultEl = document.getElementById('try-result-' + which);
   const metaEl   = document.getElementById('try-meta-' + which);
   resultEl.style.display = 'block'; metaEl.style.display = 'block';

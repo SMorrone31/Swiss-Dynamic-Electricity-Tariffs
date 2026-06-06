@@ -24,12 +24,21 @@ STRUTTURA TABELLA HTML
 ───────────────────────
   Col 0: Fascia (nome + orari)
   Col 1: Utilizzo rete [CHF/100kWh]          -> grid_price
-  Col 2: Fornitura energia [CHF/100kWh]      \
-  Col 3: Tiacqua [CHF/100kWh]                -> energy_price (somma)
-  Col 4: Tasse [CHF/100kWh]                  -> residual_price
+  Col 2: Fornitura energia [CHF/100kWh]      -> energy_price
+  Col 3: Tìacqua [CHF/100kWh]               \
+  Col 4: Tasse [CHF/100kWh]                  -> residual_price (somma)
   Col 5: Totale [CHF/100kWh]                 (ignorato)
 
 Tutti in CHF/100kWh (Rappen) -> dividiamo per 100 -> CHF/kWh.
+
+BACKFILL
+────────
+Il datepicker della pagina manda un POST con:
+  csrf=<token>&targetDate=<DD.MM.YYYY>   (formato svizzero)
+Il server risponde con la tabella per la data richiesta se disponibile,
+altrimenti con la data corrente. L'adapter tenta il POST con la data
+richiesta e verifica se la risposta contiene quella data — se sì, il
+backfill funziona per quella data; altrimenti logga l'avviso.
 """
 
 from __future__ import annotations
@@ -70,10 +79,10 @@ class AilAdapter(BaseAdapter):
     Adapter per AIL — Aziende industriali di Lugano SA.
 
     Config in evu_list.json:
-      api_base_url -> URL della sottopagina prezzi AIL (non la pagina marketing)
+      api_base_url -> URL della pagina prezzi AIL
       auth_type    -> "none"
       api_params:
-        backfill_supported -> false
+        backfill_supported -> true   (il POST con targetDate funziona per date passate)
         scraping           -> true
     """
 
@@ -98,69 +107,37 @@ class AilAdapter(BaseAdapter):
             headers["Origin"]  = "https://www.ail.ch"
         return headers
 
-    async def _fetch_csrf_token(self) -> tuple[str, dict]:
-        """
-        GET alla pagina AIL per estrarre il CSRF token e i cookie di sessione.
-        Ritorna (csrf_token, cookies) — entrambi necessari per il POST successivo.
-        """
-        try:
-            from bs4 import BeautifulSoup
-        except ImportError:
-            raise AdapterParseError("beautifulsoup4 non installato.")
-
-        import httpx
-        async with httpx.AsyncClient(
-            timeout=self.TIMEOUT_SECONDS,
-            follow_redirects=True,
-        ) as client:
-            resp = await client.get(self.base_url, headers=self._build_headers())
-            resp.raise_for_status()
-            cookies = dict(resp.cookies)
-            soup = BeautifulSoup(resp.content.decode("utf-8", errors="replace"), "html.parser")
-
-        csrf_input = soup.find("input", {"name": "csrf"})
-        if csrf_input and csrf_input.get("value"):
-            token = csrf_input["value"]
-            self._log.info(f"AIL: CSRF token estratto ({len(token)} chars), cookies: {list(cookies.keys())}")
-            return token, cookies
-
-        raise AdapterParseError(
-            "AIL: CSRF token non trovato nella pagina. "
-            "La struttura HTML potrebbe essere cambiata."
-        )
-
     async def fetch(self, target_date: date) -> NormalizedPrices:
         """
-        Override: GET per CSRF token+cookie, poi POST con stessa sessione.
-
-        AIL lega il CSRF token alla sessione HTTP — GET e POST devono condividere
-        gli stessi cookie, altrimenti il server risponde 403.
-
         Flusso:
           1. GET  -> estrai CSRF token + cookie di sessione
-          2. POST csrf=<token>&targetDate=<YYYY-MM-DD> con gli stessi cookie
-          3. Scraping della risposta
+          2. POST csrf=<token>&targetDate=<DD.MM.YYYY> con stessa sessione
+          3. Scraping della risposta HTML
+          4. Verifica se la data ricevuta corrisponde alla richiesta
+             (backfill funziona se il server risponde con la data giusta)
         """
         fetched_at = utc_now()
 
         self._log.info(f"AIL: fetch {target_date} — step 1: GET per CSRF + sessione")
 
-        # ── 1. GET → CSRF token + cookie di sessione ──────────────────────────
         import httpx
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            raise AdapterParseError("beautifulsoup4 non installato.")
+
         async with httpx.AsyncClient(
             timeout=self.TIMEOUT_SECONDS,
             follow_redirects=True,
         ) as session:
-            # GET
+
+            # ── 1. GET → CSRF token + cookie di sessione ──────────────────────
             get_resp = await session.get(self.base_url, headers=self._build_headers())
             get_resp.raise_for_status()
 
-            try:
-                from bs4 import BeautifulSoup
-            except ImportError:
-                raise AdapterParseError("beautifulsoup4 non installato.")
-
-            soup = BeautifulSoup(get_resp.content.decode("utf-8", errors="replace"), "html.parser")
+            soup = BeautifulSoup(
+                get_resp.content.decode("utf-8", errors="replace"), "html.parser"
+            )
             csrf_input = soup.find("input", {"name": "csrf"})
             if not csrf_input or not csrf_input.get("value"):
                 raise AdapterParseError(
@@ -174,11 +151,17 @@ class AilAdapter(BaseAdapter):
             )
 
             # ── 2. POST con stessa sessione (stesso cookie jar) ───────────────
+            # Il datepicker della pagina manda il formato DD.MM.YYYY
+            date_ch_fmt = target_date.strftime("%d.%m.%Y")
+
             post_headers = self._build_headers(referer=True)
             post_headers["Content-Type"] = "application/x-www-form-urlencoded"
-            post_body = f"csrf={csrf_token}&targetDate={target_date.isoformat()}"
+            post_body = f"csrf={csrf_token}&targetDate={date_ch_fmt}"
 
-            self._log.info(f"AIL: step 2: POST targetDate={target_date.isoformat()}")
+            self._log.info(
+                f"AIL: step 2: POST targetDate={date_ch_fmt} "
+                f"(richiesto: {target_date.isoformat()})"
+            )
 
             try:
                 post_resp = await session.post(
@@ -199,10 +182,17 @@ class AilAdapter(BaseAdapter):
             raise AdapterEmptyError(f"{self.tariff_id}: nessun slot generato")
 
         actual_date = slots[0].slot_start_utc.astimezone(TZ_CH).date()
-        if actual_date != target_date:
+
+        # ── 4. Verifica backfill ──────────────────────────────────────────────
+        if actual_date == target_date:
+            self._log.info(
+                f"AIL: ✓ backfill confermato — server ha risposto con {actual_date} "
+                f"(richiesto {target_date})"
+            )
+        else:
             self._log.warning(
-                f"AIL: risposta contiene {actual_date} invece di {target_date} — "
-                "la data richiesta potrebbe non essere disponibile."
+                f"AIL: server ha risposto con {actual_date} invece di {target_date} — "
+                f"backfill non disponibile per questa data (salvo come {actual_date})"
             )
 
         result = NormalizedPrices(
@@ -223,18 +213,7 @@ class AilAdapter(BaseAdapter):
 
     def _preprocess_response(self, raw: bytes) -> dict | list:
         """
-        Override: parsa HTML invece di JSON.
-
-        Ritorna:
-          {
-            "target_date_iso": "2026-04-19",   # data dalla pagina
-            "bands": {
-              "mattutina": {"grid": 0.0964, "energy": 0.1226, "residual": 0.0525},
-              "solare":    {"grid": 0.0288, "energy": 0.0514, "residual": 0.0525},
-              "serale":    {"grid": 0.1034, "energy": 0.0973, "residual": 0.0525},
-              "notturna":  {"grid": 0.0645, "energy": 0.0800, "residual": 0.0525},
-            }
-          }
+        Parsa HTML, ritorna {"target_date_iso": "...", "bands": {...}}.
         """
         try:
             from bs4 import BeautifulSoup
@@ -266,9 +245,7 @@ class AilAdapter(BaseAdapter):
         return {"target_date_iso": target_date_iso, "bands": bands}
 
     def _parse(self, response_data: dict | list, target_date: date) -> list[PriceSlot]:
-        """
-        Converte le 4 fasce in 96 slot da 15 min UTC.
-        """
+        """Converte le 4 fasce in 96 slot da 15 min UTC."""
         if not isinstance(response_data, dict):
             raise AdapterParseError(
                 f"AIL: tipo risposta inatteso {type(response_data).__name__}"
@@ -278,7 +255,6 @@ class AilAdapter(BaseAdapter):
         if not bands:
             raise AdapterEmptyError("AIL: nessuna fascia estratta.")
 
-        # Data degli slot: dalla pagina se disponibile
         date_iso = response_data.get("target_date_iso")
         if date_iso:
             try:
@@ -298,8 +274,8 @@ class AilAdapter(BaseAdapter):
                 slot_date.year, slot_date.month, slot_date.day,
                 hour, 0, 0, tzinfo=TZ_CH,
             )
-            utc_dt   = local_dt.astimezone(timezone.utc)
-            bd       = bands.get(_hour_to_band(hour), {})
+            utc_dt = local_dt.astimezone(timezone.utc)
+            bd     = bands.get(_hour_to_band(hour), {})
             hourly.append((utc_dt, bd.get("energy"), bd.get("grid"), bd.get("residual")))
 
         slots = self.make_slots_from_hourly(hourly)
@@ -309,12 +285,10 @@ class AilAdapter(BaseAdapter):
         self._log.info(f"AIL: {len(slots)} slot generati per {slot_date}")
         return slots
 
-
-
     # ── HTML helpers ──────────────────────────────────────────────────────────
 
     def _extract_date(self, soup) -> Optional[str]:
-        """Trova la data italiana nella pagina, es. '19 aprile 2026' -> '2026-04-19'."""
+        """Trova la data italiana nella pagina, es. '28 maggio 2026' -> '2026-05-28'."""
         text = soup.get_text(separator=" ")
 
         m = re.search(
@@ -344,7 +318,7 @@ class AilAdapter(BaseAdapter):
         Estrae le 4 fasce dalla <table> della pagina.
 
         Colonne (CHF/100kWh):
-          0=fascia, 1=rete, 2=fornitura, 3=tiacqua, 4=tasse, 5=totale
+          0=fascia  1=rete  2=fornitura  3=tiacqua  4=tasse  5=totale
 
         Mapping:
           grid_price     = col1 / 100
@@ -366,7 +340,7 @@ class AilAdapter(BaseAdapter):
             label = cells[0].get_text(separator=" ", strip=True).lower()
             band  = _match_band(label)
             if not band:
-                continue  # header o riga non riconoscibile
+                continue
 
             col1 = _parse_float(cells[1].get_text(strip=True))  # rete
             col2 = _parse_float(cells[2].get_text(strip=True))  # fornitura
@@ -379,11 +353,13 @@ class AilAdapter(BaseAdapter):
 
             grid     = round(col1 / 100.0, 8)
             energy   = round((col2 or 0.0) / 100.0, 8)
-            residual = round(((col3 or 0.0) + (col4 or 0.0)) / 100.0, 8) if col3 is not None or col4 is not None else None
+            # residual = tiacqua + tasse
+            residual = round(((col3 or 0.0) + (col4 or 0.0)) / 100.0, 8)
 
             bands[band] = {"grid": grid, "energy": energy, "residual": residual}
             self._log.debug(
-                f"AIL: {band:10s} grid={grid:.4f} energy={energy:.4f} residual={residual} CHF/kWh"
+                f"AIL: {band:10s} grid={grid:.4f} energy={energy:.4f} "
+                f"residual={residual:.4f} CHF/kWh"
             )
 
         return bands

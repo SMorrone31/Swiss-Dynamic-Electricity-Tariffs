@@ -116,6 +116,14 @@ class ApiKey(Base):
     # None = non ancora scelta → gli endpoint external restituiscono 400 con istruzioni
     free_tariff_id  = Column(String(100), nullable=True)
 
+    # Token di sessione attivo — un solo dispositivo per volta.
+    # Quando l'utente fa login su un nuovo dispositivo, questo viene sovrascritto
+    # e il vecchio dispositivo viene sloggato al prossimo polling.
+    session_token          = Column(String(64), nullable=True)
+
+    # Scelta tariffa free irrevocabile: True dopo il primo salvataggio
+    tariff_choice_locked   = Column(Boolean, default=False, nullable=True)
+
     __table_args__ = (
         Index("ix_api_keys_email",      "email"),
         Index("ix_api_keys_hash",       "api_key_hash"),

@@ -869,6 +869,36 @@ async def fetch_with_retry(tariff_config: dict, target_date: date, _unused) -> b
 
 # ── Recovery: fetch solo tariffe mancanti ─────────────────────────────────────
 
+async def _list_missing_for_date(target_date: date) -> list[tuple[str, str]]:
+    """
+    Ritorna (tariff_id, provider_name) delle tariffe senza dati per target_date.
+    Non fetcha nulla — solo verifica il DB.
+    """
+    from database import init_db, get_active_tariffs, has_data_for_date
+    from adapters import list_available_adapters
+    import json as _json
+    from datetime import timedelta as _td
+
+    tz_ch        = _tz_ch()
+    SessionLocal = init_db()
+    available    = set(list_available_adapters())
+    missing      = []
+
+    with SessionLocal() as session:
+        for t in get_active_tariffs(session):
+            if t.adapter_class not in available:
+                continue
+            config         = _json.loads(t.full_config_json)
+            day_ahead_only = not config.get("api_params", {}).get("backfill_supported", True)
+            prev_date      = target_date - _td(days=1)
+            has_target     = has_data_for_date(session, t.tariff_id, target_date, tz_ch)
+            has_prev       = day_ahead_only and has_data_for_date(session, t.tariff_id, prev_date, tz_ch)
+            if not has_target and not has_prev:
+                missing.append((t.tariff_id, t.provider_name))
+
+    return missing
+
+
 async def fetch_missing_for_date(
     target_date: date,
     adapter_class_filter: Optional[str] = None,
@@ -1052,6 +1082,46 @@ def start_scheduler() -> None:
 
     scheduler = AsyncIOScheduler(timezone="UTC")
 
+    # ── JOB 0: Mezzanotte — fetch TODAY al cambio di giorno ─────────────────────
+    async def job_midnight():
+        """
+        Scatta alle 00:05 ora svizzera ogni notte.
+        A mezzanotte 'domani' diventa 'oggi': fetcha subito le tariffe
+        che erano già state caricate ieri sera per il giorno corrente.
+        Se entro le 00:15 mancano ancora dati, invia alert immediato.
+        """
+        from schemas import today_ch
+        target = today_ch()
+        log.info(f"=== JOB MEZZANOTTE (00:05 ora svizzera) — fetch TODAY {target} ===")
+        from database import init_db, get_active_tariffs
+        import json as _json2
+        SessionLocal = init_db()
+        with SessionLocal() as session:
+            all_configs = [_json2.loads(t.full_config_json) for t in get_active_tariffs(session)]
+
+        # Verifica quante tariffe mancano per oggi
+        still_missing_before = await _list_missing_for_date(target)
+        if not still_missing_before:
+            log.info(f"[midnight] ✓ Tutti i dati già presenti per {target} (caricati ieri sera)")
+            return
+
+        log.info(f"[midnight] {len(still_missing_before)} tariffe mancanti per {target}: {[t for t,_ in still_missing_before]}")
+
+        # Fetcha solo quelle mancanti
+        still_missing = await fetch_missing_for_date(target, label="midnight")
+
+        if still_missing:
+            log.error(
+                f"[midnight] ⚠️ {len(still_missing)} tariffe ANCORA senza dati per {target} alle 00:05 CH"
+            )
+            await send_missing_alert(
+                still_missing,
+                target,
+                context=f"midnight check (00:05 ora svizzera) — dati mancanti per il giorno corrente {target}",
+            )
+        else:
+            log.info(f"[midnight] ✓ Tutti i dati recuperati per {target}")
+
     # ── JOB 1: Fetch primario CKW (12:15 CH — CKW pubblica entro le 12:00) ──────
     async def job_ckw():
         log.info("=== JOB CKW PRIMARIO (12:15 ora svizzera) ===")
@@ -1134,6 +1204,7 @@ def start_scheduler() -> None:
     # timezone="Europe/Zurich" → orari in ora locale svizzera, DST gestito in auto.
     # "18:15" = sempre 18:15 CH, sia in CET (inverno) che in CEST (estate).
     tz_jobs = "Europe/Zurich"
+    scheduler.add_job(job_midnight,    CronTrigger(hour=0,  minute=5,  timezone=tz_jobs), id="midnight_fetch")
     scheduler.add_job(job_ckw,          CronTrigger(hour=12, minute=15, timezone=tz_jobs), id="ckw_fetch")
     scheduler.add_job(job_ckw_recovery, CronTrigger(hour=13, minute=30, timezone=tz_jobs), id="ckw_recovery")
     scheduler.add_job(job_others,       CronTrigger(hour=18, minute=15, timezone=tz_jobs), id="others_fetch")
@@ -1145,12 +1216,13 @@ def start_scheduler() -> None:
     log.info("╔══════════════════════════════════════════════════════════════╗")
     log.info("║      Swiss Tariff Hub — Scheduler (ora locale svizzera)      ║")
     log.info("╠══════════════════════════════════════════════════════════════╣")
+    log.info("║  00:05 CH → fetch TODAY mezzanotte  [alert immediato se ✗]  ║")
+    log.info("║  10:00 CH → health check TODAY                              ║")
     log.info("║  12:15 CH → fetch CKW primario  [pubblica entro 12:00 CH]   ║")
     log.info("║  13:30 CH → recovery CKW        [no-op se ok]               ║")
     log.info("║  18:15 CH → fetch altri EVU     [legge: entro 18:00 CH]     ║")
     log.info("║  20:00 CH → recovery tutti      [no-op se ok]               ║")
     log.info("║  23:15 CH → last resort         [alert se ancora vuoto]     ║")
-    log.info("║  10:00 CH → health check TODAY                              ║")
     log.info("║  1° mese  02:00 CH → manutenzione mensile                   ║")
     log.info("╚══════════════════════════════════════════════════════════════╝")
 

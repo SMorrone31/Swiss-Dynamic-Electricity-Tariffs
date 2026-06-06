@@ -47,6 +47,7 @@ PUBLIC_PATHS = {
     "/api/v1/validate-key",
     "/api/v1/check-key-status",
     "/api/v1/check-email",
+    "/api/v1/confirm-login",
     "/api/v1/upgrade-to-pro",   # autenticato via api_key nel body JSON
     "/api/v1/me/tariff",        # autenticato via api_key nel body JSON
     "/api/v1/chat",             # chatbot rule-based — pubblico, no API key
@@ -266,6 +267,7 @@ class RegistrationRequest(BaseModel):
 
 class ValidateKeyRequest(BaseModel):
     api_key: str
+    session_token: Optional[str] = None
 
 
 class AdminLoginRequest(BaseModel):
@@ -663,6 +665,38 @@ def _chatbot_reply(messages: list[dict], hint_lang: Optional[str]) -> str:
 
 # ── Funzione per registrare tutte le route su un'app FastAPI ─────────────────
 
+def _resolve_user(request: Request):
+    """
+    Legge X-API-Key dalla richiesta e restituisce un dict con:
+      plan, free_tariff_id, email
+    Se la chiave manca o è invalida, restituisce piano 'guest'.
+    Usato dagli endpoint /internal/* per applicare restrizioni server-side.
+    """
+    import hashlib as _hashlib
+    raw_key = request.headers.get("X-API-Key", "").strip()
+    if not raw_key:
+        return {"plan": "guest", "free_tariff_id": None, "email": None}
+    try:
+        from api_keys.registration import ApiKey, _hash_key
+        from database import init_db
+        key_hash = _hash_key(raw_key)
+        SessionLocal = init_db()
+        with SessionLocal() as session:
+            record = session.query(ApiKey).filter(
+                ApiKey.api_key_hash == key_hash,
+                ApiKey.status == "active"
+            ).first()
+            if not record:
+                return {"plan": "guest", "free_tariff_id": None, "email": None}
+            return {
+                "plan":           getattr(record, "plan", "free") or "free",
+                "free_tariff_id": getattr(record, "free_tariff_id", None),
+                "email":          record.email,
+            }
+    except Exception:
+        return {"plan": "guest", "free_tariff_id": None, "email": None}
+
+
 def register_routes(app):
     """
     Registra tutti gli endpoint admin e di registrazione sull'app FastAPI.
@@ -777,12 +811,16 @@ def register_routes(app):
             if record.status != "active":
                 raise HTTPException(401, "Invalid or inactive API key")
 
-            # Genera un session token temporaneo (non incrementa requests_today)
-            session_token = _secrets.token_urlsafe(32)
+            # Genera un pending token — non sovrascrive ancora il DB.
+            # Se c'era già una sessione attiva, il client mostra un avviso di conferma.
+            # Solo dopo conferma (POST /confirm-login) il token viene salvato nel DB.
+            pending_token        = _secrets.token_urlsafe(32)
+            had_previous_session = bool(getattr(record, "session_token", None))
 
             return {
-                "valid":          True,
-                "session_token":  session_token,
+                "valid":                True,
+                "session_token":        pending_token,
+                "had_previous_session": had_previous_session,
                 "user": {
                     "full_name":        record.full_name,
                     "email":            record.email,
@@ -794,10 +832,39 @@ def register_routes(app):
                     "requests_total":   record.requests_total,
                     "plan":             getattr(record, "plan", "free"),
                     "rate_limit_min":   getattr(record, "rate_limit_min", 4),
-                    "free_tariff_id":   getattr(record, "free_tariff_id", None),
+                    "free_tariff_id":        getattr(record, "free_tariff_id", None),
+                    "tariff_choice_locked":  bool(getattr(record, "tariff_choice_locked", False)),
                 },
             }
 
+
+    # ── POST /api/v1/confirm-login ───────────────────────────────────────────
+    @app.post("/api/v1/confirm-login")
+    async def confirm_login(req: ValidateKeyRequest):
+        """
+        Finalizza il login sovrascrivendo il session_token nel DB.
+        Chiamato dal frontend dopo che l'utente ha confermato il login
+        su un nuovo dispositivo (era già loggato altrove).
+        Richiede: {api_key: "stk_...", session_token: "il pending token"}
+        """
+        import hashlib as _hashlib
+        from database import init_db
+        from api_keys.registration import ApiKey, _hash_key
+
+        if not req.api_key or not req.session_token:
+            raise HTTPException(400, "api_key and session_token required")
+
+        SessionLocal = init_db()
+        with SessionLocal() as session:
+            key_hash = _hash_key(req.api_key.strip())
+            record   = session.query(ApiKey).filter(
+                ApiKey.api_key_hash == key_hash
+            ).first()
+            if not record or record.status != "active":
+                raise HTTPException(401, "Invalid key")
+            record.session_token = req.session_token
+            session.commit()
+        return {"confirmed": True}
 
     # ── GET /api/v1/check-email ───────────────────────────────────────────────
     @app.get("/api/v1/check-email")
@@ -854,14 +921,22 @@ def register_routes(app):
             if not record:
                 return {"valid": False, "status": "not_found"}
 
+            # Se il client manda un session_token, verifica che corrisponda al DB.
+            # Token diverso = altro dispositivo ha fatto login → slogga questo.
+            if req.session_token:
+                stored_token = getattr(record, "session_token", None)
+                if stored_token and stored_token != req.session_token:
+                    return {"valid": False, "status": "session_invalid"}
+
             return {
-                "valid":          record.status == "active",
-                "status":         record.status,
-                "requests_today": record.requests_today,
-                "rate_limit_day": record.rate_limit_day,
-                "requests_total": record.requests_total,
-                "plan":           getattr(record, "plan", "free"),
-                "free_tariff_id": getattr(record, "free_tariff_id", None),
+                "valid":                 record.status == "active",
+                "status":                record.status,
+                "requests_today":        record.requests_today,
+                "rate_limit_day":        record.rate_limit_day,
+                "requests_total":        record.requests_total,
+                "plan":                  getattr(record, "plan", "free"),
+                "free_tariff_id":        getattr(record, "free_tariff_id", None),
+                "tariff_choice_locked":  bool(getattr(record, "tariff_choice_locked", False)),
             }
 
     # ── POST /api/v1/upgrade-to-pro ───────────────────────────────────────────
@@ -965,20 +1040,33 @@ def register_routes(app):
             if not record or record.status != "active":
                 raise HTTPException(401, "Invalid or inactive key")
 
+            # Blocca se già bloccata (scelta irrevocabile per utenti free)
+            if getattr(record, "tariff_choice_locked", False) and record.plan == "free":
+                raise HTTPException(403, "Tariff choice is locked for free plan. Upgrade to Pro to change.")
+
             # Verifica che il tariff_id esista
             active_ids = {t.tariff_id for t in get_active_tariffs(session)}
             if tariff_id not in active_ids:
                 raise HTTPException(404, f"Tariff '{tariff_id}' not found or inactive")
 
-            update_key(session, record.id, free_tariff_id=tariff_id)
+            # Salva e blocca
+            record.free_tariff_id = tariff_id
+            record.tariff_choice_locked = True
+            session.commit()
 
-        return {"success": True, "free_tariff_id": tariff_id}
+        return {"success": True, "free_tariff_id": tariff_id, "tariff_choice_locked": True}
 
     # ═══════════════════════════════════════════════════════════════════════════
     # ENDPOINT INTERNI — /internal/*
     # Protetti da X-Dashboard-Secret. Usati SOLO dalla dashboard.
     # Non richiedono API key utente. Non contano nel rate limit.
     # ═══════════════════════════════════════════════════════════════════════════
+
+    @app.get("/internal/verify-pro")
+    def internal_verify_pro(request: Request):
+        """Gate server-side Pro per la ricerca mappa."""
+        u = _resolve_user(request)
+        return {"pro": u["plan"] == "pro", "plan": u["plan"]}
 
     @app.get("/internal/tariffs")
     def internal_tariffs():
@@ -1029,12 +1117,30 @@ def register_routes(app):
 
     @app.get("/internal/prices/all")
     def internal_prices_all(
+        request:    Request,
         start_time: str = Query(...),
         end_time:   Optional[str] = Query(None),
+        tariff_id:  Optional[str] = Query(None),
     ):
-        """Prezzi di tutte le tariffe — usato dalla dashboard per mappa e grafici."""
+        """
+        Prezzi delle tariffe — usato dalla dashboard per grafici e mappa.
+        Restrizioni server-side:
+          - tariff_id specificato (grafico singolo Data page):
+              guest → solo prime 2 tariffe + solo oggi
+              free  → solo la propria free_tariff_id + solo oggi
+              pro   → qualsiasi tariffa, qualsiasi data
+          - tariff_id assente (tutte le tariffe insieme / mappa): solo Pro
+        """
         from datetime import datetime, timedelta, timezone
         from database import init_db, get_active_tariffs, get_prices
+
+        from schemas import today_ch as _today_ch
+        user = _resolve_user(request)
+        plan = user["plan"]
+
+        # Richiesta "tutte le tariffe" → solo Pro
+        if not tariff_id and plan != "pro":
+            raise HTTPException(403, "Pro plan required to fetch all tariffs at once")
 
         try:
             import zoneinfo; tz_ch = zoneinfo.ZoneInfo("Europe/Zurich")
@@ -1062,10 +1168,30 @@ def register_routes(app):
             end_db = (datetime(end_ld.year, end_ld.month, end_ld.day, tzinfo=tz_ch) + timedelta(days=1)).astimezone(timezone.utc)
         end_ld_filter = start_ld + timedelta(days=1) if end_ld <= start_ld else end_ld
 
+        # Protezione server-side per non-pro: blocca giorni passati su tariffe non accessibili
+        _today_date = _today_ch()
+        is_past     = start_ld < _today_date
+        if plan != "pro" and is_past and tariff_id:
+            free_id = user["free_tariff_id"] if plan == "free" else None
+            if plan == "free" and tariff_id != free_id:
+                raise HTTPException(403, "Past data for this tariff requires Pro plan")
+            if plan == "guest":
+                SessionLocal0 = init_db()
+                with SessionLocal0() as _s:
+                    _all_ids = [t.tariff_id for t in get_active_tariffs(_s)]
+                if tariff_id not in set(_all_ids[:2]):
+                    raise HTTPException(403, "Past data requires login")
+
         result = {}
         SessionLocal = init_db()
         with SessionLocal() as session:
             for tariff in get_active_tariffs(session):
+                # Se è richiesta una sola tariffa, salta le altre
+                if tariff_id and tariff.tariff_id != tariff_id:
+                    continue
+                # Guest: solo prime 2 tariffe
+                if plan == "guest" and not tariff_id:
+                    pass  # "tutte" già bloccato sopra per non-pro
                 slots = get_prices(session, tariff.tariff_id, start_db, end_db)
                 slots = [s for s in slots if start_ld <= s.slot_start_utc.astimezone(tz_ch).date() < end_ld_filter]
                 if not slots: continue
@@ -1088,8 +1214,13 @@ def register_routes(app):
         return {"start_time": start_db.isoformat(), "end_time": end_db.isoformat(), "tariffs": result}
 
     @app.get("/internal/smart")
-    def internal_smart(date_str: Optional[str] = Query(None)):
-        """Smart summary per la dashboard — nessuna restrizione di piano."""
+    def internal_smart(request: Request, date_str: Optional[str] = Query(None),
+                       tariff_id: Optional[str] = Query(None)):
+        """
+        Smart summary per la dashboard.
+        Se tariff_id specificato: restituisce solo quella tariffa con detail completo
+        (usato per cambio rapido lato client senza ricaricare tutto).
+        """
         import time as _time
         from datetime import date, datetime, timedelta, timezone
         from database import init_db, get_active_tariffs, get_prices, PriceSlotDB
@@ -1115,6 +1246,9 @@ def register_routes(app):
             available = set(list_available_adapters())
             result_tariffs = []
             for t in tariffs:
+                # Se richiesta singola tariffa, salta le altre
+                if tariff_id and t.tariff_id != tariff_id:
+                    continue
                 day_slots = get_prices(session, t.tariff_id, start_utc, end_utc)
                 if not day_slots:
                     result_tariffs.append({
@@ -1167,24 +1301,53 @@ def register_routes(app):
                     round(sum(hourly[h])/len(hourly[h])*100, 2) if h in hourly else None
                     for h in range(24)
                 ]
-                result_tariffs.append({
+                # Dati di base sempre visibili (usati nel confronto pubblico)
+                base_entry = {
                     "tariff_id": t.tariff_id, "provider_name": t.provider_name,
                     "tariff_name": t.tariff_name, "has_data": True,
                     "adapter_ready": t.adapter_class in available,
-                    "signal": signal,
-                    "current_price_rp": round(current_slot["total"]*100, 2),
-                    "day_avg_rp":  round(day_avg*100, 2),
+                    "day_avg_rp":   round(day_avg*100, 2),
                     "month_avg_rp": round(month_avg*100, 2),
-                    "best_slots":  [fmt_slot(s) for s in sorted_asc[:3]],
-                    "worst_slots": [fmt_slot(s) for s in sorted_desc[:2]],
-                    "hourly_rp":   hourly_avg,
-                })
+                }
+                # Campi sensibili: solo per la tariffa accessibile all'utente
+                user_smart = _resolve_user(request)
+                plan_smart = user_smart["plan"]
+                # Free senza tariffa scelta: nessun detail per nessuna tariffa
+                _free_tariff = user_smart.get("free_tariff_id")
+                is_accessible = (
+                    plan_smart == "pro" or
+                    (plan_smart == "free" and _free_tariff and t.tariff_id == _free_tariff)
+                )
+                if is_accessible:
+                    base_entry.update({
+                        "signal": signal,
+                        "current_price_rp": round(current_slot["total"]*100, 2),
+                        "best_slots":  [fmt_slot(s) for s in sorted_asc[:3]],
+                        "worst_slots": [fmt_slot(s) for s in sorted_desc[:2]],
+                        "hourly_rp":   hourly_avg,
+                    })
+                result_tariffs.append(base_entry)
 
         return {"date": target_date.isoformat(), "tariffs": result_tariffs}
 
     @app.get("/internal/summary/daily")
-    def internal_summary_daily(tariff_id: str = Query(...), days: int = Query(5, ge=1, le=30)):
-        """Daily summary per dashboard — nessuna restrizione."""
+    def internal_summary_daily(
+        request:   Request,
+        tariff_id: str = Query(...),
+        days:      int = Query(5, ge=1, le=30),
+    ):
+        """Daily summary per dashboard — protetto per piano."""
+        user = _resolve_user(request)
+        plan = user["plan"]
+        # guest: solo prime 2 tariffe, solo oggi (days=1 forzato lato query, qui blocchiamo tariffe)
+        # free: solo la propria free_tariff_id, solo oggi
+        # pro: nessuna restrizione
+        if plan == "pro":
+            pass  # tutto libero
+        elif plan == "free":
+            pass  # free vede i pill di tutti i giorni (dati bloccati lato client/prices-all)
+        else:  # guest
+            pass  # guest vede i pill di tutti i giorni (solo oggi sbloccato lato prices-all)
         from datetime import datetime, timedelta, timezone
         from database import init_db, get_prices, PriceSlotDB
         from collections import defaultdict
@@ -1236,8 +1399,20 @@ def register_routes(app):
         return result
 
     @app.get("/internal/summary/monthly")
-    def internal_summary_monthly(tariff_id: str = Query(...), months: int = Query(3, ge=1, le=6)):
-        """Monthly summary per dashboard — nessuna restrizione."""
+    def internal_summary_monthly(
+        request:   Request,
+        tariff_id: str = Query(...),
+        months:    int = Query(3, ge=1, le=6),
+    ):
+        """Monthly summary per dashboard — protetto per piano."""
+        user = _resolve_user(request)
+        plan = user["plan"]
+        if plan == "pro":
+            pass
+        elif plan == "free":
+            pass  # monthly overlay gestito client-side per tariffe non proprie
+        else:  # guest
+            pass  # monthly overlay gestito client-side
         import time
         from datetime import datetime, timedelta, timezone
         from database import init_db, PriceSlotDB
