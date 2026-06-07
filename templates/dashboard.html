@@ -125,7 +125,7 @@
     .hlm-trigger-btn:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25)}
 
     /* ── Live badge (mobile) ── */
-    .h-live-badge{display:none;align-items:center;gap:4px;
+    .h-live-badge{display:none!important;align-items:center;gap:4px;
       background:rgba(52,211,153,.1);border:0.5px solid rgba(52,211,153,.2);
       border-radius:99px;padding:3px 8px;font-size:10px;font-weight:600;
       color:#34d399;white-space:nowrap;flex-shrink:0}
@@ -278,6 +278,22 @@
     }
     .btb-tab.active::after{width:32px}
 
+    /* ── Altezze uniformi nav buttons ── */
+    .lang-btn{height:28px;line-height:1}
+    .lang-btns{height:34px;align-items:center}
+    /* Pill account loggato (>1100px): stessa altezza di lang-btns */
+    #header-auth-pill{height:34px;border-radius:9px!important}
+    /* Pill in modalità login: stesso stile di lang-btns */
+    #header-auth-pill[data-login-mode="1"]{
+      height:34px;padding:0 12px 0 10px;gap:7px;
+      background:rgba(255,255,255,.04);
+      border:0.5px solid rgba(255,255,255,.08);
+      border-radius:9px;color:rgba(255,255,255,.6);font-size:12px;font-weight:500
+    }
+    #header-auth-pill[data-login-mode="1"]:hover{
+      background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);color:white
+    }
+
     /* ══════════════════════════════════════════════════════════════
        RESPONSIVE HEADER
        ══════════════════════════════════════════════════════════════ */
@@ -286,7 +302,7 @@
     @media(max-width:1100px){
       header{height:52px;padding:0 14px;gap:8px}
       .h-logo-main{font-size:12px}
-      .h-logo-sub{display:none}
+      /* h-logo-sub sempre visibile */
       .h-sep{display:none}
       .h-badge-wrap{display:none}
       .h-status{display:none}
@@ -305,8 +321,21 @@
       #h-lang-mobile-panel.open{display:flex!important;flex-direction:column}
       .h-live-badge{display:flex!important}
       /* Bottone login: solo icona su mobile per non sforare */
-      #header-auth-pill .hlm-txt{display:none}
-      .hlm-trigger-btn{padding:6px 8px!important;gap:0!important}
+      /* Login pill: rettangolo senza doppio box */
+      #header-auth-pill .hlm-txt{display:none!important}
+      #header-auth-pill[data-login-mode="1"]{
+        height:30px!important;padding:0 10px 0 8px!important;gap:6px!important;
+        font-size:11px!important;border-radius:8px!important
+      }
+      /* Lang globe: rettangolo con bandiera+sigla, padding decente */
+      .hlm-trigger-btn{
+        height:30px!important;padding:0 10px!important;gap:6px!important;
+        border-radius:8px!important;font-size:11px!important;width:auto!important
+      }
+      /* Pill account loggato */
+      #header-auth-pill:not([data-login-mode="1"]){
+        height:30px!important;padding:0 8px 0 5px!important;border-radius:8px!important
+      }
     }
 
     /* ── Mobile piccolo (<=420px) ── */
@@ -329,7 +358,6 @@
       }
       .h-logo-icon{width:22px!important;height:22px!important;border-radius:5px!important}
       .h-logo-main{font-size:12.5px!important}
-      .h-logo-sub{display:none!important}
       .h-live-badge{
         display:flex!important;
         padding:2px 6px!important;font-size:9px!important
@@ -342,22 +370,30 @@
       header > .h-spacer{order:2;display:none!important}
       header > .h-dropdown-wrap{order:2;flex:0 0 auto;padding:4px 6px}
       /* Bottoni piccoli e minimal */
+      /* Lang globe ≤500px: rettangolo con padding, bandiera+sigla */
       .hlm-trigger-btn{
-        padding:4px 8px!important;gap:4px!important;
-        font-size:10px!important;border-radius:7px!important;
-        border-color:rgba(255,255,255,.1)!important;
-        background:rgba(255,255,255,.05)!important
-      }
-      .hlm-txt{display:none!important}
-      #header-auth-pill{
-        padding:4px 8px 4px 5px!important;gap:5px!important;
-        border-radius:7px!important;
+        height:30px!important;padding:0 10px!important;gap:6px!important;
+        border-radius:8px!important;font-size:11px!important;
         background:rgba(255,255,255,.06)!important;
-        border-color:rgba(255,255,255,.1)!important;
-        font-size:11px!important
+        border:1px solid rgba(255,255,255,.1)!important;
+        width:auto!important
+      }
+      /* Login pill ≤500px: uguale al lang globe */
+      #header-auth-pill[data-login-mode="1"]{
+        height:30px!important;padding:0 10px 0 8px!important;gap:6px!important;
+        border-radius:8px!important;font-size:11px!important;
+        background:rgba(255,255,255,.06)!important;
+        border:1px solid rgba(255,255,255,.1)!important
+      }
+      .hlm-txt{display:inline!important}
+      /* Pill loggata ≤500px: compatta con piano visibile */
+      #header-auth-pill:not([data-login-mode="1"]){
+        height:30px!important;padding:0 8px 0 5px!important;
+        border-radius:8px!important;gap:5px!important
       }
       .h-pill-av{width:18px!important;height:18px!important;font-size:8px!important;border-radius:4px!important}
-      .h-pill-plan{display:none!important}
+      .h-pill-name{font-size:11px!important;max-width:55px!important}
+      .h-pill-plan{display:inline-flex!important;font-size:9px!important;padding:1px 5px!important}
       .h-pill-chevron{width:10px!important;height:10px!important}
       /* Nascondi tutto il resto */
       header > .h-sep,header > .h-status,header > nav,
@@ -6187,18 +6223,18 @@ function _updateSmartAccess() {
 function _showHeaderLoginBtn() {
   const pill = document.getElementById('header-auth-pill');
   if (!pill) return;
-  pill.onclick = null;
-  pill.style.cursor = 'default';
+  pill.onclick = openHeaderLoginModal;
+  pill.style.cursor = 'pointer';
+  // Il pill DIVENTA il bottone login — nessun doppio box
+  pill.setAttribute('data-login-mode', '1');
   pill.innerHTML = `
-    <button onclick="openHeaderLoginModal()" class="hlm-trigger-btn">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/>
-        <polyline points="10 17 15 12 10 7"/>
-        <line x1="15" y1="12" x2="3" y2="12"/>
-      </svg>
-      <span class="hlm-txt">${t('home_auth_btn')||'Log in'}</span>
-    </button>`;
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/>
+      <polyline points="10 17 15 12 10 7"/>
+      <line x1="15" y1="12" x2="3" y2="12"/>
+    </svg>
+    <span class="hlm-txt">${t('home_auth_btn')||'Log in'}</span>`;
 }
 
 function openHeaderLoginModal() {
@@ -7232,6 +7268,7 @@ function showApiContent() {
       <svg class="h-pill-chevron" viewBox="0 0 14 14" fill="none">
         <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>`;
+    pill.removeAttribute('data-login-mode');
     pill.style.display = 'flex';
     const wrap = document.getElementById('h-dropdown-wrap');
     if (wrap) wrap.style.display = 'block';
