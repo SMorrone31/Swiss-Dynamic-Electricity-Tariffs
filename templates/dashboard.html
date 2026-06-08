@@ -320,22 +320,18 @@
       #h-lang-mobile{display:block!important}
       #h-lang-mobile-panel.open{display:flex!important;flex-direction:column}
       .h-live-badge{display:flex!important}
-      /* Bottone login: solo icona su mobile per non sforare */
-      /* Login pill: rettangolo senza doppio box */
-      #header-auth-pill .hlm-txt{display:none!important}
-      #header-auth-pill[data-login-mode="1"]{
-        height:30px!important;padding:0 10px 0 8px!important;gap:6px!important;
-        font-size:11px!important;border-radius:8px!important
-      }
-      /* Lang globe: rettangolo con bandiera+sigla, padding decente */
-      .hlm-trigger-btn{
-        height:30px!important;padding:0 10px!important;gap:6px!important;
-        border-radius:8px!important;font-size:11px!important;width:auto!important
-      }
-      /* Pill account loggato */
+      /* 501-1100px: testo "Log in" visibile, tutto alla stessa altezza */
+      #header-auth-pill .hlm-txt{display:inline!important}
+      /* Altezza uniforme 32px per login, lang globe, e pill account */
+      #header-auth-pill[data-login-mode="1"],
+      .hlm-trigger-btn,
       #header-auth-pill:not([data-login-mode="1"]){
-        height:30px!important;padding:0 8px 0 5px!important;border-radius:8px!important
+        height:32px!important;border-radius:9px!important;
+        font-size:12px!important;
       }
+      #header-auth-pill[data-login-mode="1"]{padding:0 12px 0 10px!important;gap:7px!important}
+      .hlm-trigger-btn{padding:0 10px!important;gap:6px!important;width:auto!important}
+      #header-auth-pill:not([data-login-mode="1"]){padding:0 10px 0 5px!important;gap:6px!important}
     }
 
     /* ── Mobile piccolo (<=420px) ── */
@@ -344,71 +340,69 @@
       .btb-inner{height:52px}
     }
 
-    /* ── Header a 2 righe (<=500px) — aspetto unico ── */
+    /* ── Header ≤500px: riga singola con cerchi ── */
     @media(max-width:500px){
       header{
-        height:auto!important;padding:0!important;gap:0!important;
-        flex-wrap:wrap;justify-content:center;
-        /* Nessun bordo visibile tra le righe — sembrano un unico blocco */
+        height:52px!important;padding:0 12px!important;gap:0!important;
+        flex-wrap:nowrap;justify-content:space-between;align-items:center;
+        position:relative
       }
-      /* Riga 1: logo centrato, padding ridotto */
-      header > .h-logo{
-        order:1;flex:1 0 100%;justify-content:center;
-        padding:8px 16px;gap:8px
-      }
-      .h-logo-icon{width:22px!important;height:22px!important;border-radius:5px!important}
-      .h-logo-main{font-size:12.5px!important}
-      .h-live-badge{
-        display:flex!important;
-        padding:2px 6px!important;font-size:9px!important
-      }
-      /* Riga 2: centrata, sottile, nessun bordo/sfondo diverso */
-      header > #h-lang-mobile{
-        order:2;display:flex!important;align-items:center;
-        flex:0 0 auto;padding:4px 6px
-      }
-      header > .h-spacer{order:2;display:none!important}
-      header > .h-dropdown-wrap{order:2;flex:0 0 auto;padding:4px 6px}
-      /* Bottoni piccoli e minimal */
-      /* Lang globe ≤500px: rettangolo con padding, bandiera+sigla */
-      .hlm-trigger-btn{
-        height:30px!important;padding:0 10px!important;gap:6px!important;
-        border-radius:8px!important;font-size:11px!important;
-        background:rgba(255,255,255,.06)!important;
-        border:1px solid rgba(255,255,255,.1)!important;
-        width:auto!important
-      }
-      /* Login pill ≤500px: uguale al lang globe */
-      #header-auth-pill[data-login-mode="1"]{
-        height:30px!important;padding:0 10px 0 8px!important;gap:6px!important;
-        border-radius:8px!important;font-size:11px!important;
-        background:rgba(255,255,255,.06)!important;
-        border:1px solid rgba(255,255,255,.1)!important
-      }
-      .hlm-txt{display:inline!important}
-      /* Pill loggata ≤500px: compatta con piano visibile */
-      #header-auth-pill:not([data-login-mode="1"]){
-        height:30px!important;padding:0 8px 0 5px!important;
-        border-radius:8px!important;gap:5px!important
-      }
-      .h-pill-av{width:18px!important;height:18px!important;font-size:8px!important;border-radius:4px!important}
-      .h-pill-name{font-size:11px!important;max-width:55px!important}
-      .h-pill-plan{display:inline-flex!important;font-size:9px!important;padding:1px 5px!important}
-      .h-pill-chevron{width:10px!important;height:10px!important}
-      /* Nascondi tutto il resto */
+      /* Nascondi elementi non necessari */
       header > .h-sep,header > .h-status,header > nav,
       header > .lang-btns,header > .h-badge-wrap,header > .h-spacer{display:none!important}
-      /* Posizionamento pannelli */
+      /* Logo: centrato assoluto, testo only */
+      header > .h-logo{
+        position:absolute;left:50%;transform:translateX(-50%);
+        gap:3px;padding:0;flex-direction:column;align-items:center;text-align:center
+      }
+      .h-logo-icon{display:none!important}
+      .h-logo-main{font-size:12px!important;font-weight:700!important;letter-spacing:-.2px}
+      .h-logo-sub{display:block!important;font-size:8px!important;text-align:center;margin-top:0}
+      .h-live-badge{display:none!important}
+      /* Lang globe: cerchio destra */
+      header > #h-lang-mobile{display:flex!important;flex-shrink:0;margin-left:auto}
+      .hlm-trigger-btn{
+        width:36px!important;height:36px!important;border-radius:50%!important;
+        padding:0!important;gap:0!important;justify-content:center!important;
+        background:rgba(255,255,255,.08)!important;border:1px solid rgba(255,255,255,.12)!important;
+        overflow:hidden;font-size:20px!important
+      }
+      /* Mostra solo bandiera nel globo */
+      .hlm-trigger-btn .hlm-txt{display:none!important}
+      /* Il testo della lingua nel btn viene gestito via JS (_updateLangCircle) */
+      /* Pill account loggata: solo il cerchio avatar, nessun box */
+      header > .h-dropdown-wrap{flex-shrink:0;margin-right:auto}
+      #header-auth-pill:not([data-login-mode="1"]){
+        width:36px!important;height:36px!important;border-radius:50%!important;
+        padding:0!important;gap:0!important;justify-content:center!important;
+        background:transparent!important;border:none!important;box-shadow:none!important
+      }
+      .h-pill-av{
+        width:36px!important;height:36px!important;border-radius:50%!important;
+        font-size:13px!important;font-weight:700!important
+      }
+      .h-pill-name,.h-pill-plan,.h-pill-chevron{display:none!important}
+      /* Login mode: rettangolo con testo */
+      #header-auth-pill[data-login-mode="1"]{
+        width:auto!important;height:32px!important;border-radius:9px!important;
+        padding:0 12px 0 10px!important;gap:6px!important;
+        background:rgba(255,255,255,.08)!important;border:1px solid rgba(255,255,255,.12)!important
+      }
+      .hlm-txt{display:inline!important}
+      /* Dropdown e lang panel */
       #h-user-dropdown{
-        position:fixed!important;top:76px!important;right:8px;left:auto;
+        position:fixed!important;top:60px!important;left:8px!important;right:auto!important;
         width:calc(100vw - 16px)!important;max-width:300px;border-radius:14px
       }
-      #h-lang-mobile-panel{top:76px!important;left:50%!important;right:auto!important;
-        transform:translateX(-50%)!important}
+      #h-lang-mobile-panel{
+        position:fixed!important;top:60px!important;right:8px!important;
+        left:auto!important;transform:none!important
+      }
       main,#home-view .home-wrap{
         padding-bottom:calc(54px + env(safe-area-inset-bottom) + 16px)!important
       }
     }
+
 
 
     main{max-width:1280px;margin:0 auto;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem}
@@ -3842,6 +3836,19 @@ function setLang(l) {
   });
 
   // data-i18n → textContent (salta elementi con figli HTML complessi)
+  // Aggiorna bandiera nel cerchio lingua mobile ≤500px
+  const _flagMap = {en:'🇬🇧',de:'🇩🇪',fr:'🇫🇷',it:'🇮🇹'};
+  const _mobileBtn = document.querySelector('#h-lang-mobile .hlm-trigger-btn');
+  if (_mobileBtn) {
+    _mobileBtn.textContent = _flagMap[l] || '🌐';
+    _mobileBtn.title = l.toUpperCase();
+  }
+  // Aggiorna cerchio lingua mobile XS (≤500px)
+  const _langFlags = {en:'🇬🇧',de:'🇩🇪',fr:'🇫🇷',it:'🇮🇹'};
+  const _lbtn = document.querySelector('#h-lang-mobile .hlm-trigger-btn');
+  if (_lbtn && window.innerWidth <= 500) {
+    _lbtn.innerHTML = `<span style="font-size:20px;line-height:1">${_langFlags[l]||'🌐'}</span>`;
+  }
   // Aggiorna placeholder (data-i18n-placeholder)
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
     const key = el.getAttribute('data-i18n-placeholder');
@@ -5874,9 +5881,10 @@ let _keyStatusTimer  = null;
 (function _restoreSession() {
   // Se non loggato, mostra subito il bottone login nell'header
   if (!_apiSessionToken) {
-    // Usa setTimeout per aspettare che le funzioni siano definite
     setTimeout(_showHeaderLoginBtn, 0);
   }
+  // Inizializza bandiera cerchio lingua XS
+  setTimeout(() => setLang(localStorage.getItem('sth_lang')||'en'), 80);
   if (_apiSessionToken && _apiKeyRaw && _apiUserInfo) {
     fetch('/api/v1/check-key-status', {
       method: 'POST',
@@ -6225,16 +6233,8 @@ function _showHeaderLoginBtn() {
   if (!pill) return;
   pill.onclick = openHeaderLoginModal;
   pill.style.cursor = 'pointer';
-  // Il pill DIVENTA il bottone login — nessun doppio box
   pill.setAttribute('data-login-mode', '1');
-  pill.innerHTML = `
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/>
-      <polyline points="10 17 15 12 10 7"/>
-      <line x1="15" y1="12" x2="3" y2="12"/>
-    </svg>
-    <span class="hlm-txt">${t('home_auth_btn')||'Log in'}</span>`;
+  pill.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg><span class="hlm-txt">${t('home_auth_btn')||'Log in'}</span>`;
 }
 
 function openHeaderLoginModal() {
